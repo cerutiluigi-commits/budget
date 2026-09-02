@@ -1,0 +1,1975 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>Docenti · NABA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
+<style>
+:root{
+  --paper:#F5F3EC; --surface:#FFFFFF; --surface-2:#FBFAF6;
+  --ink:#1B1D19; --ink-soft:#5F6459; --ink-mute:#93968A;
+  --line:#E4E1D5; --line-strong:#D2CEBD;
+  --accent:#2E6B54; --accent-soft:#E3EFE8; --accent-ink:#1F4E3D;
+  --speso:#2E3532; --allocato:#C1892E; --residuo:#2E6B54; --over:#B5462F; --over-soft:#F7E4DD;
+  --warn:#B5791E; --warn-soft:#FBF0DD;
+  --info-soft:#EDEBFF; --info-ink:#5B4B9A;
+  --surface-mute:#EFEEE8;
+  --shadow-sm:0 1px 2px rgba(27,29,25,.05), 0 1px 1px rgba(27,29,25,.04);
+  --shadow-md:0 4px 16px rgba(27,29,25,.07), 0 1px 2px rgba(27,29,25,.05);
+  --shadow-lg:0 16px 44px rgba(27,29,25,.16), 0 4px 12px rgba(27,29,25,.06);
+  --radius:12px; --radius-lg:16px;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --paper:#171815; --surface:#1F211C; --surface-2:#242620;
+    --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#787C6E;
+    --line:#33352C; --line-strong:#40422F;
+    --accent:#5AAE8C; --accent-soft:#213329; --accent-ink:#9AD8BB;
+    --speso:#C9C6BB; --allocato:#D9A659; --residuo:#5AAE8C; --over:#E17E64; --over-soft:#332019;
+    --warn:#E0A94E; --warn-soft:#2E2717;
+    --info-soft:#242138; --info-ink:#B3A8E8;
+    --surface-mute:#2A2C25;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 4px 16px rgba(0,0,0,.35); --shadow-lg:0 20px 50px rgba(0,0,0,.5);
+  }
+}
+:root[data-theme="dark"]{
+  --paper:#171815; --surface:#1F211C; --surface-2:#242620;
+  --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#787C6E;
+  --line:#33352C; --line-strong:#40422F;
+  --accent:#5AAE8C; --accent-soft:#213329; --accent-ink:#9AD8BB;
+  --speso:#C9C6BB; --allocato:#D9A659; --residuo:#5AAE8C; --over:#E17E64; --over-soft:#332019;
+  --warn:#E0A94E; --warn-soft:#2E2717;
+  --info-soft:#242138; --info-ink:#B3A8E8;
+  --surface-mute:#2A2C25;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 4px 16px rgba(0,0,0,.35); --shadow-lg:0 20px 50px rgba(0,0,0,.5);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute);font-weight:600}
+.mono{font-family:'JetBrains Mono',monospace}
+h2.sec{font-size:16px;font-weight:700;letter-spacing:-.01em;margin:0 0 2px}
+.sec-desc{color:var(--ink-soft);margin:0 0 14px;max-width:760px}
+.hint{color:var(--ink-mute);font-size:12px}
+.req{color:var(--over)}
+
+/* header + tab bar: un unico blocco sticky, così la barra tab si aggancia sempre subito sotto
+   l'header reale (che può cambiare altezza con flex-wrap) invece di un offset fisso indovinato,
+   che altrimenti lascia scoprire un varco dove il contenuto sotto sfila male dietro */
+.topbar{position:sticky;top:0;z-index:30;background:var(--paper)}
+header{background:var(--ink);color:var(--paper);display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:14px 22px;box-shadow:var(--shadow-md)}
+.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
+.brand .mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(155deg,var(--accent),var(--accent-ink));flex:0 0 auto}
+.brand .t{font-weight:800;font-size:16px;display:flex;align-items:center;gap:9px;letter-spacing:-.01em}
+.brand .s{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#9DA39C}
+.brand .dot{display:none}
+.hctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.hgroup{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:6px 10px}
+.hgroup label{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#9DA39C}
+.hgroup select,.hgroup input{background:transparent;border:0;color:#F4F3EF;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;outline:none}
+.hgroup select option{color:#1B1D1C}
+.hbtn{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#F4F3EF;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer}
+.hbtn:hover{background:rgba(255,255,255,.14)}
+.hbtn svg{width:15px;height:15px}
+.cloud-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
+.cloud-dot.off{background:#9A9E97}.cloud-dot.on{background:#5FBF8F;box-shadow:0 0 0 3px rgba(95,191,143,.25)}
+.cloud-dot.sync{background:var(--allocato);animation:pulse 1s infinite}.cloud-dot.err{background:var(--over)}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
+@media (prefers-reduced-motion:reduce){.cloud-dot.sync{animation:none}}
+
+/* tabs */
+nav.tabs{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;display:flex;gap:4px;padding:5px;margin:20px auto;max-width:1180px;width:calc(100% - 40px);overflow-x:auto}
+nav.tabs button{background:none;border:0;border-radius:8px;padding:9px 16px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
+nav.tabs button.on{color:var(--ink);background:var(--surface);box-shadow:var(--shadow-sm)}
+nav.tabs button:not(.on):hover{color:var(--ink)}
+
+main{max-width:1180px;margin:0 auto;padding:20px 20px 80px}
+.panel{display:none}.panel.on{display:block}
+
+.card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
+.card.scroll{overflow-x:auto}
+.card.pad{padding:16px 18px}
+
+/* KPI */
+.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
+.kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bar,var(--accent))}
+.kpi .l{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.kpi .sw{width:9px;height:9px;border-radius:2px}
+.kpi .v{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:23px;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.kpi .sub{color:var(--ink-mute);font-size:11.5px;margin-top:3px}
+
+/* tables */
+table{width:100%;border-collapse:collapse}
+thead th{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-mute);font-weight:600;text-align:right;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+thead th.l{text-align:left}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--line);text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600}
+tbody td.l{text-align:left;font-family:'Inter',sans-serif;font-weight:400}
+tbody tr:last-child td{border-bottom:0}
+tfoot td{padding:12px 14px;border-top:2px solid var(--ink);text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700}
+tfoot td.l{text-align:left}
+.catdot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:8px;vertical-align:middle}
+.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 8px;border-radius:6px;background:var(--surface-mute);color:var(--ink-soft)}
+.area-tag{display:inline-flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600}
+.area-tag i{width:8px;height:8px;border-radius:2px;flex:0 0 auto}
+.badge{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px}
+.badge.alloc{background:var(--warn-soft);color:var(--warn)}
+.badge.speso{background:var(--surface-mute);color:var(--speso)}
+.badge.trace{background:var(--info-soft);color:var(--info-ink)}
+.badge.rev{background:var(--over-soft);color:var(--over)}
+.badge.ok{background:var(--accent-soft);color:var(--accent)}
+
+/* attività */
+.act-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;cursor:pointer;transition:background .12s}
+.act-row:last-child{border-bottom:0}
+.act-row:hover{background:var(--surface-2)}
+.act-row .ty{flex:1;min-width:180px;font-weight:600}
+.act-row .sc{color:var(--ink-soft);font-size:12.5px}
+.act-row .dt{color:var(--ink-mute);font-size:12px;font-family:'JetBrains Mono',monospace;min-width:70px}
+.act-row .amt{font-family:'JetBrains Mono',monospace;font-weight:700;min-width:90px;text-align:right;font-variant-numeric:tabular-nums}
+.act-row.annull{opacity:.5;text-decoration:line-through}
+.act-actions{display:flex;gap:6px;margin-left:auto}
+.cal-link-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;cursor:pointer;transition:background .12s,border-color .12s;text-decoration:none;color:inherit}
+.cal-link-row:hover{background:var(--accent-soft);border-color:var(--accent)}
+.cal-link-row .ty{flex:1;min-width:0;font-weight:600;font-size:13.5px}
+.cal-link-row .dt{color:var(--ink-mute);font-size:12px;font-family:'JetBrains Mono',monospace}
+.cal-link-row .go{color:var(--accent-ink);font-size:12px;font-weight:700;white-space:nowrap}
+.cal-link-row.added{cursor:default;background:var(--surface-mute);opacity:.72}
+.cal-link-row.added:hover{border-color:var(--line)}
+.cal-added-note{display:block;color:var(--ink-mute);font-size:11px;font-weight:500;margin-top:1px}
+.cal-force{background:none;border:1px solid var(--line-strong);border-radius:7px;padding:5px 9px;font-size:11px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
+.cal-force:hover{border-color:var(--over);color:var(--over)}
+.act-section-h{padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute);font-weight:700;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.rowbtn{background:none;border:1px solid var(--line);border-radius:7px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft)}
+.rowbtn:hover{border-color:var(--ink-mute);color:var(--ink)}
+.rowbtn svg{width:15px;height:15px}
+.rowbtn.act-done{color:var(--accent);border-color:var(--accent-soft)}
+.rowbtn.act-done:hover{background:var(--accent-soft)}
+.rowbtn.act-cancel{color:var(--over);border-color:var(--over-soft)}
+.rowbtn.act-cancel:hover{background:var(--over-soft)}
+
+/* chip (mesi riepilogo) */
+.chip{border:1px solid var(--line-strong);background:var(--surface);border-radius:20px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--ink-soft);display:inline-flex;align-items:center;gap:7px;cursor:pointer;transition:.12s}
+.chip:hover{border-color:var(--ink)}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip.reset{border-style:dashed;border-color:var(--over);color:var(--over)}
+.chip.reset:hover{background:var(--over-soft)}
+/* albero mese -> docente -> tipologia (Riepilogo) */
+.tree{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:12px}
+.node{border-bottom:1px solid var(--line)}
+.node:last-child{border-bottom:0}
+.node-row{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;user-select:none;transition:background .12s}
+.node-row:hover{background:var(--surface-2)}
+.twisty{width:22px;height:22px;border-radius:6px;border:1px solid var(--line-strong);background:var(--surface);display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:var(--ink-soft)}
+.twisty svg{width:11px;height:11px;transition:transform .16s ease}
+@media (prefers-reduced-motion:reduce){.twisty svg{transition:none}.node-children{transition:none!important}}
+.node.open>.node-row .twisty svg{transform:rotate(90deg)}
+.node.open>.node-row .twisty{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent}
+.node-title{font-weight:700;font-size:14px}
+.month-title{text-transform:uppercase;letter-spacing:.03em}
+.node-sub{color:var(--ink-mute);font-size:11.5px;margin-top:1px}
+.node-meta{margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end}
+.node-badges{display:flex;gap:6px}
+.node-amt{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;min-width:80px;text-align:right;font-variant-numeric:tabular-nums}
+.node-alert{display:flex;align-items:center;gap:6px;color:var(--warn);font-size:11px;font-weight:700}
+.node-alert svg{width:13px;height:13px;flex:0 0 auto}
+.node-children{display:grid;grid-template-rows:0fr;transition:grid-template-rows .2s ease}
+.node.open>.node-children{grid-template-rows:1fr}
+.node-children-inner{overflow:hidden}
+.node.current-month{border-left:3px solid var(--accent)}
+.node.current-month>.node-row{background:var(--accent-soft)}
+.riep-filters-toggle{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer}
+.riep-filters-toggle:hover{border-color:var(--ink-mute);color:var(--ink)}
+.riep-filters-toggle .twisty{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:transform .16s ease}
+.riep-filters-toggle .twisty svg{width:11px;height:11px}
+.riep-filters-toggle.open .twisty{transform:rotate(90deg)}
+.riep-filters-toggle.active{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
+@media (prefers-reduced-motion:reduce){.riep-filters-toggle .twisty{transition:none}}
+.riep-stats{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;justify-content:flex-end}
+.riep-stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;flex:0 0 170px}
+.riep-stat .rl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.riep-stat .rv{font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.riep-stat.prog{color:var(--warn)}
+.riep-stat.done{color:var(--accent-ink)}
+.docente-row{padding-left:44px;background:var(--surface-2);border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+.docente-row:last-child{border-bottom:0}
+.docente-row:hover{background:var(--accent-soft)}
+.docente-row.selected{box-shadow:inset 3px 0 0 var(--accent)}
+.docente-line{display:flex;align-items:center;gap:12px;padding:12px 16px 12px 0}
+.docente-line .riep-stats{margin-left:auto}
+.docente-line .node-title{font-size:13px;font-weight:600}
+.malert-inline{margin:0 16px 12px;font-size:12.5px;color:var(--warn)}
+.riep-detail{margin:14px 0 26px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-sm);overflow:hidden}
+.riep-detail-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.riep-detail-h h3{margin:0;font-size:15px;font-weight:700}
+.riep-detail-body{padding:14px 16px}
+.admin-tabs{display:flex;gap:4px;padding:0 22px;border-bottom:1px solid var(--line);overflow-x:auto}
+.admin-tabs button{background:none;border:0;padding:12px 14px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px}
+.admin-tabs button.on{color:var(--accent-ink);border-bottom-color:var(--accent)}
+.admin-tabs button:not(.on):hover{color:var(--ink)}
+.admin-sec{display:none}
+.admin-sec.on{display:block}
+
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:0;border-radius:9px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
+.btn:hover{filter:brightness(1.08)}
+.btn svg{width:15px;height:15px}
+.btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);box-shadow:var(--shadow-sm)}
+.btn.ghost:hover{border-color:var(--ink-mute)}
+.btn.small{padding:6px 11px;font-size:12.5px}
+.btn.danger{background:var(--surface);color:var(--over);border:1px solid var(--over-soft)}
+
+/* modal */
+.overlay{position:fixed;inset:0;background:rgba(10,11,9,.5);display:none;align-items:flex-start;justify-content:center;z-index:60;padding:40px 16px;overflow-y:auto}
+.overlay.on{display:flex}
+.modal{background:var(--surface);border-radius:var(--radius-lg);width:100%;max-width:560px;box-shadow:var(--shadow-lg)}
+.mhead{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}
+.mhead h3{margin:0;font-size:17px;font-weight:700}
+.iconx{background:none;border:0;cursor:pointer;color:var(--ink-mute);padding:4px}
+.iconx svg{width:20px;height:20px}
+.mbody{padding:18px 22px}
+.field{margin-bottom:14px;position:relative}
+.field.full{grid-column:1/-1}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line-strong);border-radius:9px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;background:var(--surface);color:var(--ink);outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.mapinfo{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--ink-soft)}
+.mapinfo b{color:var(--ink)}
+.role-banner{margin:0 20px;margin-top:14px;padding:10px 14px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink);font-size:13px;border:1px solid rgba(0,0,0,.05)}
+.role-banner.err{background:var(--over-soft);color:var(--over)}
+.role-banner.warn{background:var(--warn-soft);color:var(--warn)}
+.role-banner b{font-weight:700}
+#loginScreen{position:fixed;inset:0;z-index:200;background:var(--paper);display:none;align-items:center;justify-content:center;padding:20px}
+.login-card{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:30px 28px;box-shadow:var(--shadow-lg)}
+.login-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px}
+.login-brand .dot{width:26px;height:26px;border-radius:8px;background:linear-gradient(155deg,var(--accent),var(--accent-ink))}
+.login-sub{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute);margin:5px 0 0 36px}
+.login-p{color:var(--ink-soft);font-size:13.5px;margin:18px 0 18px}
+.login-lbl{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:6px}
+#demoSel{width:100%;border:1px solid var(--line-strong);border-radius:9px;padding:11px 12px;font-family:'Inter',sans-serif;font-size:14px;background:var(--surface);color:var(--ink)}
+.login-div{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--ink-mute);font-size:11px}
+.login-div::before,.login-div::after{content:"";flex:1;height:1px;background:var(--line)}
+.login-hint{color:var(--ink-mute);font-size:11.5px;line-height:1.5;margin-top:16px}
+.mfoot{display:flex;gap:10px;padding:16px 22px;border-top:1px solid var(--line)}
+.mfoot .btn{flex:0}
+.mfoot .sp{margin-left:auto}
+.date-rows{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
+.date-row{display:grid;grid-template-columns:1fr 90px 1fr 30px;gap:10px;align-items:end}
+.date-row .field{margin-bottom:0}
+.date-total{margin:14px 0;padding-top:12px;border-top:1px solid var(--line)}
+.date-bonus{font-size:12.5px;color:var(--accent);font-weight:600;margin-bottom:6px}
+.date-total-row{display:grid;grid-template-columns:1fr 90px 1fr 30px;gap:10px;font-weight:700;font-size:14px}
+.date-total-row span:first-child{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);font-weight:600;align-self:center}
+@media(max-width:600px){ .date-row{grid-template-columns:1fr}.date-total-row{grid-template-columns:1fr} }
+
+.empty{padding:26px;text-align:center;color:var(--ink-mute)}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:80;box-shadow:var(--shadow-lg)}
+#toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+@media (prefers-reduced-motion:reduce){#toast{transition:opacity .01s}}
+
+/* cloud modal reuse */
+.cloud-state{padding:12px 14px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);font-size:13px;display:flex;align-items:center;gap:10px;margin-bottom:6px}
+.cloud-state .b{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px;font-weight:700}
+.cloud-state .b.on{background:var(--accent-soft);color:var(--accent)}.cloud-state .b.off{background:var(--surface-mute);color:var(--ink-soft)}
+
+/* autocomplete scuole */
+.ac-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;box-shadow:var(--shadow-lg);max-height:240px;overflow-y:auto;z-index:40;display:none}
+.ac-list.on{display:block}
+.ac-item{padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--line)}
+.ac-item:last-child{border-bottom:0}
+.ac-item:hover,.ac-item.hi{background:var(--accent-soft)}
+.ac-item .nm{font-weight:600}
+.ac-item .mt{color:var(--ink-mute);font-size:11.5px}
+
+/* chiusura mensile */
+.rda-card{border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-sm);margin-bottom:14px;overflow:hidden}
+.rda-h{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.rda-h .who{font-weight:700;font-size:15px}
+.rda-h .meta{color:var(--ink-soft);font-size:12.5px}
+.rda-h .tot{margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px}
+.rda-body{padding:6px 16px 14px}
+
+@media(max-width:600px){
+  .topbar{position:static}
+  header{flex-direction:column;align-items:stretch;gap:10px;padding:10px 12px}
+  .hctl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hgroup{flex-direction:column;align-items:stretch;gap:3px}
+  .hbtn{justify-content:center;width:100%}
+  .kpis{grid-template-columns:1fr 1fr}
+  .kpi:nth-child(2n){border-right:0}
+  .grid2{grid-template-columns:1fr}
+  .rda-h .tot{margin-left:0;width:100%}
+  main{padding:16px 12px 70px}
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN SCREEN -->
+<div id="loginScreen">
+  <div class="login-card">
+    <div class="login-brand"><span class="dot"></span>Docenti</div>
+    <div class="login-sub">NABA · Attività retribuite</div>
+    <p class="login-p">Accedi per inserire e vedere le tue attività (workshop, open day, webinar, test).</p>
+    <div id="loginCloud" style="display:none;margin-bottom:16px;font-size:12px;color:var(--ink-soft);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px"></div>
+    <label class="login-lbl">Entra come</label>
+    <select id="demoSel"></select>
+    <button class="btn" id="demoBtn" style="width:100%;justify-content:center;margin-top:10px">Entra</button>
+    <div class="login-div"><span>oppure</span></div>
+    <button class="btn ghost" id="toCloudLogin" style="width:100%;justify-content:center">Accedi con account cloud</button>
+    <p class="login-hint">In produzione ogni persona accede col proprio account (email). "Entra come" è un accesso rapido di prova: scegli un utente per vedere esattamente la sua vista.</p>
+  </div>
+</div>
+
+<div class="topbar">
+  <header>
+    <div class="brand">
+      <span class="t"><span class="dot"></span>Docenti</span>
+      <span class="s">NABA · Attività retribuite</span>
+    </div>
+    <div class="hctl">
+      <div class="hgroup"><label>Vista</label><select id="viewSel"></select></div>
+      <button class="hbtn" id="btnCloud"><span id="cloudDot" class="cloud-dot off"></span><span id="cloudLbl">Cloud</span></button>
+      <button class="hbtn" id="btnAdmin" title="Pannello amministrazione" style="display:none">Admin</button>
+      <button class="hbtn" id="btnLogout" title="Cambia utente / esci">Esci</button>
+    </div>
+  </header>
+  <nav class="tabs" id="tabs">
+    <button data-tab="riepilogo" class="on">Riepilogo</button>
+    <button data-tab="attivita">Attività</button>
+  <button data-tab="scuole">Scuole</button>
+  <button data-tab="chiusura">Chiusura mensile</button>
+  </nav>
+</div>
+
+<div id="roleBanner" class="role-banner" style="display:none"></div>
+<div id="dueBanner" class="role-banner warn" style="display:none"></div>
+
+<main>
+  <!-- RIEPILOGO -->
+  <section class="panel on" id="panel-riepilogo">
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
+      <div class="hgroup" style="background:var(--surface);border:1px solid var(--line-strong)"><label style="color:var(--ink-mute)">Anno fiscale</label><select id="riepFySel" style="color:var(--ink)"></select></div>
+      <span class="hint">luglio → giugno · o seleziona uno o più mesi singoli qui sotto</span>
+    </div>
+    <div class="chips" id="riepMonthChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
+    <button type="button" class="riep-filters-toggle" id="riepFiltersToggle">
+      <span class="twisty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg></span>
+      <span id="riepFiltersLabel">Filtri per area e tipologia</span>
+    </button>
+    <div id="riepFiltersPanel" style="display:none;margin:10px 0 18px">
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div>
+          <div class="hint" style="margin-bottom:6px">Area</div>
+          <div class="chips" id="riepAreaChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+        <div>
+          <div class="hint" style="margin-bottom:6px">Tipologia</div>
+          <div class="chips" id="riepTipoChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+      </div>
+    </div>
+    <div class="kpis" id="kpis"></div>
+    <div id="riepBlocks"></div>
+    <div id="riepDocenteDetail" class="riep-detail" style="display:none"></div>
+  </section>
+
+  <!-- ATTIVITÀ -->
+  <section class="panel" id="panel-attivita">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
+      <div><h2 class="sec">Attività</h2><span class="hint" id="actCount"></span></div>
+      <button class="btn" id="btnNewAct" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuova attività</button>
+    </div>
+    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn small" id="btnCalAdd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>Aggiungi al calendario</button>
+    </div>
+    <div class="card scroll"><div id="actList"></div></div>
+  </section>
+
+  <!-- SCUOLE -->
+  <section class="panel" id="panel-scuole">
+    <h2 class="sec">Scuole</h2>
+    <p class="sec-desc">Anagrafica scuole (sola lettura, da CRM). Cerca per nome, città, provincia o regione.</p>
+    <div class="field" style="max-width:420px;margin-bottom:16px">
+      <input type="text" id="schoolSearch" placeholder="Cerca scuola, città, provincia…">
+    </div>
+    <div class="card scroll"><table id="schoolsTable"></table></div>
+    <p class="hint" id="schoolsHint" style="margin-top:10px"></p>
+  </section>
+
+  <!-- CHIUSURA MENSILE -->
+  <section class="panel" id="panel-chiusura">
+    <h2 class="sec">Chiusura mensile</h2>
+    <p class="sec-desc">Il tool propone l'RDA per docente/mese; chi gestisce SAP la inserisce e poi riporta qui stato e riferimento.</p>
+    <div class="kpis" id="chKpis" style="margin-bottom:22px"></div>
+
+    <div id="chReminders" style="margin-bottom:26px"></div>
+
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <h2 class="sec" style="margin:0">Da elaborare</h2>
+      <div class="hgroup" style="margin-left:auto;background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Mese</label><select id="chMonth" style="color:var(--ink)"></select></div>
+      <div class="hgroup" style="background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Docente</label><select id="chTeacherFilter" style="color:var(--ink)"></select></div>
+    </div>
+    <div id="chiusuraList"></div>
+    <p class="hint" style="margin-top:10px">Dopo che un'RDA è emessa/pagata, ricorda di registrare il movimento reale nel tool Budget (categoria CONS. COMM. MKTG) — l'attività qui non tocca mai il budget da sola.</p>
+
+    <div style="display:flex;align-items:center;gap:12px;margin:30px 0 14px;flex-wrap:wrap">
+      <h2 class="sec" style="margin:0">Storico RDA</h2>
+      <div class="hgroup" style="margin-left:auto;background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Docente</label><select id="rdaHistTeacher" style="color:var(--ink)"></select></div>
+      <div class="hgroup" style="background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Stato</label><select id="rdaHistStato" style="color:var(--ink)"><option value="ALL">Tutti</option><option value="bozza">RDA in inserimento</option><option value="emessa">RDA inserita</option><option value="pagata">RDA Pagato</option></select></div>
+      <div class="hgroup" style="background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Mese</label><select id="rdaHistMonth" style="color:var(--ink)"></select></div>
+    </div>
+    <div class="card scroll"><table id="rdaHistTable"></table></div>
+  </section>
+</main>
+
+<!-- ACTIVITY MODAL -->
+<div class="overlay" id="actOverlay">
+  <div class="modal">
+    <div class="mhead"><h3 id="actTitle">Nuova attività</h3><button class="iconx" id="actClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mbody">
+      <div class="grid2">
+        <div class="field" id="aTeacherField"><label>Docente <span class="req">*</span></label><select id="aTeacher"></select><div class="hint" id="aTeacherInfo" style="margin-top:5px"></div></div>
+        <div class="field"><label>Tipologia <span class="req">*</span></label><select id="aTipo"></select></div>
+        <div class="field full" id="aLuogoField">
+          <label id="aLuogoLabel">Scuola</label>
+          <input type="text" id="aScuolaSearch" placeholder="Cerca scuola… (le parole possono essere in qualsiasi ordine)" autocomplete="off">
+          <input type="hidden" id="aScuolaId">
+          <div class="ac-list" id="aScuolaAc"></div>
+          <select id="aLuogoSelect" style="display:none"></select>
+        </div>
+        <div class="field"><label>Area <span class="req">*</span></label><select id="aArea"></select></div>
+        <div class="field"><label>Importo orario <span class="req">*</span></label><input type="number" id="aRate" step="0.5" min="0"></div>
+      </div>
+      <div class="date-rows" id="aDateRows"></div>
+      <button type="button" class="btn ghost small" id="aAddDate">+ aggiungi data</button>
+      <div class="date-total" id="aDateTotal"></div>
+      <div class="field full" id="aRdaModeField" style="display:none">
+        <label>Generazione RDA</label>
+        <div class="chips" id="aRdaModeChips" style="display:flex;gap:6px;flex-wrap:wrap">
+          <button type="button" class="chip on" data-mode="fine_periodo">RDA solo a fine periodo</button>
+          <button type="button" class="chip" data-mode="per_mese">RDA per mese</button>
+        </div>
+        <p class="hint" style="margin-top:6px" id="aRdaModeHint"></p>
+      </div>
+      <div class="grid2">
+        <div class="field full"><label>Note</label><textarea id="aNote" rows="2"></textarea></div>
+        <div class="field full"><div class="mapinfo" id="aMap"></div></div>
+      </div>
+    </div>
+    <div class="mfoot">
+      <button class="btn danger" id="aDelete" style="display:none">Elimina</button>
+      <div class="sp"></div>
+      <button class="btn ghost" id="aCancel">Annulla</button>
+      <button class="btn" id="aSave">Salva attività</button>
+    </div>
+  </div>
+</div>
+
+<!-- NUOVO DOCENTE (aggiunta rapida dalla modale attività, per l'orientatore) -->
+<div class="overlay" id="newTeacherOverlay">
+  <div class="modal" style="max-width:420px">
+    <div class="mhead"><h3>Nuovo docente</h3><button class="iconx" id="ntClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mbody">
+      <div class="field"><label>Nome e cognome <span class="req">*</span></label><input type="text" id="ntNome" placeholder="Mario Rossi"></div>
+      <div class="field"><label>Email</label><input type="email" id="ntEmail" placeholder="mario.rossi@..."></div>
+      <div class="grid2">
+        <div class="field"><label>Ruolo</label><select id="ntRuolo"></select></div>
+        <div class="field"><label>Contributi</label><select id="ntContributi"></select></div>
+      </div>
+      <div class="field"><label>Tariffa oraria (€/h) <span class="req">*</span></label><input type="number" id="ntRate" step="0.5" min="0" value="50"></div>
+    </div>
+    <div class="mfoot">
+      <div class="sp"></div>
+      <button class="btn ghost" id="ntCancel">Annulla</button>
+      <button class="btn" id="ntSave">Aggiungi docente</button>
+    </div>
+  </div>
+</div>
+
+<!-- AGGIUNGI AL CALENDARIO (Outlook, un evento alla volta: deeplink che richiede login OneLogin) -->
+<div class="overlay" id="calOverlay">
+  <div class="modal" style="max-width:580px">
+    <div class="mhead"><h3>Aggiungi al calendario</h3><button class="iconx" id="calClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mbody">
+      <p class="hint" style="margin-bottom:12px">Attività "programmata" da oggi in poi. Outlook apre un evento alla volta: clicca una riga per aprirla in una nuova scheda, accedi con il tuo account NABA e salva — verrà segnata come aggiunta. Orario di partenza precompilato alle 9:00, correggilo in Outlook se l'attività è in un altro orario.</p>
+      <div id="calLinksList"></div>
+    </div>
+    <div class="mfoot">
+      <div class="sp"></div>
+      <button class="btn ghost" id="calDone">Chiudi</button>
+    </div>
+  </div>
+</div>
+
+<!-- CLOUD MODAL -->
+<div class="overlay" id="cloudOverlay">
+  <div class="modal" style="max-width:520px">
+    <div class="mhead"><h3>Sincronizzazione cloud · Supabase</h3><button class="iconx" id="cloudClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mbody">
+      <div id="cloudState" class="cloud-state"></div>
+      <div id="cloudConfig">
+        <div class="field full" style="margin-top:12px"><label>Project URL</label><input type="text" id="cfgUrl" placeholder="https://xxxx.supabase.co"></div>
+        <div class="field full"><label>Anon key (public)</label><input type="text" id="cfgKey" placeholder="eyJhbGciOi..."></div>
+        <button class="btn ghost" id="cfgSave" style="width:100%">Salva configurazione</button>
+        <p class="hint" style="margin-top:8px">Stesso progetto del budget e di Spese EC. Esegui prima <b>supabase_docenti.sql</b>.</p>
+      </div>
+      <div id="cloudLoginBox" style="display:none">
+        <div class="field full" style="margin-top:14px"><label>Email</label><input type="email" id="cloudEmail" autocomplete="username"></div>
+        <div class="field full"><label>Password</label><input type="password" id="cloudPw" autocomplete="current-password"></div>
+        <div style="display:flex;gap:10px"><button class="btn" id="cloudLoginBtn" style="flex:1">Accedi</button></div>
+      </div>
+      <div id="cloudActions" style="display:none">
+        <div style="display:flex;flex-direction:column;gap:8px;margin-top:14px">
+          <button class="btn" id="cloudPull">Scarica dal cloud</button>
+          <button class="btn ghost" id="cloudLogout">Esci</button>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ADMIN PANEL -->
+<div class="overlay" id="adminOverlay">
+  <div class="modal" style="max-width:860px">
+    <div class="mhead"><h3>Pannello Admin</h3><button class="iconx" id="adminClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="admin-tabs" id="adminTabs">
+      <button data-sec="interfacce" class="on">Interfacce</button>
+      <button data-sec="docenti">Docenti</button>
+      <button data-sec="utenti">Utenti &amp; ruoli</button>
+      <button data-sec="visibilita">Visibilità</button>
+    </div>
+    <div class="mbody">
+      <div class="admin-sec on" data-sec="interfacce">
+        <p class="hint" style="margin-bottom:10px">Chi si logga davvero nel tool: una persona per area (una sola persona, Valeria Battel, ne copre due). Inserisce le attività per sé e per i docenti a lei collegati nella tab "Docenti".</p>
+        <div class="card scroll" style="margin-bottom:10px"><table id="interfacesTable"></table></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="text" id="newIfaceName" placeholder="Nome interfaccia" style="flex:1;min-width:140px">
+          <input type="email" id="newIfaceEmail" placeholder="email di login" style="flex:1;min-width:160px">
+          <input type="text" id="newIfaceAree" placeholder="Aree (separate da virgola)" style="flex:1;min-width:180px">
+          <button class="btn ghost small" id="btnAddIface">+ Aggiungi</button>
+        </div>
+      </div>
+
+      <div class="admin-sec" data-sec="docenti">
+        <p class="hint" style="margin-bottom:10px">Anagrafica docenti reali: tariffa oraria, ruolo, contributi (per calcolare l'importo effettivo da versare) e a quale interfaccia orientamento sono collegati (chi inserisce le attività per loro).</p>
+        <div class="card scroll" style="margin-bottom:10px"><table id="teachersTable"></table></div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap">
+          <input type="text" id="newTeacherName" placeholder="Nome docente" style="flex:1;min-width:140px">
+          <input type="email" id="newTeacherEmail" placeholder="email@..." style="flex:1;min-width:160px">
+          <select id="newTeacherIface" style="min-width:170px"></select>
+          <select id="newTeacherRuolo" style="min-width:130px"></select>
+          <select id="newTeacherContributi" style="min-width:140px"></select>
+          <input type="number" id="newTeacherRate" placeholder="€/h" value="50" style="width:80px">
+          <button class="btn ghost small" id="btnAddTeacher">+ Aggiungi</button>
+        </div>
+      </div>
+
+      <div class="admin-sec" data-sec="utenti">
+        <div class="eyebrow" style="margin-bottom:8px">Utenti &amp; ruoli</div>
+        <p class="hint" style="margin-bottom:10px">Ruolo per email di login, condiviso con Budget e Spese EC. Un docente va anche collegato alla propria riga in "Docenti" (email).</p>
+        <div class="card scroll" style="margin-bottom:26px"><table id="usersTable"></table></div>
+        <div style="display:flex;gap:8px;margin-bottom:26px;flex-wrap:wrap">
+          <input type="email" id="newUserEmail" placeholder="email@naba.it" style="flex:1;min-width:180px">
+          <select id="newUserRole"><option value="admin">Admin</option><option value="orientatore">Orientatore</option><option value="docente" selected>Docente</option></select>
+          <button class="btn ghost small" id="btnAddUser">+ Aggiungi</button>
+        </div>
+
+        <div class="eyebrow" style="margin-bottom:8px">Anteprima ruolo (solo per test)</div>
+        <select id="previewAs"></select>
+        <p class="hint" style="margin-top:8px">Simula localmente la vista di un docente, senza bisogno del suo login.</p>
+      </div>
+
+      <div class="admin-sec" data-sec="visibilita">
+        <p class="hint" style="margin-bottom:10px">Condivisa tra tutti gli strumenti: le modifiche qui valgono anche per Budget e Spese EC. Admin vede sempre tutto.</p>
+        <div class="card scroll"><table id="tabVisTable"></table></div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+<script>
+/* ============================ DOCENTI ============================ */
+const TIPI=["Workshop","Open Day","NabaIncontra","NabaExperience","Webinar","Test","Altro"];
+// da Docenti.xlsx: [VOCI / RUOLI] e [CASSA/RITENUTA D'ACCONTO] (rinominati "Ruoli" e "Contributi" in UI).
+// "Contributi" serve a calcolare l'importo effettivamente da versare al docente (cassa 4% vs ritenuta).
+const RUOLI=["Docente","Collaboratore","Tutor"];
+const CONTRIBUTI=["SI CASSA 4%","NIENTE","RITENUTA"];
+// select con opzioni fisse ma che non perde un valore esistente fuori lista (dati storici/importati)
+function fixedSelectHtml(cls,id,options,current){
+  const cur=current||"";
+  const opts=options.includes(cur)||!cur ? options : [cur,...options];
+  return `<select class="${cls}" data-id="${id}"><option value="">—</option>${opts.map(o=>`<option value="${esc(o)}" ${o===cur?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
+}
+const CAMPUS_OPTIONS=["Campus di Milano","Campus di Roma","Campus di Londra","Online"];
+const TWISTY_ICON=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg>`;
+const MESI=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
+const MESI_LONG=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
+const LS_KEY="naba_docenti_v1";
+
+function eur(v){ return "€ "+Math.round(v||0).toLocaleString("it-IT"); }
+function eur2(v){ return "€ "+(v||0).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2}); }
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+function fmtD(d){ if(!d) return "—"; const p=String(d).slice(0,10).split("-"); return p.length===3?`${p[2]}/${p[1]}/${p[0].slice(2)}`:d; }
+function todayISO(){ return new Date().toISOString().slice(0,10); }
+// aritmetica in UTC puro: new Date(y,m-1,d) sarebbe in fuso locale, e toISOString() lo riporterebbe
+// a UTC facendo slittare la data di un giorno nei fusi avanti rispetto a UTC (es. Europe/Rome in CEST)
+function addDaysISO(dateStr,n){ const [y,m,d]=(dateStr||todayISO()).split('-').map(Number); const dt=new Date(Date.UTC(y,m-1,d)); dt.setUTCDate(dt.getUTCDate()+n); return dt.toISOString().slice(0,10); }
+function todayMonth(){ return todayISO().slice(0,7); }
+function uuid(){ return (window.crypto&&crypto.randomUUID)?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);}); }
+function isUuid(s){ return typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s); }
+
+/* ---- stato ---- */
+function seed(){
+  return {view:"ALL", appUsers:{}, tabVisibility:{}, previewAs:null, localIdentity:null, interfaces:[], teachers:[], activities:[], rdas:[], riepFy:null, riepMonths:[], riepAree:[], riepTipi:[]};
+}
+function load(){
+  try{ const s=JSON.parse(localStorage.getItem(LS_KEY)||"null"); if(s&&s.teachers){ if(!s.view)s.view="ALL"; if(!s.appUsers)s.appUsers={}; if(!s.tabVisibility)s.tabVisibility={}; if(s.previewAs===undefined)s.previewAs=null; if(s.localIdentity===undefined)s.localIdentity=null; if(!s.interfaces)s.interfaces=[]; if(!s.activities)s.activities=[]; if(!s.rdas)s.rdas=[]; if(s.riepFy===undefined)s.riepFy=null; if(!s.riepMonths)s.riepMonths=[]; if(!s.riepAree)s.riepAree=[]; if(!s.riepTipi)s.riepTipi=[]; return s; } }catch(e){}
+  return seed();
+}
+let STATE=load();
+function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(STATE)); }catch(e){} }
+function teacherById(id){ return STATE.teachers.find(t=>t.id===id)||{nome:"—",tariffa_oraria:50}; }
+function interfaceById(id){ return STATE.interfaces.find(i=>i.id===id)||null; }
+function findInterfaceByEmail(email){ if(!email)return null; return STATE.interfaces.find(i=>(i.email||"").toLowerCase()===email.toLowerCase())||null; }
+function teachersOfInterface(interfaceId){ return STATE.teachers.filter(t=>t.interface_id===interfaceId); }
+function rdaById(id){ return STATE.rdas.find(r=>r.id===id)||null; }
+// cache id->scuola risolta on-demand (l'anagrafica scuole non è mai caricata per intero: 11k righe)
+let SCHOOL_CACHE={};
+function schoolLabel(id){ if(!id) return "—"; const s=SCHOOL_CACHE[id]; return s? (s.nome+(s.citta?' · '+s.citta:'')) : id; }
+
+/* ---- ruoli / identità ----
+   Chi si logga con ruolo 'docente' è la DOCENTE INTERFACCIA ORIENTAMENTO (bdg_orientamento_interfaces),
+   non un singolo docente: gestisce le attività proprie e di tutti i docenti reali a lei collegati
+   (bdg_teachers.interface_id). Vedi supabase_docenti.sql per il perché di questo modello. */
+let CURRENT={role:'admin',interfaceId:null,preview:false,email:null,name:null};
+function roleForEmail(email){
+  if(!email) return null;
+  const u=(STATE.appUsers||{})[email.toLowerCase()];
+  return (u && u.attivo!==false) ? u.role : null;
+}
+function baseIdentity(){
+  const email=(typeof cloudUser==='function'?cloudUser():null);
+  if(email){
+    const role=roleForEmail(email);
+    if(role==='admin'){
+      if(STATE.localIdentity && STATE.localIdentity!=='admin'){ const i=interfaceById(STATE.localIdentity); if(i) return {role:'docente',interfaceId:i.id,preview:false,email,name:i.nome,viewAs:true}; }
+      return {role:'admin',interfaceId:null,preview:false,email,name:null};
+    }
+    if(role==='docente'){
+      const i=findInterfaceByEmail(email);
+      if(i) return {role:'docente',interfaceId:i.id,preview:false,email,name:i.nome};
+      return {role:'none',interfaceId:null,preview:false,email,name:null};
+    }
+    if(role==='orientatore') return {role:'orientatore',interfaceId:null,preview:false,email,name:null};
+    return {role:'none',interfaceId:null,preview:false,email,name:null};
+  }
+  if(STATE.localIdentity==='admin') return {role:'admin',interfaceId:null,preview:false,email:null,name:'Admin'};
+  if(STATE.localIdentity){ const i=interfaceById(STATE.localIdentity); if(i) return {role:'docente',interfaceId:i.id,preview:false,email:i.email||null,name:i.nome}; }
+  return {role:'guest',interfaceId:null,preview:false,email:null,name:null};
+}
+function effectiveIdentity(){
+  const base=baseIdentity();
+  if(base.role==='admin' && STATE.previewAs){ const i=interfaceById(STATE.previewAs); if(i) return {role:'docente',interfaceId:i.id,preview:true,email:i.email||null,name:i.nome}; }
+  return base;
+}
+// docente = filtro su TUTTI i docenti collegati alla mia interfaccia; admin = filtro opzionale su un singolo docente (Vista)
+function myTeacherIds(){ return CURRENT.role==='docente' && CURRENT.interfaceId ? teachersOfInterface(CURRENT.interfaceId).map(t=>t.id) : null; }
+function myFilter(){ return STATE.view!=="ALL"?STATE.view:null; }
+function tabVisible(tool,tabKey,role){
+  const cfg=STATE.tabVisibility&&STATE.tabVisibility[tool]&&STATE.tabVisibility[tool][tabKey];
+  if(cfg && Object.prototype.hasOwnProperty.call(cfg,role)) return !!cfg[role];
+  return role==='admin';
+}
+let forceLogin=false;
+function gate(){
+  CURRENT=effectiveIdentity();
+  const login=document.getElementById("loginScreen");
+  if(forceLogin || CURRENT.role==='guest'){ populateLogin(); login.style.display="flex"; return; }
+  login.style.display="none";
+  applyRole(); renderAll();
+}
+function populateLogin(){
+  const sel=document.getElementById("demoSel");
+  sel.innerHTML=`<option value="admin">Admin (vista completa)</option>`+STATE.interfaces.map(i=>`<option value="${i.id}">${esc(i.nome)} · ${esc((i.aree||[]).join(', '))}</option>`).join("");
+  const cs=document.getElementById("loginCloud");
+  if(cloudReady()){ cs.style.display="block"; cs.innerHTML=`Connesso al cloud come <b>${esc(cloudUser()||"")}</b> — "Entra come" filtra i dati condivisi. <button class="btn ghost small" id="loginDisc" style="margin-top:8px">Disconnetti dal cloud</button>`; const d=document.getElementById("loginDisc"); if(d) d.onclick=async()=>{ forceLogin=true; await cloudLogout(); populateLogin(); }; }
+  else { cs.style.display="block"; cs.innerHTML=`<span class="login-hint" style="margin:0">Accesso rapido <b>locale</b> di prova: mostra i dati di questo dispositivo. Per i dati condivisi usa "Accedi con account cloud".</span>`; }
+}
+function applyRole(){
+  CURRENT=effectiveIdentity();
+  const isAdmin=CURRENT.role==='admin', teach=CURRENT.role==='docente';
+  const q=s=>document.querySelector(s);
+  const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display=isAdmin?'':'none';
+  const vg=document.getElementById('viewSel').closest('.hgroup'); if(vg) vg.style.display=isAdmin?'':'none';
+  const active=document.querySelector('nav.tabs button.on');
+  let anyVisible=false, firstBtn=null, activeHidden=false;
+  document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>{
+    const vis=tabVisible('docenti',b.dataset.tab,CURRENT.role);
+    b.style.display=vis?'':'none';
+    if(vis){ anyVisible=true; if(!firstBtn) firstBtn=b; } else if(b===active) activeHidden=true;
+  });
+  q('nav.tabs button[data-tab="attivita"]').textContent=teach?'Le mie attività':'Attività';
+  q('nav.tabs button[data-tab="riepilogo"]').textContent=teach?'Il mio riepilogo':'Riepilogo';
+  const banner=document.getElementById('roleBanner');
+  if(CURRENT.role==='none'){ banner.style.display='block'; banner.className='role-banner err'; banner.innerHTML=`L'utente <b>${esc(CURRENT.email||'')}</b> non è collegato a nessun docente. Contatta l'amministratore per l'abbinamento email.`; }
+  else if(!anyVisible){ banner.style.display='block'; banner.className='role-banner err'; banner.innerHTML=`Il tuo ruolo (<b>${esc(CURRENT.role)}</b>) non ha ancora nessuna sezione disponibile in questo strumento.`; }
+  else if(CURRENT.preview){ banner.style.display='block'; banner.className='role-banner'; banner.innerHTML=`Anteprima come <b>${esc(CURRENT.name||'')}</b> — vista utente singolo. <button class="btn ghost small" id="exitPreview" style="margin-left:8px">Torna ad Admin</button>`; const ep=document.getElementById('exitPreview'); if(ep) ep.onclick=()=>{ STATE.previewAs=null; save(); applyRole(); renderAll(); }; }
+  else if(teach){
+    const iface=interfaceById(CURRENT.interfaceId);
+    const n=iface?teachersOfInterface(iface.id).length:0;
+    const aree=iface?(iface.aree||[]).join(', '):'';
+    banner.style.display='block'; banner.className='role-banner';
+    banner.innerHTML=`Accesso interfaccia orientamento: <b>${esc(CURRENT.name||'')}</b> · ${esc(aree)}. Gestisci le attività di ${n} docent${n===1?'e':'i'}.`;
+  }
+  else banner.style.display='none';
+  document.getElementById('btnNewAct').style.display=(isAdmin||teach)?'':'none';
+  if(!anyVisible){ document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('on')); document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on')); }
+  else if((activeHidden || !document.querySelector('nav.tabs button.on')) && firstBtn) firstBtn.click();
+  renderDueBanner();
+}
+function visibleActivities(){
+  if(CURRENT.role==='docente'){ const ids=myTeacherIds()||[]; return STATE.activities.filter(a=>ids.includes(a.teacher_id)); }
+  const f=myFilter(); return f?STATE.activities.filter(a=>a.teacher_id===f):STATE.activities;
+}
+function renderDueBanner(){
+  const b=document.getElementById('dueBanner');
+  if(CURRENT.role!=='docente'){ b.style.display='none'; return; }
+  const curMonth=todayMonth();
+  const ids=myTeacherIds()||[];
+  const due=STATE.activities.filter(a=>ids.includes(a.teacher_id) && a.stato==='programmata' && (a.data||'').slice(0,7)<=curMonth);
+  if(!due.length){ b.style.display='none'; return; }
+  b.style.display='block';
+  b.innerHTML=`Hai <b>${due.length}</b> attività ancora "programmata" per ${MESI_LONG[+curMonth.slice(5,7)-1]}: confermale come "svolta" prima della chiusura del mese, altrimenti non entreranno nell'RDA.`;
+}
+
+/* ---- calcoli ---- */
+function activityAmount(a){
+  const rate = a.tariffa_oraria!=null ? Number(a.tariffa_oraria) : teacherById(a.teacher_id).tariffa_oraria;
+  return (Number(a.ore)||0) * (Number(rate)||0) + (Number(a.bonus_importo)||0);
+}
+// ore effettive di un'attività, incluso l'eventuale bonus Workshop (vedi workshopBonusOre)
+function activityOre(a){ return (Number(a.ore)||0) + (Number(a.bonus_ore)||0); }
+// regola bonus Workshop: +1 ora ogni scaglione di 5 ore sul totale ore dell'attività macro
+// (1-5→+1, 6-10→+2, 11-15→+3, 16-20→+4, ...)
+function workshopBonusOre(oreTotali){ return oreTotali>0 ? Math.ceil(oreTotali/5) : 0; }
+// "Contributi" (bdg_teachers.regime_fiscale): con cassa 4% l'importo effettivamente da versare al
+// docente è maggiorato del 4% (rivalsa). Ritenuta d'acconto non ancora implementata (in attesa di
+// indicazioni sulla regola esatta) — per ora lascia l'importo invariato come "NIENTE".
+function cassaMultiplier(t){ return t && t.regime_fiscale==='SI CASSA 4%' ? 1.04 : 1; }
+/* ---- anno fiscale (luglio→giugno) e mesi, per il filtro del Riepilogo ---- */
+function fyOfMonth(ym){ const [y,m]=ym.split('-').map(Number); return m>=7?y:y-1; }
+function fyMonthList(fyStart){
+  const out=[];
+  for(let i=0;i<12;i++){ const m=7+i; const y=fyStart+(m>12?1:0); const mm=((m-1)%12)+1; out.push(`${y}-${String(mm).padStart(2,'0')}`); }
+  return out;
+}
+function prevMonth(ym){ const [y,m]=ym.split('-').map(Number); const d=new Date(y,m-2,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function daysLeftInMonth(){ const now=new Date(); const last=new Date(now.getFullYear(),now.getMonth()+1,0).getDate(); return last-now.getDate(); }
+
+/* ============================ RENDER ============================ */
+function fillSelects(){
+  const vw=document.getElementById("viewSel");
+  vw.innerHTML=`<option value="ALL">Tutti i docenti</option>`+STATE.teachers.map(t=>`<option value="${t.id}" ${STATE.view===t.id?'selected':''}>${esc(t.nome)}</option>`).join("");
+  vw.value=STATE.view;
+  document.getElementById("aTipo").innerHTML=TIPI.map(t=>`<option>${t}</option>`).join("");
+  const nti=document.getElementById("newTeacherIface");
+  if(nti) nti.innerHTML=`<option value="">— nessuna —</option>`+STATE.interfaces.map(i=>`<option value="${i.id}">${esc(i.nome)}</option>`).join("");
+  fillRiepFySel();
+  renderRiepMonthChips();
+  renderRiepAreaChips();
+  renderRiepTipoChips();
+}
+function fillRiepFySel(){
+  const curFy=fyOfMonth(todayMonth());
+  if(!STATE.riepFy) STATE.riepFy=curFy;
+  const options=[curFy-1,curFy,curFy+1,curFy+2];
+  const sel=document.getElementById("riepFySel");
+  sel.innerHTML=options.map(y=>`<option value="${y}" ${y===STATE.riepFy?'selected':''}>FY ${y}–${y+1}</option>`).join("");
+}
+function renderRiepMonthChips(){
+  const months=fyMonthList(STATE.riepFy);
+  const sel=STATE.riepMonths||[];
+  let h=months.map(m=>{ const [y,mo]=m.split('-').map(Number); return `<button class="chip ${sel.includes(m)?'on':''}" data-m="${m}">${MESI[mo-1]} '${String(y).slice(2)}</button>`; }).join("");
+  if(sel.length) h+=`<button class="chip reset" id="riepMonthsReset">✕ azzera mesi</button>`;
+  document.getElementById("riepMonthChips").innerHTML=h;
+  document.querySelectorAll("#riepMonthChips .chip[data-m]").forEach(b=>b.onclick=()=>{
+    const m=b.dataset.m, i=STATE.riepMonths.indexOf(m);
+    if(i>=0) STATE.riepMonths.splice(i,1); else STATE.riepMonths.push(m);
+    save(); renderRiepMonthChips(); renderRiepilogo();
+  });
+  const rb=document.getElementById("riepMonthsReset"); if(rb) rb.onclick=()=>{ STATE.riepMonths=[]; save(); renderRiepMonthChips(); renderRiepilogo(); };
+}
+// aree note al sistema: unione delle aree di tutte le interfacce orientamento (non c'è più un elenco
+// fisso — ogni interfaccia porta le proprie aree, es. Fashion Design + Fashion Marketing per Valeria Battel)
+function allKnownAreas(){ return [...new Set(STATE.interfaces.flatMap(i=>i.aree||[]))].sort((a,b)=>a.localeCompare(b)); }
+// pannello Area/Tipologia collassato di default (occupava troppo spazio sempre visibile) — resta
+// aperto in automatico solo se ci sono già filtri attivi, così non spariscono "silenziosamente"
+function updateRiepFiltersToggle(){
+  const btn=document.getElementById("riepFiltersToggle");
+  if(!btn) return;
+  const n=(STATE.riepAree||[]).length + (STATE.riepTipi||[]).length;
+  document.getElementById("riepFiltersLabel").textContent = n ? `Filtri per area e tipologia (${n} attiv${n===1?'o':'i'})` : "Filtri per area e tipologia";
+  btn.classList.toggle("active", n>0);
+  if(n>0 && !riepFiltersToggled){ document.getElementById("riepFiltersPanel").style.display=""; btn.classList.add("open"); riepFiltersToggled=true; }
+}
+let riepFiltersToggled=false; // true appena l'utente (o l'apertura automatica coi filtri attivi) ha toccato il toggle una volta
+function renderRiepAreaChips(){
+  const areas=allKnownAreas();
+  const sel=STATE.riepAree||[];
+  let h=areas.map(a=>`<button class="chip ${sel.includes(a)?'on':''}" data-a="${esc(a)}">${esc(a)}</button>`).join("");
+  if(sel.length) h+=`<button class="chip reset" id="riepAreeReset">✕ azzera</button>`;
+  document.getElementById("riepAreaChips").innerHTML=h || `<span class="hint">Nessuna area configurata.</span>`;
+  document.querySelectorAll("#riepAreaChips .chip[data-a]").forEach(b=>b.onclick=()=>{
+    const a=b.dataset.a, i=STATE.riepAree.indexOf(a);
+    if(i>=0) STATE.riepAree.splice(i,1); else STATE.riepAree.push(a);
+    save(); renderRiepAreaChips(); renderRiepilogo();
+  });
+  const rb=document.getElementById("riepAreeReset"); if(rb) rb.onclick=()=>{ STATE.riepAree=[]; save(); renderRiepAreaChips(); renderRiepilogo(); };
+  updateRiepFiltersToggle();
+}
+function renderRiepTipoChips(){
+  const sel=STATE.riepTipi||[];
+  let h=TIPI.map(t=>`<button class="chip ${sel.includes(t)?'on':''}" data-t="${esc(t)}">${esc(t)}</button>`).join("");
+  if(sel.length) h+=`<button class="chip reset" id="riepTipiReset">✕ azzera</button>`;
+  document.getElementById("riepTipoChips").innerHTML=h;
+  document.querySelectorAll("#riepTipoChips .chip[data-t]").forEach(b=>b.onclick=()=>{
+    const t=b.dataset.t, i=STATE.riepTipi.indexOf(t);
+    if(i>=0) STATE.riepTipi.splice(i,1); else STATE.riepTipi.push(t);
+    save(); renderRiepTipoChips(); renderRiepilogo();
+  });
+  const rb=document.getElementById("riepTipiReset"); if(rb) rb.onclick=()=>{ STATE.riepTipi=[]; save(); renderRiepTipoChips(); renderRiepilogo(); };
+  updateRiepFiltersToggle();
+}
+// applica i filtri Area/Tipologia del Riepilogo (indipendenti da quelli di mese/FY) — usato SOLO dalle
+// funzioni del Riepilogo, non da Attività/Chiusura mensile che restano sempre non filtrate
+function riepActivities(){
+  const areeSel=STATE.riepAree||[], tipiSel=STATE.riepTipi||[];
+  return visibleActivities().filter(a=>(!areeSel.length||areeSel.includes(a.area)) && (!tipiSel.length||tipiSel.includes(a.tipo)));
+}
+// un mese "ha attività" se c'è almeno una svolta o programmata (le annullate da sole non bastano a
+// far comparire un mese futuro/precedente vuoto nell'elenco)
+function monthHasActivity(monthYM){
+  return riepActivities().some(a=>(a.data||'').slice(0,7)===monthYM && a.stato!=='annullata');
+}
+function statoBadge(st){
+  if(st==="annullata") return `<span class="badge rev">annullata</span>`;
+  if(st==="svolta") return `<span class="badge ok">svolta</span>`;
+  return `<span class="badge alloc">programmata</span>`;
+}
+function activityLocation(a){
+  if(a.luogo) return a.luogo;
+  if(a.school_id) return schoolLabel(a.school_id);
+  return "—";
+}
+function paymentBadge(a){
+  if(a.stato!=='svolta') return '';
+  const rda=a.rda_id?rdaById(a.rda_id):null;
+  if(rda && rda.stato==='pagata') return `<span class="badge ok">Pagato${rda.rif_rda?' · '+esc(rda.rif_rda):''}</span>`;
+  return `<span class="badge trace">in attesa di RDA</span>`;
+}
+function activityRowHtml(a){
+  const cls = a.stato==="annullata"?'act-row annull':'act-row';
+  const quick = a.stato==='programmata' ? `<span class="act-actions">
+      <button class="rowbtn act-done" data-id="${a.id}" title="Segna come svolta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></button>
+      <button class="rowbtn act-cancel" data-id="${a.id}" title="Annulla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </span>` : '';
+  const titolo = a.nome || [a.tipo, activityLocation(a)].filter(Boolean).join(' · ');
+  return `<div class="${cls}" data-id="${a.id}">
+      <span class="ty">${esc(titolo)}</span>
+      <span class="dt">${fmtD(a.data)}</span>
+      ${statoBadge(a.stato)}
+      ${paymentBadge(a)}
+      <span class="amt">${a.stato==='annullata'?'—':eur2(activityAmount(a))}</span>
+      ${quick}
+    </div>`;
+}
+function renderActivities(){
+  const list=document.getElementById("actList");
+  const acts=visibleActivities().slice().sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+  document.getElementById("actCount").textContent = acts.length? `${acts.length} attività · ${eur(acts.reduce((s,a)=>s+(a.stato!=='annullata'?activityAmount(a):0),0))}` : "";
+  if(!acts.length){ list.innerHTML=`<div class="empty">Nessuna attività. Premi "Nuova attività" per iniziare.</div>`; wireActivityRows(list); return; }
+  const cur=todayMonth(), prev=prevMonth(cur);
+  const curActs=acts.filter(a=>(a.data||'').slice(0,7)===cur);
+  const prevActs=acts.filter(a=>(a.data||'').slice(0,7)===prev);
+  const restActs=acts.filter(a=>{ const m=(a.data||'').slice(0,7); return m!==cur && m!==prev; });
+  const section=(title,rows)=> rows.length ? `<div class="act-section-h">${title}</div>`+rows.map(a=>activityRowHtml(a)).join("") : "";
+  const h=section(`Mese corrente · ${MESI_LONG[+cur.slice(5,7)-1]}`,curActs)+section(`Mese precedente · ${MESI_LONG[+prev.slice(5,7)-1]}`,prevActs)+section("Tutte le altre",restActs);
+  list.innerHTML=h || `<div class="empty">Nessuna attività.</div>`;
+  wireActivityRows(list);
+}
+function wireActivityRows(list){
+  list.querySelectorAll(".act-row[data-id]").forEach(r=>r.onclick=e=>{ if(e.target.closest(".rowbtn")) return; openActivity(r.dataset.id); });
+  list.querySelectorAll(".act-done").forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickSetStato(b.dataset.id,'svolta'); });
+  list.querySelectorAll(".act-cancel").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(confirm("Annullare questa attività?")) quickSetStato(b.dataset.id,'annullata'); });
+}
+function quickSetStato(id,stato){
+  const a=STATE.activities.find(x=>x.id===id); if(!a) return;
+  a.stato=stato;
+  if(stato==='svolta' && a.tariffa_oraria==null){
+    a.tariffa_oraria=Number(teacherById(a.teacher_id).tariffa_oraria)||0;
+    a.importo=(Number(a.ore)||0)*a.tariffa_oraria;
+  }
+  save(); renderAll(); cloudUpsertActivity(a);
+  toast(stato==='svolta'?"Attività confermata come svolta":"Attività annullata");
+}
+
+/* ============================ AGGIUNGI AL CALENDARIO (Outlook) ============================ */
+// Outlook Web non supporta un deeplink con più eventi insieme: si genera un link per attività,
+// l'utente li apre uno alla volta; login_hint precompila l'account giusto se serve un login.
+function toOutlookUTC(dateStr,hh,mm){
+  const [y,m,d]=(dateStr||"").split("-").map(Number);
+  if(!y) return "";
+  const dt=new Date(y,m-1,d,hh,mm,0,0); // orario locale del browser -> UTC in ISO
+  return dt.toISOString().replace(/\.\d{3}Z$/,"Z");
+}
+// l'attività ha solo la durata in ore, non un orario di inizio preciso: si parte dalle 9:00 di
+// default e si corregge in Outlook prima di salvare, se l'attività è in un altro orario
+function buildOutlookLink(a){
+  const t=teacherById(a.teacher_id);
+  const loc0=activityLocation(a);
+  const loc = loc0 && loc0!=='—' ? loc0 : '';
+  const subject = a.nome || [a.tipo, loc].filter(Boolean).join(' · ');
+  const bodyParts=[
+    'Tipologia: '+a.tipo,
+    a.area?('Area: '+a.area):null,
+    'Docente: '+(t?t.nome:''),
+    loc?('Sede: '+loc):null,
+    a.note?('Note: '+a.note):null
+  ].filter(Boolean);
+  const ore=Number(a.ore)||1;
+  const start=toOutlookUTC(a.data,9,0);
+  const end=toOutlookUTC(a.data,9+Math.floor(ore),Math.round((ore%1)*60));
+  const params=[
+    ['path','/calendar/action/compose'],
+    ['rru','addevent'],
+    ['subject',subject],
+    ['body',bodyParts.join(' | ')],
+    ['startdt',start],
+    ['enddt',end],
+    ['location',loc],
+    ['login_hint',CURRENT.email||''],
+    // niente prompt=login: forzando un login sempre, anche con una sessione Outlook già attiva nel
+    // browser (il caso comune per chi usa Outlook tutti i giorni), il redirect di login rompe la
+    // catena che riporta al pannello "Nuovo evento" precompilato e si atterra sulla mail. login_hint
+    // da solo basta a precompilare la schermata quando un login serve davvero.
+  ];
+  if(CURRENT.role==='docente' && t && t.email) params.push(['to',t.email]);
+  // "path" resta con gli slash non codificati (come nel deeplink Outlook di riferimento): solo un
+  // valore fisso e sicuro, non contenuto utente
+  const qs=params.filter(([,v])=>v!=='').map(([k,v])=> k==='path' ? `${k}=${v}` : `${k}=${encodeURIComponent(v)}`).join('&');
+  return 'https://outlook.office.com/calendar/deeplink/compose?'+qs;
+}
+// tutte le attività "programmata" da oggi in poi (visibili per il ruolo corrente): l'utente sceglie
+// quali caricare direttamente dentro la modale, non c'è più una selezione a monte nella lista
+function calEligibleActivities(){
+  const today=todayISO();
+  return visibleActivities().filter(a=>a.stato==='programmata' && (a.data||'')>=today).sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')));
+}
+function openCalModal(){
+  const acts=calEligibleActivities();
+  const box=document.getElementById("calLinksList");
+  if(!acts.length){
+    box.innerHTML=`<div class="empty">Nessuna attività "programmata" da oggi in poi.</div>`;
+  } else {
+    box.innerHTML=acts.map(a=>{
+      const titolo=a.nome || [a.tipo, activityLocation(a)].filter(Boolean).join(' · ');
+      if(a.cal_added_at){
+        return `<div class="cal-link-row added">
+          <span class="dt">${fmtD(a.data)}</span>
+          <span class="ty">${esc(titolo)}<span class="cal-added-note">Già aggiunta il ${fmtD(a.cal_added_at.slice(0,10))}</span></span>
+          <button class="cal-force" data-id="${a.id}">Forza comunque</button>
+        </div>`;
+      }
+      return `<a class="cal-link-row" href="${buildOutlookLink(a)}" target="_blank" rel="noopener" data-id="${a.id}">
+        <span class="dt">${fmtD(a.data)}</span>
+        <span class="ty">${esc(titolo)}</span>
+        <span class="go">Apri in Outlook ↗</span>
+      </a>`;
+    }).join('');
+  }
+  document.getElementById("calOverlay").classList.add("on");
+  box.querySelectorAll("a.cal-link-row[data-id]").forEach(el=>el.addEventListener("click",()=>markCalAdded(el.dataset.id),{once:true}));
+  box.querySelectorAll(".cal-force").forEach(btn=>btn.onclick=()=>{
+    const a=STATE.activities.find(x=>x.id===btn.dataset.id);
+    if(a) window.open(buildOutlookLink(a),'_blank','noopener');
+  });
+}
+function markCalAdded(id){
+  const a=STATE.activities.find(x=>x.id===id); if(!a) return;
+  a.cal_added_at=new Date().toISOString();
+  save(); cloudUpsertActivity(a);
+  openCalModal(); // ridisegna la modale: la riga appena aperta passa allo stato "già aggiunta"
+}
+
+function computeRiepStats(months){
+  const acts=riepActivities().filter(a=>months.includes((a.data||'').slice(0,7)));
+  const svolte=acts.filter(a=>a.stato==='svolta'), programmate=acts.filter(a=>a.stato==='programmata');
+  return {
+    svolte:svolte.length, ore:svolte.reduce((s,a)=>s+activityOre(a),0), importo:svolte.reduce((s,a)=>s+activityAmount(a),0),
+    programmate:programmate.length, importoProgrammate:programmate.reduce((s,a)=>s+activityAmount(a),0), annullate:acts.filter(a=>a.stato==='annullata').length
+  };
+}
+// aggrega le attività del mese per docente, separando programmata/svolta (le annullate non contano
+// qui: si vedono comunque nella lista attività del dettaglio docente sotto l'albero)
+function docenteBreakdownForMonth(monthYM){
+  const acts=riepActivities().filter(a=>(a.data||'').slice(0,7)===monthYM && a.stato!=='annullata');
+  const byTeacher={};
+  acts.forEach(a=>{
+    const t=teacherById(a.teacher_id);
+    if(!byTeacher[a.teacher_id]) byTeacher[a.teacher_id]={nome:t.nome, programmata:{n:0,ore:0,importo:0}, svolta:{n:0,ore:0,importo:0}};
+    const bucket=byTeacher[a.teacher_id][a.stato];
+    if(!bucket) return;
+    bucket.n++; bucket.ore+=activityOre(a); bucket.importo+=activityAmount(a);
+  });
+  return byTeacher;
+}
+function giornoLabel(n){ return n===1 ? '1 giorno' : `${n} giorni`; }
+function riepStatsHtml(prog,done){
+  return `<div class="riep-stats">
+    <div class="riep-stat prog"><span class="rl">Programmate</span><span class="rv">${giornoLabel(prog.n)} · ${prog.ore} ore · ${eur2(prog.importo)}</span></div>
+    <div class="riep-stat done"><span class="rl">Svolte</span><span class="rv">${giornoLabel(done.n)} · ${done.ore} ore · ${eur2(done.importo)}</span></div>
+  </div>`;
+}
+function renderMonthCard(monthYM,alertMsg,isCurrent){
+  const acts=riepActivities().filter(a=>(a.data||'').slice(0,7)===monthYM);
+  const svolte=acts.filter(a=>a.stato==='svolta'), programmate=acts.filter(a=>a.stato==='programmata'), annullate=acts.filter(a=>a.stato==='annullata');
+  const doneTot={n:svolte.length, ore:svolte.reduce((s,a)=>s+activityOre(a),0), importo:svolte.reduce((s,a)=>s+activityAmount(a),0)};
+  const progTot={n:programmate.length, ore:programmate.reduce((s,a)=>s+activityOre(a),0), importo:programmate.reduce((s,a)=>s+activityAmount(a),0)};
+  const [y,m]=monthYM.split('-').map(Number);
+  const teachers=docenteBreakdownForMonth(monthYM);
+  const teacherIds=Object.keys(teachers).sort((x,y2)=>(teachers[y2].svolta.importo+teachers[y2].programmata.importo)-(teachers[x].svolta.importo+teachers[x].programmata.importo));
+  const nodeId='m_'+monthYM;
+  return `<div class="node${isCurrent?' current-month':''}" data-node="${nodeId}">
+    <div class="node-row">
+      <span class="twisty">${TWISTY_ICON}</span>
+      <div><div class="node-title month-title">${MESI_LONG[m-1]} ${y}</div><div class="node-sub">${teacherIds.length} docent${teacherIds.length===1?'e':'i'} coinvolt${teacherIds.length===1?'o':'i'}</div></div>
+      <div class="node-meta">
+        ${alertMsg?`<span class="node-alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>${esc(alertMsg)}</span>`:''}
+        ${annullate.length?`<span class="badge rev">${annullate.length} annullata</span>`:''}
+        ${riepStatsHtml(progTot,doneTot)}
+      </div>
+    </div>
+    ${teacherIds.length?`<div class="node-children"><div class="node-children-inner">
+      ${teacherIds.map(tid=>{
+        const tr=teachers[tid];
+        return `<div class="docente-row" data-teacher="${tid}" data-month="${monthYM}">
+          <div class="docente-line">
+            <div class="node-title">${esc(tr.nome)}</div>
+            ${riepStatsHtml(tr.programmata,tr.svolta)}
+          </div>
+        </div>`;
+      }).join('')}
+    </div></div>`:''}
+  </div>`;
+}
+// dettaglio del docente selezionato nell'albero: tipologia con calcoli + attività singole (svolta/annulla
+// come nella tab Attività) per quel docente in quel mese
+let RIEP_SELECTED=null; // {teacherId, monthYM}
+function renderDocenteDetail(){
+  const el=document.getElementById("riepDocenteDetail");
+  if(!el) return;
+  if(!RIEP_SELECTED){ el.style.display="none"; el.innerHTML=""; return; }
+  const {teacherId,monthYM}=RIEP_SELECTED;
+  const t=teacherById(teacherId);
+  if(!t){ RIEP_SELECTED=null; el.style.display="none"; el.innerHTML=""; return; }
+  const [y,m]=monthYM.split('-').map(Number);
+  const acts=riepActivities().filter(a=>a.teacher_id===teacherId && (a.data||'').slice(0,7)===monthYM);
+  const svolte=acts.filter(a=>a.stato==='svolta');
+  const perT={};
+  svolte.forEach(a=>{ perT[a.tipo]=perT[a.tipo]||{n:0,ore:0,imp:0}; perT[a.tipo].n++; perT[a.tipo].ore+=activityOre(a); perT[a.tipo].imp+=activityAmount(a); });
+  let tipoHtml=`<thead><tr><th class="l">Tipologia</th><th>Attività</th><th>Ore</th><th>Importo</th></tr></thead><tbody>`;
+  TIPI.forEach(tp=>{ if(!perT[tp]) return; const r=perT[tp]; tipoHtml+=`<tr><td class="l">${tp}</td><td>${r.n}</td><td>${r.ore}</td><td><b>${eur2(r.imp)}</b></td></tr>`; });
+  if(!Object.keys(perT).length) tipoHtml+=`<tr><td colspan="4"><div class="empty">Nessuna attività svolta in questo mese.</div></td></tr>`;
+  tipoHtml+=`</tbody>`;
+  const rowsHtml = acts.length ? acts.slice().sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).map(a=>activityRowHtml(a)).join('') : `<div class="empty">Nessuna attività in questo mese.</div>`;
+  el.style.display="";
+  el.innerHTML=`
+    <div class="riep-detail-h">
+      <h3>${esc(t.nome)} · ${MESI_LONG[m-1]} ${y}</h3>
+      <button class="iconx" id="riepDetailClose" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="riep-detail-body">
+      <div class="card scroll" style="margin-bottom:14px"><table>${tipoHtml}</table></div>
+      <div class="card scroll"><div id="riepDetailActs"></div></div>
+    </div>`;
+  document.getElementById("riepDetailActs").innerHTML=rowsHtml;
+  wireActivityRows(document.getElementById("riepDetailActs"));
+  document.getElementById("riepDetailClose").onclick=()=>{ RIEP_SELECTED=null; renderRiepilogo(); };
+}
+function renderRiepilogo(){
+  const fy=STATE.riepFy;
+  const allMonths=fyMonthList(fy);
+  const selected=(STATE.riepMonths||[]).filter(m=>allMonths.includes(m));
+  const scope=selected.length?selected:allMonths;
+  const stats=computeRiepStats(scope);
+  document.getElementById("kpis").innerHTML=`
+    <div class="kpi" style="--bar:var(--accent)"><div class="l"><span class="sw" style="background:var(--speso)"></span><span class="eyebrow">Svolte</span></div><div class="v">${stats.svolte}</div><div class="sub">${stats.ore} ore</div></div>
+    <div class="kpi" style="--bar:var(--ink-mute)"><div class="l"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Importo svolto</span></div><div class="v">${eur(stats.importo)}</div><div class="sub">da rendicontare in RDA</div></div>
+    <div class="kpi" style="--bar:var(--warn)"><div class="l"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Programmate</span></div><div class="v">${stats.programmate}</div><div class="sub">${eur2(stats.importoProgrammate)} ancora da confermare</div></div>
+    <div class="kpi" style="--bar:var(--over)"><div class="l"><span class="sw" style="background:var(--over)"></span><span class="eyebrow">Annullate</span></div><div class="v">${stats.annullate}</div><div class="sub">nel periodo selezionato</div></div>`;
+
+  const box=document.getElementById("riepBlocks");
+  let html="";
+  if(!selected.length){
+    const cur=todayMonth();
+    if(allMonths.includes(cur)){
+      const daysLeft=daysLeftInMonth();
+      const curPendingCount=riepActivities().filter(a=>(a.data||'').slice(0,7)===cur && a.stato==='programmata').length;
+      const alertMsg = (daysLeft<=5 && curPendingCount>0) ? `⚠ Mancano ${daysLeft} giorn${daysLeft===1?'o':'i'} alla fine del mese: conferma le ${curPendingCount} attività ancora "programmata".` : "";
+      // il mese corrente si vede sempre, anche senza attività; successivi/precedenti solo se hanno
+      // almeno un'attività svolta/programmata (altrimenti l'elenco si riempie di mesi vuoti)
+      html+=`<h2 class="sec" style="margin-top:22px">Mese in corso</h2><div class="tree">${renderMonthCard(cur,alertMsg,true)}</div>`;
+      const prev=prevMonth(cur);
+      const futuri=allMonths.filter(m=>m>cur && monthHasActivity(m)).sort();
+      if(futuri.length){
+        html+=`<h2 class="sec" style="margin-top:26px">Mesi successivi</h2><div class="tree">`;
+        futuri.forEach(m=>{ html+=renderMonthCard(m); });
+        html+=`</div>`;
+      }
+      const passati=allMonths.filter(m=>m<cur && monthHasActivity(m)).sort().reverse();
+      if(passati.length){
+        html+=`<h2 class="sec" style="margin-top:26px">Mesi precedenti</h2><div class="tree">`;
+        passati.forEach(m=>{
+          const prevAlert = m===prev && riepActivities().some(a=>(a.data||'').slice(0,7)===prev && a.stato==='programmata') ? "Mese precedente, da confermare prima possibile." : "";
+          html+=renderMonthCard(m,prevAlert);
+        });
+        html+=`</div>`;
+      }
+    } else {
+      html+=`<h2 class="sec" style="margin-top:22px">Mesi</h2><div class="tree">`;
+      allMonths.slice().reverse().forEach(m=>{ html+=renderMonthCard(m); });
+      html+=`</div>`;
+    }
+  } else {
+    html+=`<h2 class="sec" style="margin-top:22px">Mesi selezionati</h2><div class="tree">`;
+    selected.slice().sort().reverse().forEach(m=>{ html+=renderMonthCard(m); });
+    html+=`</div>`;
+  }
+  box.innerHTML=html;
+  box.querySelectorAll(".node-row").forEach(row=>{ row.onclick=()=>row.parentElement.classList.toggle("open"); });
+  // il mese corrente parte già esploso sui docenti; gli altri mesi restano raggruppati/chiusi finché non si clicca
+  const curNode=box.querySelector('.node.current-month');
+  if(curNode) curNode.classList.add('open');
+  // click su un docente: mostra sotto l'albero la sua tipologia con calcoli e le singole attività
+  box.querySelectorAll(".docente-row").forEach(row=>{
+    row.onclick=()=>{
+      RIEP_SELECTED={teacherId:row.dataset.teacher, monthYM:row.dataset.month};
+      box.querySelectorAll(".docente-row.selected").forEach(r=>r.classList.remove("selected"));
+      row.classList.add("selected");
+      renderDocenteDetail();
+    };
+  });
+  if(RIEP_SELECTED){
+    const match=box.querySelector(`.docente-row[data-teacher="${RIEP_SELECTED.teacherId}"][data-month="${RIEP_SELECTED.monthYM}"]`);
+    if(match) match.classList.add("selected");
+  }
+  renderDocenteDetail();
+}
+function renderPreviewAs(){
+  const pv=document.getElementById("previewAs"); if(!pv) return;
+  pv.innerHTML=`<option value="">— Admin (vista completa) —</option>`+STATE.interfaces.map(i=>`<option value="${i.id}" ${STATE.previewAs===i.id?'selected':''}>${esc(i.nome)} · ${esc((i.aree||[]).join(', '))}</option>`).join("");
+}
+function renderAll(){ renderActivities(); renderRiepilogo(); renderChiusura(); save(); }
+
+/* ============================ SCUOLE (ricerca live, mai caricate per intero) ============================ */
+let _schoolSearchT=null;
+async function searchSchools(q, limit){
+  if(!cloudReady()) return [];
+  try{
+    let query=sb.from('bdg_schools').select('id,nome,citta,provincia,regione,tipo').limit(limit||30);
+    // ricerca per parole indipendente dall'ordine: ogni parola digitata deve comparire in almeno
+    // uno dei campi (nome/città/provincia/regione), non serve scrivere "Milano Liceo" nell'ordine esatto.
+    if(q&&q.trim()){
+      const terms=q.trim().split(/\s+/).filter(Boolean).map(t=>t.replace(/[,()%]/g,''));
+      terms.forEach(t=>{ if(t) query=query.or(`nome.ilike.%${t}%,citta.ilike.%${t}%,provincia.ilike.%${t}%,regione.ilike.%${t}%`); });
+    }
+    const {data,error}=await query.order('nome');
+    if(error) throw error;
+    (data||[]).forEach(s=>{ SCHOOL_CACHE[s.id]=s; });
+    return data||[];
+  }catch(e){ console.error(e); return []; }
+}
+async function fetchSchoolNames(ids){
+  if(!cloudReady()||!ids.length) return;
+  const missing=ids.filter(id=>!SCHOOL_CACHE[id]);
+  if(!missing.length) return;
+  try{
+    const {data,error}=await sb.from('bdg_schools').select('id,nome,citta,provincia,regione,tipo').in('id',missing);
+    if(error) throw error;
+    (data||[]).forEach(s=>{ SCHOOL_CACHE[s.id]=s; });
+  }catch(e){ console.error(e); }
+}
+function renderSchoolsTable(rows){
+  const hint=document.getElementById("schoolsHint");
+  if(!cloudReady()){ document.getElementById("schoolsTable").innerHTML=''; hint.textContent='Connettiti al cloud per cercare tra le scuole.'; return; }
+  hint.textContent = rows.length>=30 ? 'Prime 30 corrispondenze — affina la ricerca per restringere.' : `${rows.length} risultati.`;
+  let h=`<thead><tr><th class="l">Nome</th><th class="l">Città</th><th class="l">Provincia</th><th class="l">Regione</th><th class="l">Tipo</th></tr></thead><tbody>`;
+  if(!rows.length) h+=`<tr><td colspan="5"><div class="empty">Digita per cercare una scuola.</div></td></tr>`;
+  rows.forEach(s=>{ h+=`<tr><td class="l">${esc(s.nome)}</td><td class="l">${esc(s.citta)||'—'}</td><td class="l">${esc(s.provincia)||'—'}</td><td class="l">${esc(s.regione)||'—'}</td><td class="l">${esc(s.tipo)||'—'}</td></tr>`; });
+  h+=`</tbody>`; document.getElementById("schoolsTable").innerHTML=h;
+}
+document.getElementById("schoolSearch").addEventListener("input",e=>{
+  clearTimeout(_schoolSearchT); const q=e.target.value;
+  _schoolSearchT=setTimeout(async()=>{ const rows=await searchSchools(q,30); renderSchoolsTable(rows); },280);
+});
+
+/* autocomplete scuola nel form attività */
+let _acSearchT=null, _acItems=[];
+function closeAc(){ const el=document.getElementById("aScuolaAc"); el.classList.remove("on"); el.innerHTML=""; }
+document.getElementById("aScuolaSearch").addEventListener("input",e=>{
+  document.getElementById("aScuolaId").value="";
+  clearTimeout(_acSearchT); const q=e.target.value;
+  if(!q.trim()){ closeAc(); return; }
+  _acSearchT=setTimeout(async()=>{
+    _acItems=await searchSchools(q,15);
+    const el=document.getElementById("aScuolaAc");
+    if(!_acItems.length){ el.innerHTML=`<div class="ac-item mt">Nessuna scuola trovata${cloudReady()?'':' (serve il cloud)'}</div>`; el.classList.add("on"); return; }
+    el.innerHTML=_acItems.map(s=>`<div class="ac-item" data-id="${s.id}"><div class="nm">${esc(s.nome)}</div><div class="mt">${esc(s.citta)||''}${s.provincia?' · '+esc(s.provincia):''}</div></div>`).join("");
+    el.classList.add("on");
+    el.querySelectorAll(".ac-item[data-id]").forEach(it=>it.onclick=()=>{
+      const s=_acItems.find(x=>x.id===it.dataset.id);
+      document.getElementById("aScuolaSearch").value=s.nome;
+      document.getElementById("aScuolaId").value=s.id;
+      closeAc();
+    });
+  },250);
+});
+document.addEventListener("click",e=>{ if(!e.target.closest("#aScuolaField, #aScuolaSearch, #aScuolaAc")) closeAc(); });
+
+/* ============================ CHIUSURA MENSILE (admin) ============================ */
+// gruppo "chiuso" = nessuna data ancora "programmata" (tutte svolta o annullata): solo allora una
+// macro-attività "RDA solo a fine periodo" può entrare in RDA
+function groupClosed(gruppoId){
+  return STATE.activities.filter(a=>(a.gruppo_id||a.id)===gruppoId).every(a=>a.stato!=='programmata');
+}
+// mese di competenza di un gruppo = mese della data più recente (l'ultima attività), indipendentemente
+// dal suo esito individuale — è lì che la RDA "a fine periodo" viene generata
+function groupCompetenzaMonth(gruppoId){
+  const rows=STATE.activities.filter(a=>(a.gruppo_id||a.id)===gruppoId);
+  const maxData=rows.reduce((m,a)=>(a.data||'')>m?(a.data||''):m,'');
+  return maxData.slice(0,7);
+}
+function isEligibleForRda(a,month){
+  if(a.stato!=='svolta') return false;
+  const gid=a.gruppo_id||a.id;
+  if((a.rda_mode||'fine_periodo')==='per_mese') return (a.data||'').slice(0,7)===month;
+  if(!groupClosed(gid)) return false;
+  return groupCompetenzaMonth(gid)===month;
+}
+function activitiesForRda(teacherId, month){
+  return STATE.activities.filter(a=>a.teacher_id===teacherId && isEligibleForRda(a,month));
+}
+function distinctMonthsWithSvolta(){
+  const s=new Set(); STATE.activities.forEach(a=>{ if(a.stato==='svolta'){ const m=(a.data||'').slice(0,7); if(m) s.add(m); } });
+  return [...s].sort().reverse();
+}
+function distinctRdaMonths(){
+  const s=new Set(); STATE.rdas.forEach(r=>{ const m=(r.mese||'').slice(0,7); if(m) s.add(m); });
+  return [...s].sort().reverse();
+}
+function monthLabel(ym){ const [y,m]=ym.split('-').map(Number); return `${MESI_LONG[m-1]} ${y}`; }
+function fillSelectPreserving(el, optionsHtml, fallback){
+  const prev=el.value;
+  el.innerHTML=optionsHtml;
+  if(prev && [...el.options].some(o=>o.value===prev)) el.value=prev;
+  else if(fallback!=null && [...el.options].some(o=>o.value===fallback)) el.value=fallback;
+}
+function teacherOptionsHtml(includeAll){
+  return (includeAll?`<option value="ALL">Tutti i docenti</option>`:'')+STATE.teachers.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join("");
+}
+// attività "programmata" nel mese corrente o già passate: da confermare senza ulteriore attesa (stessa
+// definizione usata dal banner del docente in renderDueBanner()).
+function teachersPendingConfirmation(){
+  const cur=todayMonth();
+  const byT={};
+  STATE.activities.forEach(a=>{ if(a.stato==='programmata' && (a.data||'').slice(0,7)<=cur){ byT[a.teacher_id]=(byT[a.teacher_id]||0)+1; } });
+  return Object.keys(byT).map(tid=>({teacherId:tid, count:byT[tid]})).sort((a,b)=>teacherById(a.teacherId).nome.localeCompare(teacherById(b.teacherId).nome));
+}
+// il sollecito va all'interfaccia orientamento del docente (chi inserisce davvero le attività per lui),
+// non all'email di contatto del docente reale — quest'ultimo non ha accesso al tool.
+function sollecitaDocente(teacherId){
+  const t=teacherById(teacherId);
+  const iface=t.interface_id?interfaceById(t.interface_id):null;
+  if(!iface||!iface.email){ toast("Nessuna interfaccia orientamento (con email) collegata a questo docente (Admin → Docenti)"); return; }
+  const count=STATE.activities.filter(a=>a.teacher_id===teacherId && a.stato==='programmata').length;
+  const subject=encodeURIComponent("NABA · Attività da confermare");
+  const body=encodeURIComponent(`Ciao ${iface.nome},\n\nPer il docente ${t.nome} risultano ${count} attività ancora "programmata" nel tool Docenti: confermale come "svolta" (o "annullata" se non più valide) appena possibile, così possono entrare nella prossima chiusura mensile.\n\nGrazie,\nNABA`);
+  window.open(`mailto:${encodeURIComponent(iface.email)}?subject=${subject}&body=${body}`,'_blank');
+  t.last_solicited_at=new Date().toISOString();
+  save(); renderChOverview(); cloudUpsertTeacher(t);
+}
+function renderChOverview(){
+  const kpis=document.getElementById("chKpis");
+  const pronte=new Set();
+  STATE.activities.forEach(a=>{ if(a.stato==='svolta' && !a.rda_id){ pronte.add(a.teacher_id+'|'+(a.data||'').slice(0,7)); } });
+  const bozza=STATE.rdas.filter(r=>r.stato==='bozza').length;
+  const emesse=STATE.rdas.filter(r=>r.stato==='emessa').length;
+  const pending=teachersPendingConfirmation();
+  kpis.innerHTML=`
+    <div class="kpi"><div class="l"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Pronte per RDA</span></div><div class="v">${pronte.size}</div><div class="sub">gruppi docente/mese non ancora aggregati</div></div>
+    <div class="kpi"><div class="l"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">RDA da emettere</span></div><div class="v">${bozza}</div><div class="sub">proposte dal tool, in attesa di SAP</div></div>
+    <div class="kpi"><div class="l"><span class="sw" style="background:var(--residuo)"></span><span class="eyebrow">RDA emesse</span></div><div class="v">${emesse}</div><div class="sub">in SAP, in attesa di pagamento</div></div>
+    <div class="kpi"><div class="l"><span class="sw" style="background:var(--over)"></span><span class="eyebrow">Docenti da sollecitare</span></div><div class="v">${pending.length}</div><div class="sub">con attività "programmata" da confermare</div></div>`;
+
+  const box=document.getElementById("chReminders");
+  if(!pending.length){ box.innerHTML=''; return; }
+  box.innerHTML=`<h2 class="sec" style="margin-bottom:10px">Da sollecitare</h2>
+    <div class="card pad" style="display:flex;flex-direction:column;gap:8px">
+      ${pending.map(p=>{ const t=teacherById(p.teacherId); const iface=t.interface_id?interfaceById(t.interface_id):null; return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span style="flex:1;min-width:160px"><b>${esc(t.nome)}</b> <span class="hint">${p.count} attività ancora "programmata" · interfaccia ${esc(iface?iface.nome:'—')}</span></span>
+        ${t.last_solicited_at?`<span class="hint">Sollecito inviato il ${fmtD(t.last_solicited_at.slice(0,10))}</span>`:''}
+        <button class="btn ghost small ch-sollecita" data-id="${p.teacherId}" ${iface&&iface.email?'':'disabled title="Nessuna interfaccia con email collegata"'}>Sollecita via email</button>
+      </div>`; }).join("")}
+    </div>`;
+  box.querySelectorAll(".ch-sollecita").forEach(b=>b.onclick=()=>sollecitaDocente(b.dataset.id));
+}
+function renderChiusuraList(){
+  const box=document.getElementById("chiusuraList");
+  const month=document.getElementById("chMonth").value;
+  const teacherFilter=document.getElementById("chTeacherFilter").value;
+  if(!month){ box.innerHTML=`<div class="card pad"><div class="empty">Nessuna attività "svolta" registrata finora.</div></div>`; return; }
+  const teacherIds=new Set();
+  STATE.activities.forEach(a=>{ if(a.stato==='svolta' && (a.data||'').slice(0,7)===month) teacherIds.add(a.teacher_id); });
+  STATE.rdas.forEach(r=>{ if((r.mese||'').slice(0,7)===month) teacherIds.add(r.teacher_id); });
+  let ids=[...teacherIds]; if(teacherFilter!=='ALL') ids=ids.filter(id=>id===teacherFilter);
+  if(!ids.length){ box.innerHTML=`<div class="card pad"><div class="empty">Nessuna attività per ${monthLabel(month)}${teacherFilter!=='ALL'?' per questo docente':''}.</div></div>`; return; }
+  let h="";
+  ids.sort((a,b)=>teacherById(a).nome.localeCompare(teacherById(b).nome)).forEach(tid=>{
+    const t=teacherById(tid);
+    // "acts" può includere date di mesi diversi da quello in esame: un gruppo "fine periodo" chiuso
+    // porta TUTTE le sue date nel mese di competenza (l'ultima), non solo quella con data in questo mese
+    const acts=activitiesForRda(tid,month);
+    // righe con data in QUESTO mese ma non idonee qui (gruppo aperto, o competenza altrove) — mostrate
+    // come informazione grigia, non contano per l'importo/generazione RDA di questo mese
+    const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.stato==='svolta' && (a.data||'').slice(0,7)===month);
+    const pending=svolteThisMonth.filter(a=>!acts.includes(a));
+    const base=acts.reduce((s,a)=>s+activityAmount(a),0);
+    const mult=cassaMultiplier(t);
+    const tot=base*mult;
+    const existing=STATE.rdas.find(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month);
+    h+=`<div class="rda-card">
+      <div class="rda-h">
+        <div><div class="who">${esc(t.nome)}</div><div class="meta">${acts.length} attività svolta${pending.length?` · ${pending.length} in attesa di chiusura gruppo`:''} · ${eur2(t.tariffa_oraria)}/h${mult>1?` · <span style="color:var(--warn)">+4% cassa</span>`:''}</div></div>
+        ${existing?`<span class="badge ${rdaStatusInfo(existing).cls}">${rdaStatusInfo(existing).label}</span>`:''}
+        <span class="tot">${eur2(existing?existing.importo_totale:tot)}</span>
+      </div>
+      <div class="rda-body">
+        ${acts.map(a=>`<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px">
+          <span style="min-width:90px;color:var(--ink-mute)">${fmtD(a.data)}</span>
+          <span style="flex:1">${esc(a.nome || (a.tipo+' · '+activityLocation(a)))}</span>
+          ${paymentBadge(a)}
+          <span class="mono" style="font-weight:600">${eur2(activityAmount(a))}</span>
+        </div>`).join("")}
+        ${pending.map(a=>{
+          const gid=a.gruppo_id||a.id;
+          const note = groupClosed(gid) ? `Competenza: ${monthLabel(groupCompetenzaMonth(gid))}` : `In attesa: gruppo non ancora chiuso`;
+          return `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px;opacity:.55" title="RDA solo a fine periodo">
+            <span style="min-width:90px;color:var(--ink-mute)">${fmtD(a.data)}</span>
+            <span style="flex:1">${esc(a.nome || (a.tipo+' · '+activityLocation(a)))}</span>
+            <span class="hint" style="font-style:italic">${esc(note)}</span>
+            <span class="mono" style="font-weight:600">${eur2(activityAmount(a))}</span>
+          </div>`;
+        }).join("")}
+        ${mult>1?`<div style="display:flex;justify-content:flex-end;gap:10px;padding:8px 0 0;font-size:12.5px;color:var(--warn)">
+          <span>Importo prestazioni: ${eur2(base)} · + 4% cassa previdenziale: ${eur2(tot-base)} → <b>${eur2(tot)}</b> effettivi da versare</span>
+        </div>`:''}
+        <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
+          ${existing?`
+            ${existing.stato!=='pagata'
+              ? `<input type="text" class="rda-rif" data-id="${existing.id}" placeholder="Codice RDA (numero SAP)" value="${esc(existing.rif_rda||'')}" style="flex:1;min-width:140px;border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px">`
+              : `<span class="hint" style="flex:1">Codice RDA: <b>${esc(existing.rif_rda||'—')}</b></span>`}
+            ${(existing.stato!=='pagata' && existing.rif_rda) ? `<button class="btn small rda-pagato" data-id="${existing.id}">Segna come pagato</button>` : ''}
+            <button class="btn ghost small rda-regen" data-teacher="${tid}" data-month="${month}">Ricalcola totale</button>
+          `:`<button class="btn small rda-gen" data-teacher="${tid}" data-month="${month}" ${acts.length?'':'disabled'}>Genera RDA</button>
+          ${(!acts.length && pending.length) ? `<span class="hint">Attività non idonee qui: gruppo multi-data non chiuso, o di competenza di un altro mese.</span>` : ''}`}
+        </div>
+      </div>
+    </div>`;
+  });
+  box.innerHTML=h;
+  box.querySelectorAll(".rda-gen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month));
+  box.querySelectorAll(".rda-regen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month));
+  // il Codice RDA fa avanzare/retrocedere da solo lo stato bozza<->emessa (niente più selezione manuale);
+  // "pagata" si tocca solo col tasto dedicato, mai da qui
+  box.querySelectorAll(".rda-rif").forEach(i=>i.onchange=()=>{
+    const r=rdaById(i.dataset.id); if(!r) return;
+    const val=i.value.trim();
+    r.rif_rda=val;
+    if(r.stato!=='pagata') r.stato = val ? 'emessa' : 'bozza';
+    save(); renderChiusura(); cloudUpsertRda(r);
+  });
+  box.querySelectorAll(".rda-pagato").forEach(b=>b.onclick=()=>{
+    const r=rdaById(b.dataset.id); if(!r) return;
+    if(!confirm("Segnare questa RDA come pagata?")) return;
+    r.stato='pagata'; save(); renderChiusura(); cloudUpsertRda(r);
+  });
+}
+// stato derivato di una RDA: bozza+niente codice = in inserimento, codice inserito = "inserita"
+// (senza passaggio manuale, si passa da soli appena si salva il Codice RDA), pagata = terminale
+function rdaStatusInfo(r){
+  if(r.stato==='pagata') return {label:'RDA Pagato', cls:'ok'};
+  if(r.rif_rda) return {label:'RDA inserita', cls:'alloc'};
+  return {label:'RDA in inserimento', cls:'trace'};
+}
+function renderRdaHistory(){
+  const teacherF=document.getElementById("rdaHistTeacher").value;
+  const statoF=document.getElementById("rdaHistStato").value;
+  const monthF=document.getElementById("rdaHistMonth").value;
+  let rows=STATE.rdas.slice();
+  if(teacherF!=='ALL') rows=rows.filter(r=>r.teacher_id===teacherF);
+  if(statoF!=='ALL') rows=rows.filter(r=>r.stato===statoF);
+  if(monthF!=='ALL') rows=rows.filter(r=>(r.mese||'').slice(0,7)===monthF);
+  rows.sort((a,b)=>String(b.mese||'').localeCompare(String(a.mese||'')));
+  let h=`<thead><tr><th class="l">Mese</th><th class="l">Docente</th><th class="l">Stato</th><th>Importo</th><th class="l">Rif. RDA</th></tr></thead><tbody>`;
+  if(!rows.length) h+=`<tr><td colspan="5"><div class="empty">Nessuna RDA per i filtri selezionati.</div></td></tr>`;
+  rows.forEach(r=>{ h+=`<tr>
+    <td class="l">${monthLabel((r.mese||'').slice(0,7))}</td>
+    <td class="l">${esc(teacherById(r.teacher_id).nome)}</td>
+    <td class="l"><span class="badge ${rdaStatusInfo(r).cls}">${rdaStatusInfo(r).label}</span></td>
+    <td><b>${eur2(r.importo_totale)}</b></td>
+    <td class="l">${esc(r.rif_rda)||'—'}</td>
+  </tr>`; });
+  h+=`</tbody>`; document.getElementById("rdaHistTable").innerHTML=h;
+}
+function renderChiusura(){
+  if(CURRENT.role!=='admin'){ document.getElementById("chiusuraList").innerHTML=''; document.getElementById("chKpis").innerHTML=''; document.getElementById("chReminders").innerHTML=''; document.getElementById("rdaHistTable").innerHTML=''; return; }
+  renderChOverview();
+  const svMonths=distinctMonthsWithSvolta();
+  fillSelectPreserving(document.getElementById("chMonth"), svMonths.map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join("")||`<option value="">—</option>`, svMonths[0]);
+  fillSelectPreserving(document.getElementById("chTeacherFilter"), teacherOptionsHtml(true), 'ALL');
+  renderChiusuraList();
+  const rdaMonths=distinctRdaMonths();
+  fillSelectPreserving(document.getElementById("rdaHistTeacher"), teacherOptionsHtml(true), 'ALL');
+  fillSelectPreserving(document.getElementById("rdaHistMonth"), `<option value="ALL">Tutti i mesi</option>`+rdaMonths.map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join(""), 'ALL');
+  renderRdaHistory();
+}
+function generateRda(teacherId, month){
+  const acts=activitiesForRda(teacherId,month);
+  const tot=acts.reduce((s,a)=>s+activityAmount(a),0)*cassaMultiplier(teacherById(teacherId));
+  let r=STATE.rdas.find(x=>x.teacher_id===teacherId && (x.mese||'').slice(0,7)===month);
+  if(!r){ r={id:uuid(),teacher_id:teacherId,mese:month+'-01',stato:'bozza',rif_rda:'',importo_totale:tot,note:''}; STATE.rdas.push(r); }
+  else r.importo_totale=tot;
+  acts.forEach(a=>{ a.rda_id=r.id; });
+  save(); renderChiusura(); toast("RDA aggiornata: "+eur(tot));
+  cloudUpsertRda(r);
+  acts.forEach(a=>cloudUpsertActivity(a));
+}
+
+/* ============================ MODALI ATTIVITÀ ============================ */
+let editActId=null;
+// Workshop -> ricerca scuola da anagrafica CRM. Open Day/Test/NabaIncontra/NabaExperience -> sede
+// fissa (non è una scuola CRM, campo "luogo" separato). Webinar/Altro -> nessun luogo richiesto.
+function updateLuogoField(){
+  const tipo=document.getElementById("aTipo").value;
+  const wrap=document.getElementById("aLuogoField");
+  const searchEl=document.getElementById("aScuolaSearch");
+  const selectEl=document.getElementById("aLuogoSelect");
+  closeAc();
+  if(tipo==='Workshop'){
+    wrap.style.display=''; document.getElementById("aLuogoLabel").textContent='Scuola';
+    searchEl.style.display=''; selectEl.style.display='none';
+  } else if(tipo==='Open Day'||tipo==='Test'||tipo==='NabaIncontra'||tipo==='NabaExperience'){
+    wrap.style.display=''; document.getElementById("aLuogoLabel").textContent='Sede';
+    searchEl.style.display='none'; selectEl.style.display='';
+    if(!selectEl.options.length) selectEl.innerHTML=`<option value="">— seleziona —</option>`+CAMPUS_OPTIONS.map(c=>`<option>${c}</option>`).join("");
+  } else {
+    wrap.style.display='none';
+  }
+}
+// area disponibili per l'attività: quelle dell'interfaccia che sta compilando (se docente), altrimenti
+// quelle dell'interfaccia del docente selezionato (admin che inserisce per conto di qualcuno).
+function currentAreaOptions(){
+  let iface=null;
+  if(CURRENT.role==='docente') iface=interfaceById(CURRENT.interfaceId);
+  else{ const t=teacherById(document.getElementById("aTeacher").value); iface=t&&t.interface_id?interfaceById(t.interface_id):null; }
+  return iface?(iface.aree||[]):[];
+}
+function updateAreaField(){
+  const sel=document.getElementById("aArea");
+  const cur=sel.value;
+  const opts=currentAreaOptions();
+  sel.innerHTML = opts.length ? opts.map(a=>`<option ${a===cur?'selected':''}>${esc(a)}</option>`).join("") : `<option value="">— nessuna area collegata —</option>`;
+  if(!opts.includes(sel.value) && opts.length) sel.value=opts[0];
+}
+// ruolo e contributi del docente selezionato, per contesto immediato in modale (es. sapere se serve
+// applicare la cassa 4% senza dover andare a controllare in Admin → Docenti)
+function updateTeacherInfo(){
+  const box=document.getElementById("aTeacherInfo");
+  if(!box) return;
+  const t=teacherById(document.getElementById("aTeacher").value);
+  if(!t){ box.innerHTML=""; return; }
+  const parts=[];
+  if(t.ruolo && t.ruolo!=='Docente') parts.push(`Ruolo: <b>${esc(t.ruolo)}</b>`);
+  parts.push(`Contributi: <b>${esc(t.regime_fiscale||'—')}</b>`);
+  box.innerHTML=parts.join(' · ');
+}
+let editGroupId=null; // id di gruppo dell'attività macro in modifica (null = nuova)
+let aRows=[]; // date della macro-attività aperta nella modale: {rowId:id-esistente|null, data, ore}
+let aRdaMode='fine_periodo'; // 'fine_periodo' | 'per_mese' — vale per l'intera macro-attività (tutte le righe del gruppo)
+function newDateRow(data,ore,rowId){ return {rowId:rowId||null, data:data||todayISO(), ore:(ore==null?'':ore)}; }
+// il campo compare solo con più date (con una sola non ha senso: c'è un solo mese possibile)
+function renderRdaModeField(){
+  const field=document.getElementById("aRdaModeField");
+  field.style.display = aRows.length>1 ? "" : "none";
+  document.querySelectorAll("#aRdaModeChips .chip").forEach(c=>c.classList.toggle("on", c.dataset.mode===aRdaMode));
+  document.getElementById("aRdaModeHint").textContent = aRdaMode==='fine_periodo'
+    ? `La RDA si genera una sola volta, sul mese dell'ultima data, e solo quando tutte le date di questa attività sono state confermate come "svolta" o "annullata".`
+    : `Ogni data entra nella RDA del proprio mese, non appena confermata come "svolta" — come per le attività a data singola.`;
+}
+// una riga per data (Data/Ore/Importo, rimuovibile se ce n'è più di una) + riga Totale con
+// l'eventuale bonus Workshop; l'importo orario è unico per tutta la macro-attività (campo aRate)
+function renderDateRows(){
+  const wrap=document.getElementById("aDateRows");
+  wrap.innerHTML = aRows.map((r,i)=>`
+    <div class="date-row" data-i="${i}">
+      <div class="field"><label>Data <span class="req">*</span></label><input type="date" class="dr-data"></div>
+      <div class="field"><label>Ore <span class="req">*</span></label><input type="number" step="0.5" min="0" class="dr-ore"></div>
+      <div class="field"><label>Importo</label><input type="text" class="dr-imp" disabled></div>
+      ${aRows.length>1?`<button type="button" class="rowbtn dr-del" title="Rimuovi data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`:""}
+    </div>`).join("");
+  wrap.querySelectorAll(".date-row").forEach((row,i)=>{
+    const dEl=row.querySelector(".dr-data"), oEl=row.querySelector(".dr-ore"), delBtn=row.querySelector(".dr-del");
+    dEl.value=aRows[i].data; oEl.value=aRows[i].ore;
+    dEl.onchange=()=>{
+      const newVal=dEl.value;
+      if(newVal && aRows.some((r,j)=>j!==i && r.data===newVal)){
+        toast("Questa data è già presente in questa attività");
+        dEl.value=aRows[i].data;
+        return;
+      }
+      aRows[i].data=newVal;
+    };
+    oEl.oninput=()=>{ aRows[i].ore=oEl.value; refreshDateTotals(); };
+    if(delBtn) delBtn.onclick=()=>{ aRows.splice(i,1); renderDateRows(); };
+  });
+  refreshDateTotals();
+  renderRdaModeField();
+}
+function refreshDateTotals(){
+  const rate=parseFloat(document.getElementById("aRate").value)||0;
+  document.querySelectorAll("#aDateRows .date-row").forEach((row,i)=>{
+    const ore=parseFloat(aRows[i]&&aRows[i].ore)||0;
+    row.querySelector(".dr-imp").value = ore>0 ? `${eur2(ore*rate)} (${eur2(rate)}/h)` : "";
+  });
+  const totOre=aRows.reduce((s,r)=>s+(parseFloat(r.ore)||0),0);
+  const tipo=document.getElementById("aTipo").value;
+  const bonusOre = tipo==='Workshop' ? workshopBonusOre(totOre) : 0;
+  const bonusLine = bonusOre>0 ? `<div class="date-bonus">+ ${bonusOre} ${bonusOre===1?'ora bonus':'ore bonus'} (regola Workshop su ${totOre} ore totali)</div>` : "";
+  document.getElementById("aDateTotal").innerHTML = `${bonusLine}<div class="date-total-row"><span>Totale</span><span>${totOre+bonusOre} ore</span><span>${eur2((totOre+bonusOre)*rate)} (${eur2(rate)}/h)</span><span></span></div>`;
+  document.getElementById("aMap").innerHTML=`Categoria budget: <b>CONS. COMM. MKTG</b> (sempre, per le attività docenti). Entra come <b>programmata</b>: si conferma "svolta" singolarmente per ogni data dall'elenco Attività una volta avvenuta.`;
+}
+function openActivity(id){
+  editActId=id||null;
+  const a=id?STATE.activities.find(x=>x.id===id):null;
+  editGroupId = a ? (a.gruppo_id||a.id) : null;
+  document.getElementById("actTitle").textContent=id?"Modifica attività":"Nuova attività";
+  const tf=document.getElementById("aTeacherField");
+  const teacherSel=document.getElementById("aTeacher");
+  tf.style.display="";
+  if(CURRENT.role==="docente"){
+    const mine=teachersOfInterface(CURRENT.interfaceId);
+    teacherSel.innerHTML=mine.map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join("")+`<option value="__new__">+ Aggiungi nuovo docente…</option>`;
+    const self=mine.find(t=>t.nome===CURRENT.name);
+    teacherSel.value=a?a.teacher_id:(self?self.id:(mine[0]&&mine[0].id)||"");
+    teacherSel.dataset.last=teacherSel.value;
+  } else {
+    teacherSel.innerHTML=STATE.teachers.map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join("");
+    teacherSel.value=a?a.teacher_id:(myFilter()||(STATE.teachers[0]&&STATE.teachers[0].id));
+  }
+  document.getElementById("aTipo").value=a?a.tipo:"Workshop";
+  updateLuogoField();
+  document.getElementById("aScuolaSearch").value=a&&a.school_id?schoolLabel(a.school_id):"";
+  document.getElementById("aScuolaId").value=a?a.school_id||"":"";
+  document.getElementById("aLuogoSelect").value=a?a.luogo||"":"";
+  updateAreaField();
+  updateTeacherInfo();
+  if(a&&a.area) document.getElementById("aArea").value=a.area;
+  const t=teacherById(teacherSel.value);
+  document.getElementById("aRate").value = a&&a.tariffa_oraria!=null ? a.tariffa_oraria : (t?Number(t.tariffa_oraria)||0:0);
+  const groupRows = editGroupId ? STATE.activities.filter(x=>(x.gruppo_id||x.id)===editGroupId) : [];
+  aRows = groupRows.length
+    ? groupRows.slice().sort((x,y)=>String(x.data||'').localeCompare(String(y.data||''))).map(x=>newDateRow(x.data,x.ore,x.id))
+    : [newDateRow(todayISO(),'')];
+  aRdaMode = (groupRows[0] && groupRows[0].rda_mode) || 'fine_periodo';
+  renderDateRows();
+  document.getElementById("aNote").value=a?a.note||"":"";
+  document.getElementById("aDelete").style.display=id?"inline-flex":"none";
+  document.getElementById("actOverlay").classList.add("on");
+}
+function saveActivity(){
+  if(!aRows.length){ toast("Aggiungi almeno una data"); return; }
+  for(const r of aRows){
+    if(!r.data){ toast("Inserisci tutte le date"); return; }
+    const ore=parseFloat(r.ore);
+    if(isNaN(ore)||ore<=0){ toast("Inserisci le ore per ogni data"); return; }
+  }
+  const rate=parseFloat(document.getElementById("aRate").value);
+  if(isNaN(rate)||rate<0){ toast("Inserisci l'importo orario"); return; }
+  const teacherId=document.getElementById("aTeacher").value;
+  const area=document.getElementById("aArea").value||null;
+  const tipo=document.getElementById("aTipo").value;
+  const schoolId = tipo==='Workshop' ? (document.getElementById("aScuolaId").value||null) : null;
+  const luogo = (tipo==='Open Day'||tipo==='Test'||tipo==='NabaIncontra'||tipo==='NabaExperience') ? (document.getElementById("aLuogoSelect").value||null) : null;
+  const note = document.getElementById("aNote").value.trim();
+  const t=teacherById(teacherId);
+  const scuolaNome = schoolId ? (SCHOOL_CACHE[schoolId]?SCHOOL_CACHE[schoolId].nome:schoolId) : null;
+  const nome = [tipo, luogo||scuolaNome, area, t.nome].filter(Boolean).join(' · ');
+  const groupId = editGroupId || uuid();
+  const groupRowsBefore = editGroupId ? STATE.activities.filter(x=>(x.gruppo_id||x.id)===editGroupId) : [];
+  // date rimosse dalla modale rispetto a quelle già salvate per questo gruppo
+  const keptIds = new Set(aRows.filter(r=>r.rowId).map(r=>r.rowId));
+  groupRowsBefore.filter(x=>!keptIds.has(x.id)).forEach(x=>{ STATE.activities=STATE.activities.filter(y=>y.id!==x.id); cloudDeleteActivity(x.id); });
+  const touched=[];
+  aRows.forEach(r=>{
+    const ore=parseFloat(r.ore);
+    const base={ teacher_id:teacherId, school_id:schoolId, luogo, area, tipo, nome, data:r.data, ore, note, rda_mode:aRdaMode };
+    if(r.rowId){
+      const existing=STATE.activities.find(x=>x.id===r.rowId);
+      if(existing){
+        // congela la tariffa di una data già "svolta": non cambia se poi si modifica l'importo orario della macro-attività
+        const frozen = existing.stato==='svolta';
+        const rowRate = frozen && existing.tariffa_oraria!=null ? Number(existing.tariffa_oraria) : rate;
+        Object.assign(existing, base, { tariffa_oraria:rowRate, importo:ore*rowRate });
+        touched.push(existing);
+      }
+    } else {
+      const created=Object.assign({ id:uuid(), gruppo_id:groupId, stato:'programmata', rda_id:null, bonus_ore:null, bonus_importo:null, tariffa_oraria:rate, importo:ore*rate }, base);
+      STATE.activities.unshift(created); touched.push(created);
+    }
+  });
+  // bonus Workshop ricalcolato sul totale ore dell'intero gruppo (tutte le date, anche quelle non toccate
+  // in questo salvataggio), assegnato alla data più vecchia del gruppo
+  const groupNow = STATE.activities.filter(x=>(x.gruppo_id||x.id)===groupId);
+  const totOre = groupNow.reduce((s,x)=>s+(Number(x.ore)||0),0);
+  const bonusOre = tipo==='Workshop' ? workshopBonusOre(totOre) : 0;
+  groupNow.slice().sort((x,y)=>String(x.data||'').localeCompare(String(y.data||''))).forEach((x,i)=>{
+    const targetRate = x.tariffa_oraria!=null ? Number(x.tariffa_oraria) : rate;
+    const wantBonusOre = (i===0 && bonusOre>0) ? bonusOre : null;
+    const wantBonusImp = wantBonusOre!=null ? wantBonusOre*targetRate : null;
+    if(x.bonus_ore!==wantBonusOre || x.bonus_importo!==wantBonusImp){
+      x.bonus_ore=wantBonusOre; x.bonus_importo=wantBonusImp;
+      if(!touched.includes(x)) touched.push(x);
+    }
+  });
+  document.getElementById("actOverlay").classList.remove("on");
+  renderAll();
+  touched.forEach(x=>cloudUpsertActivity(x));
+  toast(editGroupId?"Attività aggiornata":"Attività aggiunta");
+}
+function deleteActivity(){
+  if(!editGroupId) return;
+  if(!confirm("Eliminare l'intera attività, comprese tutte le date collegate?")) return;
+  const ids = STATE.activities.filter(x=>(x.gruppo_id||x.id)===editGroupId).map(x=>x.id);
+  STATE.activities = STATE.activities.filter(x=>!ids.includes(x.id));
+  document.getElementById("actOverlay").classList.remove("on");
+  renderAll(); ids.forEach(id=>cloudDeleteActivity(id)); toast("Attività eliminata");
+}
+// aggiunta rapida di un docente dalla modale attività: solo per l'orientatore (CURRENT.role==='docente'),
+// che non ha accesso al pannello Admin — il docente creato è sempre collegato alla sua interfaccia
+function openNewTeacherModal(){
+  document.getElementById("ntNome").value="";
+  document.getElementById("ntEmail").value="";
+  document.getElementById("ntRate").value="50";
+  document.getElementById("ntRuolo").innerHTML=RUOLI.map(r=>`<option ${r==='Docente'?'selected':''}>${esc(r)}</option>`).join("");
+  document.getElementById("ntContributi").innerHTML=`<option value="">—</option>`+CONTRIBUTI.map(c=>`<option>${esc(c)}</option>`).join("");
+  document.getElementById("newTeacherOverlay").classList.add("on");
+}
+function closeNewTeacherModal(){
+  document.getElementById("newTeacherOverlay").classList.remove("on");
+  const sel=document.getElementById("aTeacher");
+  if(sel.value==='__new__'){ sel.value=sel.dataset.last||""; updateAreaField(); }
+}
+function saveNewTeacherQuick(){
+  const nome=(document.getElementById("ntNome").value||"").trim();
+  const email=(document.getElementById("ntEmail").value||"").trim().toLowerCase();
+  const rate=Number(document.getElementById("ntRate").value)||50;
+  const ruolo=document.getElementById("ntRuolo").value||'Docente';
+  const regime_fiscale=document.getElementById("ntContributi").value||null;
+  if(!nome){ toast("Inserisci nome e cognome"); return; }
+  const t={id:uuid(), nome, email, interface_id:CURRENT.interfaceId, ruolo, regime_fiscale, tariffa_oraria:rate, attivo:true};
+  STATE.teachers.push(t); save(); fillSelects();
+  document.getElementById("newTeacherOverlay").classList.remove("on");
+  const sel=document.getElementById("aTeacher");
+  const mine=teachersOfInterface(CURRENT.interfaceId);
+  sel.innerHTML=mine.map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join("")+`<option value="__new__">+ Aggiungi nuovo docente…</option>`;
+  sel.value=t.id; sel.dataset.last=t.id;
+  updateAreaField();
+  updateTeacherInfo();
+  cloudUpsertTeacher(t);
+  toast("Docente aggiunto");
+}
+
+/* ---- pannello Admin: docenti + utenti/ruoli + visibilità tab (condivise con budget/spese ec) ---- */
+const TOOL_TABS={
+  spese_ec:[["trasferte","Trasferte"],["riepilogo","Riepilogo"],["calendario","Calendario"],["impostazioni","Impostazioni"]],
+  budget:[["riepilogo","Riepilogo"],["calendario","Calendario"],["movimenti","Movimenti"],["budget","Budget annuale"],["finance","Finance"],["registro","Registro"]],
+  docenti:[["attivita","Attività"],["riepilogo","Riepilogo"],["scuole","Scuole"],["chiusura","Chiusura mensile"]]
+};
+function openAdmin(){
+  renderInterfacesTable(); renderTeachersTable(); renderUsersTable(); renderTabVisTable(); renderPreviewAs();
+  const nr=document.getElementById("newTeacherRuolo"); if(nr) nr.innerHTML=RUOLI.map(r=>`<option ${r==='Docente'?'selected':''}>${esc(r)}</option>`).join("");
+  const nc=document.getElementById("newTeacherContributi"); if(nc) nc.innerHTML=`<option value="">—</option>`+CONTRIBUTI.map(c=>`<option>${esc(c)}</option>`).join("");
+  document.querySelectorAll("#adminTabs button").forEach(b=>b.classList.remove("on"));
+  document.querySelectorAll(".admin-sec").forEach(s=>s.classList.remove("on"));
+  document.querySelector('#adminTabs button[data-sec="interfacce"]').classList.add("on");
+  document.querySelector('.admin-sec[data-sec="interfacce"]').classList.add("on");
+  document.getElementById("adminOverlay").classList.add("on");
+}
+function interfaceSelectHtml(cls,id,current){
+  return `<select class="${cls}" data-id="${id}">
+    <option value="">— nessuna —</option>
+    ${STATE.interfaces.map(i=>`<option value="${i.id}" ${i.id===current?'selected':''}>${esc(i.nome)}</option>`).join("")}
+  </select>`;
+}
+function renderInterfacesTable(){
+  let h=`<thead><tr><th class="l">Nome</th><th class="l">Email (login)</th><th class="l">Aree</th><th>Attivo</th><th></th></tr></thead><tbody>`;
+  if(!STATE.interfaces.length) h+=`<tr><td colspan="5"><div class="empty">Nessuna interfaccia.</div></td></tr>`;
+  STATE.interfaces.forEach(i=>{ h+=`<tr>
+    <td class="l">${esc(i.nome)}</td>
+    <td class="l"><input type="email" class="i-email" data-id="${i.id}" value="${esc(i.email||'')}" placeholder="email di login" style="border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;width:100%"></td>
+    <td class="l"><input type="text" class="i-aree" data-id="${i.id}" value="${esc((i.aree||[]).join(', '))}" placeholder="Area1, Area2" style="border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;width:100%"></td>
+    <td><input type="checkbox" class="i-attivo" data-id="${i.id}" ${i.attivo!==false?'checked':''}></td>
+    <td><button class="rowbtn i-del" data-id="${i.id}" title="Rimuovi">✕</button></td>
+  </tr>`; });
+  h+=`</tbody>`; document.getElementById("interfacesTable").innerHTML=h;
+  document.querySelectorAll(".i-email").forEach(inp=>inp.onchange=()=>{ const i=interfaceById(inp.dataset.id); if(!i)return; i.email=inp.value.trim(); save(); cloudUpsertInterface(i); });
+  document.querySelectorAll(".i-aree").forEach(inp=>inp.onchange=()=>{ const i=interfaceById(inp.dataset.id); if(!i)return; i.aree=inp.value.split(',').map(s=>s.trim()).filter(Boolean); save(); renderAll(); cloudUpsertInterface(i); });
+  document.querySelectorAll(".i-attivo").forEach(c=>c.onchange=()=>{ const i=interfaceById(c.dataset.id); if(!i)return; i.attivo=c.checked; save(); cloudUpsertInterface(i); });
+  document.querySelectorAll(".i-del").forEach(b=>b.onclick=()=>{ if(!confirm("Rimuovere l'interfaccia? (i docenti collegati restano, ma senza nessuno che inserisca per loro)"))return; STATE.interfaces=STATE.interfaces.filter(x=>x.id!==b.dataset.id); save(); fillSelects(); renderInterfacesTable(); renderTeachersTable(); renderAll(); });
+}
+function renderTeachersTable(){
+  let h=`<thead><tr><th class="l">Nome</th><th class="l">Email</th><th class="l">Interfaccia (chi inserisce)</th><th class="l">Ruolo</th><th class="l">Contributi</th><th>Tariffa €/h</th><th>Attivo</th><th></th></tr></thead><tbody>`;
+  if(!STATE.teachers.length) h+=`<tr><td colspan="8"><div class="empty">Nessun docente.</div></td></tr>`;
+  STATE.teachers.forEach(t=>{ h+=`<tr>
+    <td class="l">${esc(t.nome)}</td>
+    <td class="l"><input type="email" class="t-email" data-id="${t.id}" value="${esc(t.email||'')}" placeholder="email (contatto)" style="border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;width:100%"></td>
+    <td class="l">${interfaceSelectHtml('t-iface',t.id,t.interface_id)}</td>
+    <td class="l">${fixedSelectHtml('t-ruolo',t.id,RUOLI,t.ruolo)}</td>
+    <td class="l">${fixedSelectHtml('t-contributi',t.id,CONTRIBUTI,t.regime_fiscale)}</td>
+    <td><input type="number" class="t-rate" data-id="${t.id}" value="${t.tariffa_oraria}" style="width:70px;border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;text-align:right"></td>
+    <td><input type="checkbox" class="t-attivo" data-id="${t.id}" ${t.attivo!==false?'checked':''}></td>
+    <td><button class="rowbtn t-del" data-id="${t.id}" title="Rimuovi">✕</button></td>
+  </tr>`; });
+  h+=`</tbody>`; document.getElementById("teachersTable").innerHTML=h;
+  document.querySelectorAll(".t-email").forEach(i=>i.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===i.dataset.id); if(!t)return; t.email=i.value.trim(); save(); cloudUpsertTeacher(t); });
+  document.querySelectorAll(".t-iface").forEach(s=>s.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===s.dataset.id); if(!t)return; t.interface_id=s.value||null; save(); renderAll(); cloudUpsertTeacher(t); });
+  document.querySelectorAll(".t-ruolo").forEach(s=>s.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===s.dataset.id); if(!t)return; t.ruolo=s.value||null; save(); cloudUpsertTeacher(t); });
+  document.querySelectorAll(".t-contributi").forEach(s=>s.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===s.dataset.id); if(!t)return; t.regime_fiscale=s.value||null; save(); cloudUpsertTeacher(t); });
+  document.querySelectorAll(".t-rate").forEach(i=>i.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===i.dataset.id); if(!t)return; t.tariffa_oraria=Number(i.value)||0; save(); renderAll(); cloudUpsertTeacher(t); });
+  document.querySelectorAll(".t-attivo").forEach(c=>c.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===c.dataset.id); if(!t)return; t.attivo=c.checked; save(); cloudUpsertTeacher(t); });
+  document.querySelectorAll(".t-del").forEach(b=>b.onclick=()=>{ if(!confirm("Rimuovere il docente? (le attività collegate restano)"))return; STATE.teachers=STATE.teachers.filter(x=>x.id!==b.dataset.id); save(); fillSelects(); renderTeachersTable(); renderAll(); });
+}
+function renderUsersTable(){
+  const rows=Object.entries(STATE.appUsers||{});
+  let h=`<thead><tr><th class="l">Email</th><th class="l">Ruolo</th><th>Attivo</th><th></th></tr></thead><tbody>`;
+  if(!rows.length) h+=`<tr><td colspan="4"><div class="empty">Nessun utente configurato.</div></td></tr>`;
+  rows.forEach(([email,u])=>{ h+=`<tr>
+    <td class="l">${esc(email)}</td>
+    <td class="l"><select class="uRole" data-email="${esc(email)}">
+      <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+      <option value="orientatore" ${u.role==='orientatore'?'selected':''}>Orientatore</option>
+      <option value="docente" ${u.role==='docente'?'selected':''}>Docente</option>
+    </select></td>
+    <td><input type="checkbox" class="uAttivo" data-email="${esc(email)}" ${u.attivo!==false?'checked':''}></td>
+    <td><button class="rowbtn uDel" data-email="${esc(email)}" title="Rimuovi">✕</button></td>
+  </tr>`; });
+  h+=`</tbody>`; document.getElementById("usersTable").innerHTML=h;
+  document.querySelectorAll(".uRole").forEach(s=>s.onchange=()=>{ const email=s.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.role=s.value; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
+  document.querySelectorAll(".uAttivo").forEach(c=>c.onchange=()=>{ const email=c.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.attivo=c.checked; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
+  document.querySelectorAll(".uDel").forEach(b=>b.onclick=async()=>{ const email=b.dataset.email; if(!confirm(`Rimuovere l'utente ${email}?`))return; delete STATE.appUsers[email]; save(); renderUsersTable(); applyRole(); if(cloudReady()){ const {error}=await sb.from('bdg_app_users').delete().eq('email',email); error?console.error(error):flashSynced(); } });
+}
+function renderTabVisTable(){
+  let h=`<thead><tr><th class="l">Strumento</th><th class="l">Sezione</th><th>Admin</th><th>Orientatore</th><th>Docente</th></tr></thead><tbody>`;
+  Object.keys(TOOL_TABS).forEach(tool=>{
+    TOOL_TABS[tool].forEach(([key,label])=>{
+      const get=role=>{ const cfg=STATE.tabVisibility[tool]&&STATE.tabVisibility[tool][key]; return cfg&&Object.prototype.hasOwnProperty.call(cfg,role)?!!cfg[role]:false; };
+      const toolLabel=tool==='budget'?'Gestione Budget':tool==='spese_ec'?'Spese EC':'Docenti';
+      h+=`<tr>
+        <td class="l">${toolLabel}</td>
+        <td class="l">${esc(label)}</td>
+        <td><input type="checkbox" checked disabled title="Admin vede sempre tutto"></td>
+        <td><input type="checkbox" class="tvChk" data-tool="${tool}" data-tab="${key}" data-role="orientatore" ${get('orientatore')?'checked':''}></td>
+        <td><input type="checkbox" class="tvChk" data-tool="${tool}" data-tab="${key}" data-role="docente" ${get('docente')?'checked':''}></td>
+      </tr>`;
+    });
+  });
+  h+=`</tbody>`; document.getElementById("tabVisTable").innerHTML=h;
+  document.querySelectorAll(".tvChk").forEach(c=>c.onchange=()=>{
+    const tool=c.dataset.tool,tab=c.dataset.tab,role=c.dataset.role,visible=c.checked;
+    if(!STATE.tabVisibility[tool])STATE.tabVisibility[tool]={};
+    if(!STATE.tabVisibility[tool][tab])STATE.tabVisibility[tool][tab]={};
+    STATE.tabVisibility[tool][tab][role]=visible;
+    save(); applyRole(); cloudSetTabVisible(tool,tab,role,visible);
+  });
+}
+
+/* ============================ CLOUD (Supabase) ============================ */
+const CLOUD_DEFAULT={url:"https://pwxlbjewlwpwfqhohtdw.supabase.co",anonKey:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3eGxiamV3bHdwd2ZxaG9odGR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2MzU5MDQsImV4cCI6MjEwMDIxMTkwNH0.g_HGiBbBODZwcrZBOoU0O1obgIGk18PE9kIOZRjxc7g"};
+let sb=null, cloudSession=null, rtChannel=null, _rtSelfUntil=0, _rtT=null;
+function cloudCfg(){ try{ const s=JSON.parse(localStorage.getItem("naba_cloud_cfg")||"null"); if(s&&s.url&&s.anonKey) return s; }catch(e){} return (CLOUD_DEFAULT.url&&CLOUD_DEFAULT.anonKey)?CLOUD_DEFAULT:null; }
+function cloudReady(){ return !!(sb&&cloudSession); }
+function cloudUser(){ return (cloudSession&&cloudSession.user&&cloudSession.user.email)||null; }
+function cloudSetDot(s){ const d=document.getElementById("cloudDot"),l=document.getElementById("cloudLbl"); if(!d)return; d.className="cloud-dot "+s; l.textContent=s==='on'?'Sincronizzato':s==='sync'?'Sync…':s==='err'?'Errore':'Cloud'; }
+function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clearTimeout(flashSynced._t); flashSynced._t=setTimeout(()=>{ if(cloudReady())cloudSetDot('on'); },600); }
+function interfaceRow(i){ return {id:i.id,nome:i.nome,email:i.email||null,aree:i.aree||[],attivo:i.attivo!==false}; }
+function teacherRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,interface_id:t.interface_id||null,ruolo:t.ruolo||null,regime_fiscale:t.regime_fiscale||null,tariffa_oraria:Number(t.tariffa_oraria)||0,attivo:t.attivo!==false,last_solicited_at:t.last_solicited_at||null}; }
+function activityRow(a){ return {id:a.id,teacher_id:a.teacher_id,school_id:a.school_id||null,luogo:a.luogo||null,area:a.area||null,nome:a.nome||null,tipo:a.tipo,data:a.data,ore:Number(a.ore)||0,tariffa_oraria:a.tariffa_oraria==null?null:Number(a.tariffa_oraria),importo:a.importo==null?null:Number(a.importo),stato:a.stato||'programmata',rda_id:a.rda_id||null,note:a.note||null,gruppo_id:a.gruppo_id||null,bonus_ore:a.bonus_ore==null?null:Number(a.bonus_ore),bonus_importo:a.bonus_importo==null?null:Number(a.bonus_importo),cal_added_at:a.cal_added_at||null,rda_mode:a.rda_mode||'fine_periodo'}; }
+function rdaRow(r){ return {id:r.id,teacher_id:r.teacher_id,mese:r.mese,stato:r.stato||'bozza',rif_rda:r.rif_rda||null,importo_totale:Number(r.importo_totale)||0,note:r.note||null}; }
+
+async function cloudInit(){ const cfg=cloudCfg(); if(!cfg||!window.supabase){ cloudSetDot('off'); return; } try{ sb=window.supabase.createClient(cfg.url,cfg.anonKey); const {data}=await sb.auth.getSession(); cloudSession=data.session||null; if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else cloudSetDot('off'); }catch(e){ console.error(e); cloudSetDot('err'); } }
+async function cloudLogin(email,pw){ if(!sb){ toast("Configura prima il progetto"); return; } if(!email||!pw){ toast("Inserisci email e password"); return; } const {data,error}=await sb.auth.signInWithPassword({email,password:pw}); if(error){ toast("Accesso fallito: "+error.message); cloudSetDot('err'); return; } cloudSession=data.session; forceLogin=false; cloudSetDot('on'); toast("Connesso"); renderCloudModal(); await cloudPullAll(false); }
+async function cloudLogout(){ if(sb) await sb.auth.signOut(); cloudSession=null; if(rtChannel&&sb){try{sb.removeChannel(rtChannel);}catch(e){}} rtChannel=null; cloudSetDot('off'); renderCloudModal(); gate(); toast("Disconnesso"); }
+async function cloudPullAll(silent){
+  if(!cloudReady()) return; cloudSetDot('sync');
+  try{
+    const {data:ifc,error:e0}=await sb.from('bdg_orientamento_interfaces').select('*'); if(e0) throw e0;
+    const {data:tc,error:e1}=await sb.from('bdg_teachers').select('*'); if(e1) throw e1;
+    const {data:ac,error:e2}=await sb.from('bdg_teacher_activities').select('*'); if(e2) throw e2;
+    const {data:rd,error:e3}=await sb.from('bdg_teacher_rda').select('*'); if(e3) throw e3;
+    STATE.interfaces=(ifc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",aree:x.aree||[],attivo:x.attivo!==false}));
+    STATE.teachers=(tc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",interface_id:x.interface_id||null,ruolo:x.ruolo||"",regime_fiscale:x.regime_fiscale||"",tariffa_oraria:Number(x.tariffa_oraria)||50,attivo:x.attivo!==false,last_solicited_at:x.last_solicited_at||null}));
+    STATE.activities=(ac||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,school_id:x.school_id||null,luogo:x.luogo||null,area:x.area||null,nome:x.nome||"",tipo:x.tipo,data:x.data,ore:Number(x.ore)||0,tariffa_oraria:x.tariffa_oraria==null?null:Number(x.tariffa_oraria),importo:x.importo==null?null:Number(x.importo),stato:x.stato||'programmata',rda_id:x.rda_id||null,note:x.note||"",gruppo_id:x.gruppo_id||null,bonus_ore:x.bonus_ore==null?null:Number(x.bonus_ore),bonus_importo:x.bonus_importo==null?null:Number(x.bonus_importo),cal_added_at:x.cal_added_at||null,rda_mode:x.rda_mode||'fine_periodo'}));
+    STATE.rdas=(rd||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,mese:x.mese,stato:x.stato||'bozza',rif_rda:x.rif_rda||"",importo_totale:Number(x.importo_totale)||0,note:x.note||""}));
+    await cloudFetchRoles();
+    await fetchSchoolNames([...new Set(STATE.activities.map(a=>a.school_id).filter(Boolean))]);
+    save(); fillSelects(); renderAll(); gate(); cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud"); cloudRealtimeSubscribe();
+  }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore sync: "+(e.message||e)); }
+}
+async function cloudFetchRoles(){
+  if(!cloudReady()) return;
+  try{
+    const {data:au,error:eu}=await sb.from('bdg_app_users').select('*'); if(eu) throw eu;
+    const {data:tvz,error:et}=await sb.from('bdg_tab_visibility').select('*'); if(et) throw et;
+    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false}; });
+    const vis={}; (tvz||[]).forEach(r=>{ if(!vis[r.tool])vis[r.tool]={}; if(!vis[r.tool][r.tab_key])vis[r.tool][r.tab_key]={}; vis[r.tool][r.tab_key][r.role]=!!r.visible; });
+    STATE.appUsers=users; STATE.tabVisibility=vis;
+  }catch(e){ console.error('roles fetch',e); }
+}
+function cloudUpsertAppUser(email,role,attivo){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_app_users').upsert({email:String(email||'').toLowerCase(),role,attivo:attivo!==false}).then(({error})=>{ error?console.error(error):flashSynced(); return {error}; }); }
+function cloudSetTabVisible(tool,tabKey,role,visible){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_tab_visibility').upsert({tool,tab_key:tabKey,role,visible}).then(({error})=>{ error?console.error(error):flashSynced(); return {error}; }); }
+function cloudUpsertInterface(i){ if(!cloudReady())return; sb.from('bdg_orientamento_interfaces').upsert(interfaceRow(i)).then(({error})=>{ error?console.error(error):flashSynced(); }); }
+function cloudUpsertTeacher(t){ if(!cloudReady())return; sb.from('bdg_teachers').upsert(teacherRow(t)).then(({error})=>{ error?console.error(error):flashSynced(); }); }
+function cloudUpsertActivity(a){ if(!cloudReady())return; sb.from('bdg_teacher_activities').upsert(activityRow(a)).then(({error})=>{ error?console.error(error):flashSynced(); }); }
+function cloudDeleteActivity(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_teacher_activities').delete().eq('id',id).then(({error})=>{ error?console.error(error):flashSynced(); }); }
+function cloudUpsertRda(r){ if(!cloudReady())return; sb.from('bdg_teacher_rda').upsert(rdaRow(r)).then(({error})=>{ error?console.error(error):flashSynced(); }); }
+function cloudRealtimeSubscribe(){ if(!cloudReady()||!sb.channel)return; try{ if(rtChannel){sb.removeChannel(rtChannel);rtChannel=null;} }catch(e){} try{ rtChannel=sb.channel('docenti-rt').on('postgres_changes',{event:'*',schema:'public',table:'bdg_teacher_activities'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_teacher_rda'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_teachers'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_orientamento_interfaces'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_app_users'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_tab_visibility'},remoteRefresh).subscribe(); }catch(e){ console.error(e); } }
+function remoteRefresh(){ clearTimeout(_rtT); _rtT=setTimeout(()=>{ if(Date.now()<_rtSelfUntil)return; const busy=document.getElementById('actOverlay').classList.contains('on')||document.getElementById('cloudOverlay').classList.contains('on'); if(busy){ remoteRefresh(); return; } cloudPullAll(true).then(()=>toast("Dati aggiornati")); },1200); }
+function renderCloudModal(){
+  const cfg=cloudCfg(),logged=cloudReady(),configured=!!cfg;
+  if(cfg){ document.getElementById("cfgUrl").value=cfg.url; document.getElementById("cfgKey").value=cfg.anonKey; }
+  document.getElementById("cloudState").innerHTML=`<span class="badge ${logged?'ok':'speso'}">${logged?'Connesso':(configured?'Non connesso':'Da configurare')}</span> <span style="font-size:13px">${logged?('Utente '+(cloudUser()||'')):(configured?'Configurato, accedi':'Inserisci URL e anon key')}${window.supabase?'':' · libreria non caricata (offline?)'}</span>`;
+  document.getElementById("cloudLoginBox").style.display=(configured&&!logged)?'block':'none';
+  document.getElementById("cloudActions").style.display=logged?'block':'none';
+}
+
+/* ============================ WIRING + BOOT ============================ */
+function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),2200); }
+document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on")); document.getElementById("panel-"+b.dataset.tab).classList.add("on"); if(b.dataset.tab==='chiusura') renderChiusura(); if(b.dataset.tab==='scuole') renderSchoolsTable([]); });
+document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); };
+document.getElementById("riepFySel").onchange=e=>{ STATE.riepFy=+e.target.value; STATE.riepMonths=[]; save(); renderRiepMonthChips(); renderRiepilogo(); };
+document.getElementById("riepFiltersToggle").onclick=()=>{
+  riepFiltersToggled=true;
+  const panel=document.getElementById("riepFiltersPanel");
+  const open=panel.style.display==="none";
+  panel.style.display = open ? "" : "none";
+  document.getElementById("riepFiltersToggle").classList.toggle("open", open);
+};
+document.getElementById("chMonth").onchange=renderChiusuraList;
+document.getElementById("chTeacherFilter").onchange=renderChiusuraList;
+document.getElementById("rdaHistTeacher").onchange=renderRdaHistory;
+document.getElementById("rdaHistStato").onchange=renderRdaHistory;
+document.getElementById("rdaHistMonth").onchange=renderRdaHistory;
+document.getElementById("btnNewAct").onclick=()=>openActivity(null);
+document.getElementById("btnCalAdd").onclick=openCalModal;
+document.getElementById("calClose").onclick=()=>document.getElementById("calOverlay").classList.remove("on");
+document.getElementById("calDone").onclick=()=>document.getElementById("calOverlay").classList.remove("on");
+document.getElementById("actClose").onclick=()=>document.getElementById("actOverlay").classList.remove("on");
+document.getElementById("aCancel").onclick=()=>document.getElementById("actOverlay").classList.remove("on");
+document.getElementById("aSave").onclick=saveActivity;
+document.getElementById("aDelete").onclick=deleteActivity;
+document.getElementById("aTipo").addEventListener("change",()=>{ updateLuogoField(); refreshDateTotals(); });
+document.getElementById("aTeacher").addEventListener("change",()=>{
+  const sel=document.getElementById("aTeacher");
+  if(sel.value==='__new__'){ openNewTeacherModal(); return; }
+  sel.dataset.last=sel.value;
+  updateAreaField();
+  updateTeacherInfo();
+});
+document.getElementById("aRate").addEventListener("input",refreshDateTotals);
+document.getElementById("aAddDate").addEventListener("click",()=>{
+  const lastData = aRows.length ? aRows[aRows.length-1].data : null;
+  let nextData = lastData ? addDaysISO(lastData,1) : todayISO();
+  while(aRows.some(r=>r.data===nextData)) nextData=addDaysISO(nextData,1); // salta eventuali date già presenti
+  aRows.push(newDateRow(nextData,''));
+  renderDateRows();
+});
+document.querySelectorAll("#aRdaModeChips .chip").forEach(c=>c.onclick=()=>{ aRdaMode=c.dataset.mode; renderRdaModeField(); });
+document.getElementById("previewAs").addEventListener("change",e=>{ STATE.previewAs=e.target.value||null; save(); applyRole(); renderAll(); });
+document.getElementById("demoBtn").onclick=()=>{ STATE.localIdentity=document.getElementById("demoSel").value; forceLogin=false; save(); gate(); };
+document.getElementById("toCloudLogin").onclick=()=>{ document.getElementById("loginScreen").style.display="none"; renderCloudModal(); document.getElementById("cloudOverlay").classList.add("on"); };
+document.getElementById("btnLogout").onclick=()=>{ STATE.localIdentity=null; STATE.previewAs=null; forceLogin=true; save(); gate(); };
+document.getElementById("btnCloud").onclick=()=>{ renderCloudModal(); document.getElementById("cloudOverlay").classList.add("on"); };
+document.getElementById("cloudClose").onclick=()=>document.getElementById("cloudOverlay").classList.remove("on");
+document.getElementById("cloudOverlay").onclick=e=>{ if(e.target.id==="cloudOverlay") e.currentTarget.classList.remove("on"); };
+document.getElementById("cfgSave").onclick=()=>{ const url=document.getElementById("cfgUrl").value.trim(),key=document.getElementById("cfgKey").value.trim(); if(!url||!key){toast("Inserisci URL e anon key");return;} localStorage.setItem("naba_cloud_cfg",JSON.stringify({url,anonKey:key})); toast("Configurazione salvata"); cloudInit().then(renderCloudModal); };
+document.getElementById("cloudLoginBtn").onclick=()=>cloudLogin(document.getElementById("cloudEmail").value,document.getElementById("cloudPw").value);
+document.getElementById("cloudLogout").onclick=cloudLogout;
+document.getElementById("cloudPull").onclick=()=>cloudPullAll(false);
+document.getElementById("btnAdmin").onclick=openAdmin;
+document.getElementById("adminClose").onclick=()=>document.getElementById("adminOverlay").classList.remove("on");
+document.getElementById("adminOverlay").onclick=e=>{ if(e.target.id==="adminOverlay") e.currentTarget.classList.remove("on"); };
+document.getElementById("btnAddIface").onclick=()=>{
+  const nome=(document.getElementById("newIfaceName").value||"").trim();
+  const email=(document.getElementById("newIfaceEmail").value||"").trim().toLowerCase();
+  const aree=(document.getElementById("newIfaceAree").value||"").split(',').map(s=>s.trim()).filter(Boolean);
+  if(!nome){ toast("Inserisci il nome dell'interfaccia"); return; }
+  const i={id:uuid(),nome,email,aree,attivo:true};
+  STATE.interfaces.push(i); save(); fillSelects(); renderInterfacesTable(); renderTeachersTable();
+  document.getElementById("newIfaceName").value=""; document.getElementById("newIfaceEmail").value=""; document.getElementById("newIfaceAree").value="";
+  cloudUpsertInterface(i);
+};
+document.getElementById("btnAddTeacher").onclick=()=>{
+  const nome=(document.getElementById("newTeacherName").value||"").trim();
+  const email=(document.getElementById("newTeacherEmail").value||"").trim().toLowerCase();
+  const interface_id=document.getElementById("newTeacherIface").value||null;
+  const ruolo=document.getElementById("newTeacherRuolo").value||'Docente';
+  const regime_fiscale=document.getElementById("newTeacherContributi").value||null;
+  const rate=Number(document.getElementById("newTeacherRate").value)||50;
+  if(!nome){ toast("Inserisci il nome del docente"); return; }
+  const t={id:uuid(),nome,email,interface_id,ruolo,regime_fiscale,tariffa_oraria:rate,attivo:true};
+  STATE.teachers.push(t); save(); fillSelects(); renderTeachersTable(); renderAll();
+  document.getElementById("newTeacherName").value=""; document.getElementById("newTeacherEmail").value=""; document.getElementById("newTeacherIface").value=""; document.getElementById("newTeacherRate").value="50";
+  document.getElementById("newTeacherRuolo").value="Docente"; document.getElementById("newTeacherContributi").value="";
+  cloudUpsertTeacher(t);
+};
+document.querySelectorAll("#adminTabs button").forEach(b=>b.onclick=()=>{
+  document.querySelectorAll("#adminTabs button").forEach(x=>x.classList.remove("on"));
+  b.classList.add("on");
+  document.querySelectorAll(".admin-sec").forEach(s=>s.classList.remove("on"));
+  document.querySelector(`.admin-sec[data-sec="${b.dataset.sec}"]`).classList.add("on");
+});
+document.getElementById("btnAddUser").onclick=()=>{
+  const email=(document.getElementById("newUserEmail").value||"").trim().toLowerCase();
+  const role=document.getElementById("newUserRole").value;
+  if(!email||!/^[^@]+@[^@]+\.[^@]+$/.test(email)){ toast("Inserisci un'email valida"); return; }
+  STATE.appUsers[email]={role,attivo:true}; save(); renderUsersTable(); applyRole();
+  document.getElementById("newUserEmail").value="";
+  cloudUpsertAppUser(email,role,true);
+};
+document.getElementById("ntClose").onclick=closeNewTeacherModal;
+document.getElementById("ntCancel").onclick=closeNewTeacherModal;
+document.getElementById("ntSave").onclick=saveNewTeacherQuick;
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ ["actOverlay","newTeacherOverlay","calOverlay","cloudOverlay","adminOverlay"].forEach(id=>document.getElementById(id).classList.remove("on")); closeAc(); } });
+
+fillSelects();
+gate();
+cloudInit();
+</script>
+</body>
+</html>
