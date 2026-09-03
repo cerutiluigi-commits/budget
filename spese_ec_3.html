@@ -185,6 +185,7 @@ tfoot td.l{text-align:left}
 .empty{padding:26px;text-align:center;color:var(--ink-mute)}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:80;box-shadow:var(--shadow-lg)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.err{background:var(--over)}
 @media (prefers-reduced-motion:reduce){#toast{transition:opacity .01s}}
 
 /* cloud modal reuse */
@@ -737,7 +738,7 @@ function renderUsersTable(){
   h+=`</tbody>`; document.getElementById("usersTable").innerHTML=h;
   document.querySelectorAll(".uRole").forEach(s=>s.onchange=()=>{ const email=s.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.role=s.value; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
   document.querySelectorAll(".uAttivo").forEach(c=>c.onchange=()=>{ const email=c.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.attivo=c.checked; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
-  document.querySelectorAll(".uDel").forEach(b=>b.onclick=async()=>{ const email=b.dataset.email; if(!confirm(`Rimuovere l'utente ${email}?`))return; delete STATE.appUsers[email]; save(); renderUsersTable(); applyRole(); if(cloudReady()){ const {error}=await sb.from('bdg_app_users').delete().eq('email',email); error?console.error(error):flashSynced(); } });
+  document.querySelectorAll(".uDel").forEach(b=>b.onclick=async()=>{ const email=b.dataset.email; if(!confirm(`Rimuovere l'utente ${email}?`))return; delete STATE.appUsers[email]; save(); renderUsersTable(); applyRole(); if(cloudReady()){ const {error}=await sb.from('bdg_app_users').delete().eq('email',email); error?cloudErr('utente',error):flashSynced(); } });
 }
 function renderTabVisTable(){
   let h=`<thead><tr><th class="l">Strumento</th><th class="l">Sezione</th><th>Admin</th><th>Orientatore</th><th>Docente</th></tr></thead><tbody>`;
@@ -876,6 +877,7 @@ function cloudReady(){ return !!(sb&&cloudSession); }
 function cloudUser(){ return (cloudSession&&cloudSession.user&&cloudSession.user.email)||null; }
 function cloudSetDot(s){ const d=document.getElementById("cloudDot"),l=document.getElementById("cloudLbl"); if(!d)return; d.className="cloud-dot "+s; l.textContent=s==='on'?'Sincronizzato':s==='sync'?'Sync…':s==='err'?'Errore':'Cloud'; }
 function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clearTimeout(flashSynced._t); flashSynced._t=setTimeout(()=>{ if(cloudReady())cloudSetDot('on'); },600); }
+function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toast("Errore salvataggio cloud ("+ctx+"): "+(error&&error.message?error.message:'riprova')+" — dato solo in locale",'err'); }
 function travRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,staff:!!t.staff,attivo:t.attivo!==false}; }
 function tripRow(t){ return {id:t.id,traveler_id:t.traveler_id,scopo:t.scopo||null,destinazione:t.destinazione||null,data_inizio:t.data_inizio||null,data_fine:t.data_fine||null,scuola_evento:t.scuola_evento||null,stato:t.stato||'prenotato',note:t.note||null}; }
 function itemRow(it){ const trip=STATE.trips.find(t=>t.id===it.trip_id)||{}; const staff=travById(trip.traveler_id).staff; return {id:it.id,trip_id:it.trip_id,tipo:it.tipo,fornitore:it.fornitore||null,data_acquisto:it.data_acquisto||null,comp_da:it.comp_da||null,comp_a:it.comp_a||null,importo:Number(it.importo)||0,iva:it.iva==null?null:Number(it.iva),rif_prenotazione:it.rif_prenotazione||null,categoria:mapCat(it.tipo,staff),impact_mode:impactOf(it),stato:it.stato||'prenotato',actual_ref:it.actual_ref||null,note:it.note||null}; }
@@ -909,8 +911,8 @@ async function cloudFetchRoles(){
     STATE.appUsers=users; STATE.tabVisibility=vis;
   }catch(e){ console.error('roles fetch',e); }
 }
-function cloudUpsertAppUser(email,role,attivo){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_app_users').upsert({email:String(email||'').toLowerCase(),role,attivo:attivo!==false}).then(({error})=>{ error?console.error(error):flashSynced(); return {error}; }); }
-function cloudSetTabVisible(tool,tabKey,role,visible){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_tab_visibility').upsert({tool,tab_key:tabKey,role,visible}).then(({error})=>{ error?console.error(error):flashSynced(); return {error}; }); }
+function cloudUpsertAppUser(email,role,attivo){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_app_users').upsert({email:String(email||'').toLowerCase(),role,attivo:attivo!==false}).then(({error})=>{ error?cloudErr('utente',error):flashSynced(); return {error}; }); }
+function cloudSetTabVisible(tool,tabKey,role,visible){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_tab_visibility').upsert({tool,tab_key:tabKey,role,visible}).then(({error})=>{ error?cloudErr('visibilità tab',error):flashSynced(); return {error}; }); }
 async function cloudPushAll(){
   if(!cloudReady()) return;
   const ans=prompt("ATTENZIONE: sovrascrive i dati sul cloud con quelli locali.\nScrivi SOVRASCRIVI per continuare:");
@@ -924,11 +926,11 @@ async function cloudPushAll(){
     cloudSetDot('on'); toast(`Caricati ${STATE.trips.length} viaggi e ${STATE.items.length} voci`);
   }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore: "+(e.message||e)); }
 }
-function cloudUpsertTraveler(t){ if(!cloudReady())return; sb.from('bdg_travelers').upsert(travRow(t)).then(({error})=>{ error?console.error(error):flashSynced(); }); }
-function cloudUpsertTrip(t){ if(!cloudReady())return; sb.from('bdg_travel_trips').upsert(tripRow(t)).then(({error})=>{ error?console.error(error):flashSynced(); }); }
-function cloudDeleteTrip(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_travel_trips').delete().eq('id',id).then(({error})=>{ error?console.error(error):flashSynced(); }); }
-function cloudUpsertItem(it){ if(!cloudReady())return; sb.from('bdg_travel_items').upsert(itemRow(it)).then(({error})=>{ error?console.error(error):flashSynced(); }); }
-function cloudDeleteItem(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_travel_items').delete().eq('id',id).then(({error})=>{ error?console.error(error):flashSynced(); }); }
+function cloudUpsertTraveler(t){ if(!cloudReady())return; sb.from('bdg_travelers').upsert(travRow(t)).then(({error})=>{ error?cloudErr('viaggiatore',error):flashSynced(); }); }
+function cloudUpsertTrip(t){ if(!cloudReady())return; sb.from('bdg_travel_trips').upsert(tripRow(t)).then(({error})=>{ error?cloudErr('trasferta',error):flashSynced(); }); }
+function cloudDeleteTrip(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_travel_trips').delete().eq('id',id).then(({error})=>{ error?cloudErr('eliminazione trasferta',error):flashSynced(); }); }
+function cloudUpsertItem(it){ if(!cloudReady())return; sb.from('bdg_travel_items').upsert(itemRow(it)).then(({error})=>{ error?cloudErr('voce di spesa',error):flashSynced(); }); }
+function cloudDeleteItem(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_travel_items').delete().eq('id',id).then(({error})=>{ error?cloudErr('eliminazione voce di spesa',error):flashSynced(); }); }
 function cloudRealtimeSubscribe(){ if(!cloudReady()||!sb.channel)return; try{ if(rtChannel){sb.removeChannel(rtChannel);rtChannel=null;} }catch(e){} try{ rtChannel=sb.channel('spese-ec-rt').on('postgres_changes',{event:'*',schema:'public',table:'bdg_travel_items'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_travel_trips'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_travelers'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_app_users'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_tab_visibility'},remoteRefresh).subscribe(); }catch(e){ console.error(e); } }
 function remoteRefresh(){ clearTimeout(_rtT); _rtT=setTimeout(()=>{ if(Date.now()<_rtSelfUntil)return; const busy=document.getElementById('tripOverlay').classList.contains('on')||document.getElementById('itemOverlay').classList.contains('on')||document.getElementById('cloudOverlay').classList.contains('on'); if(busy){ remoteRefresh(); return; } cloudPullAll(true).then(()=>toast("Dati aggiornati")); },1200); }
 function renderCloudModal(){
@@ -940,7 +942,7 @@ function renderCloudModal(){
 }
 
 /* ============================ WIRING + BOOT ============================ */
-function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),2200); }
+function toast(m,type){ const t=document.getElementById("toast"); t.textContent=m; t.className="on"+(type==='err'?' err':''); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),type==='err'?6000:2200); }
 document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on")); document.getElementById("panel-"+b.dataset.tab).classList.add("on"); });
 document.getElementById("fySel").onchange=e=>{ STATE.fyStart=+e.target.value; save(); renderAll(); };
 document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); };

@@ -262,6 +262,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
 /* toast */
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#F4F3EF;padding:11px 18px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:80;box-shadow:0 10px 30px rgba(0,0,0,.25)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.err{background:var(--over)}
 .cloud-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:2px}
 .cloud-dot.off{background:#9A9E97}
 .cloud-dot.on{background:#5FBF8F;box-shadow:0 0 0 3px rgba(95,191,143,.25)}
@@ -1759,7 +1760,7 @@ function initFY(){
   }).join("");
   sel.onchange=()=>{ STATE.fyStart=+sel.value; ensureYear(STATE.fyStart); renderCalChips(); renderAll(); };
 }
-function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),2200); }
+function toast(msg,type){ const t=document.getElementById("toast"); t.textContent=msg; t.className="on"+(type==='err'?' err':''); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),type==='err'?6000:2200); }
 
 document.getElementById("tabs").querySelectorAll("button").forEach(b=>{
   b.onclick=()=>{
@@ -1882,7 +1883,7 @@ function renderUsersTable(){
   h+=`</tbody>`; document.getElementById("usersTable").innerHTML=h;
   document.querySelectorAll(".uRole").forEach(s=>s.onchange=()=>{ const email=s.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.role=s.value; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
   document.querySelectorAll(".uAttivo").forEach(c=>c.onchange=()=>{ const email=c.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.attivo=c.checked; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
-  document.querySelectorAll(".uDel").forEach(b=>b.onclick=async()=>{ const email=b.dataset.email; if(!confirm(`Rimuovere l'utente ${email}?`))return; delete STATE.appUsers[email]; save(); renderUsersTable(); applyRole(); if(cloudReady()){ const {error}=await sb.from('bdg_app_users').delete().eq('email',email); error?console.error(error):flashSynced(); } });
+  document.querySelectorAll(".uDel").forEach(b=>b.onclick=async()=>{ const email=b.dataset.email; if(!confirm(`Rimuovere l'utente ${email}?`))return; delete STATE.appUsers[email]; save(); renderUsersTable(); applyRole(); if(cloudReady()){ const {error}=await sb.from('bdg_app_users').delete().eq('email',email); error?cloudErr('utente',error):flashSynced(); } });
 }
 function renderTabVisTable(){
   let h=`<thead><tr><th class="l">Strumento</th><th class="l">Sezione</th><th>Admin</th><th>Orientatore</th><th>Docente</th></tr></thead><tbody>`;
@@ -1912,6 +1913,7 @@ function isUuid(s){ return typeof s==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9
 function expToRow(e,fy){ return { id:e.id, fy_start:+fy, data_ordine:e.dataOrdine||null, num_ordine:e.numOrdine||null, categoria:e.categoria, cat_altro:e.catAltro||null, fornitore:e.fornitore||null, importo:Number(e.importo)||0, comp_da:e.compDa||null, comp_a:e.compA||null, data_consegna:e.dataConsegna||null, oggetto:e.oggetto||null, note:e.note||null }; }
 function cloudSetDot(state){ const d=document.getElementById("cloudDot"), l=document.getElementById("cloudLbl"); if(!d)return; d.className="cloud-dot "+state; l.textContent = state==='on'?'Sincronizzato':state==='sync'?'Sync…':state==='err'?'Errore':'Cloud'; }
 function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clearTimeout(flashSynced._t); flashSynced._t=setTimeout(()=>{ if(cloudReady())cloudSetDot('on'); },600); }
+function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toast("Errore salvataggio cloud ("+ctx+"): "+(error&&error.message?error.message:'riprova')+" — dato solo in locale",'err'); }
 
 async function cloudInit(){
   const cfg=cloudCfg();
@@ -1992,8 +1994,8 @@ async function cloudFetchRoles(){
     STATE.appUsers=users; STATE.tabVisibility=vis;
   }catch(e){ console.error('roles fetch',e); }
 }
-function cloudUpsertAppUser(email,role,attivo){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_app_users').upsert({email:String(email||'').toLowerCase(),role,attivo:attivo!==false}).then(({error})=>{ error?console.error(error):flashSynced(); return {error}; }); }
-function cloudSetTabVisible(tool,tabKey,role,visible){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_tab_visibility').upsert({tool,tab_key:tabKey,role,visible}).then(({error})=>{ error?console.error(error):flashSynced(); return {error}; }); }
+function cloudUpsertAppUser(email,role,attivo){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_app_users').upsert({email:String(email||'').toLowerCase(),role,attivo:attivo!==false}).then(({error})=>{ error?cloudErr('utente',error):flashSynced(); return {error}; }); }
+function cloudSetTabVisible(tool,tabKey,role,visible){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_tab_visibility').upsert({tool,tab_key:tabKey,role,visible}).then(({error})=>{ error?cloudErr('visibilità tab',error):flashSynced(); return {error}; }); }
 async function cloudPushAll(){
   if(!cloudReady()) return;
   const ans=prompt("ATTENZIONE · Questa operazione SOVRASCRIVE i dati sul cloud con quelli di questo computer.\nUsala solo per la PRIMA configurazione, mai durante l'uso normale.\n\nScrivi SOVRASCRIVI per continuare:");
@@ -2027,14 +2029,14 @@ async function cloudPushAll(){
 }
 /* write-through (fire-and-forget, attivi solo se connesso) */
 function cloudUser(){ return (cloudSession&&cloudSession.user&&cloudSession.user.email)||null; }
-function cloudUpsertExpense(e,fy){ if(!cloudReady())return; if((e.categoria!=null?String(e.categoria):"").trim()==="")return; if(!isUuid(e.id))e.id=uuid(); const row=expToRow(e,fy); row.deleted_at=null; row.deleted_by=null; sb.from('bdg_expenses').upsert(row).then(({error})=>{ error?(console.error(error),cloudSetDot('err')):flashSynced(); }); }
-function cloudSoftDelete(id,fy,exp){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_expenses').update({deleted_at:new Date().toISOString(),deleted_by:cloudUser()}).eq('id',id).then(({error})=>{ error?console.error(error):flashSynced(); }); cloudAudit('eliminazione','spesa',fy, exp?`${exp.categoria} · ${exp.fornitore||'—'} · ${eur2(exp.importo||0)}`:String(id)); }
-function cloudRestore(id,fy,exp){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_expenses').update({deleted_at:null,deleted_by:null}).eq('id',id).then(({error})=>{ error?console.error(error):flashSynced(); }); cloudAudit('ripristino','spesa',fy, exp?`${exp.categoria} · ${exp.fornitore||'—'}`:String(id)); }
-function cloudHardDelete(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_expenses').delete().eq('id',id).then(({error})=>{ error?console.error(error):flashSynced(); }); cloudAudit('eliminazione definitiva','spesa',null,String(id)); }
-function cloudAudit(action,entity,fy,summary,details){ if(!cloudReady())return; sb.from('bdg_audit_log').insert({user_email:cloudUser(),action,entity,fy_start:fy||null,summary:summary||null,details:details||null}).then(({error})=>{ if(error) console.error(error); else if(document.getElementById('panel-registro').classList.contains('on')) fetchAudit(); }); }
-function cloudUpsertBudget(fy,cat,net){ if(!cloudReady())return; sb.from('bdg_year_budgets').upsert({fy_start:+fy,categoria:cat,budget_net:Number(net)||0},{onConflict:'fy_start,categoria'}).then(({error})=>{ error?console.error(error):flashSynced(); }); cloudAudit('budget','budget',fy,`${cat} = ${eur(Number(net)||0)} netto`); }
-function cloudSetSetting(key,val){ if(!cloudReady())return; sb.from('bdg_settings').upsert({key,value:val}).then(({error})=>{ error?console.error(error):flashSynced(); }); }
-function cloudReplaceYearExpenses(fy,expenses){ if(!cloudReady())return; sb.from('bdg_expenses').delete().eq('fy_start',+fy).then(({error})=>{ if(error){console.error(error);return;} const rows=expenses.filter(e=>(e.categoria!=null?String(e.categoria):"").trim()!=="").map(e=>{ if(!isUuid(e.id))e.id=uuid(); return expToRow(e,+fy); }); (async()=>{ for(let i=0;i<rows.length;i+=200){ const {error:er}=await sb.from('bdg_expenses').insert(rows.slice(i,i+200)); if(er){console.error(er);cloudSetDot('err');return;} } flashSynced(); })(); }); }
+function cloudUpsertExpense(e,fy){ if(!cloudReady())return; if((e.categoria!=null?String(e.categoria):"").trim()==="")return; if(!isUuid(e.id))e.id=uuid(); const row=expToRow(e,fy); row.deleted_at=null; row.deleted_by=null; sb.from('bdg_expenses').upsert(row).then(({error})=>{ error?cloudErr('spesa',error):flashSynced(); }); }
+function cloudSoftDelete(id,fy,exp){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_expenses').update({deleted_at:new Date().toISOString(),deleted_by:cloudUser()}).eq('id',id).then(({error})=>{ error?cloudErr('eliminazione spesa',error):flashSynced(); }); cloudAudit('eliminazione','spesa',fy, exp?`${exp.categoria} · ${exp.fornitore||'—'} · ${eur2(exp.importo||0)}`:String(id)); }
+function cloudRestore(id,fy,exp){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_expenses').update({deleted_at:null,deleted_by:null}).eq('id',id).then(({error})=>{ error?cloudErr('ripristino spesa',error):flashSynced(); }); cloudAudit('ripristino','spesa',fy, exp?`${exp.categoria} · ${exp.fornitore||'—'}`:String(id)); }
+function cloudHardDelete(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_expenses').delete().eq('id',id).then(({error})=>{ error?cloudErr('eliminazione definitiva spesa',error):flashSynced(); }); cloudAudit('eliminazione definitiva','spesa',null,String(id)); }
+function cloudAudit(action,entity,fy,summary,details){ if(!cloudReady())return; sb.from('bdg_audit_log').insert({user_email:cloudUser(),action,entity,fy_start:fy||null,summary:summary||null,details:details||null}).then(({error})=>{ if(error) console.error('registro',error); else if(document.getElementById('panel-registro').classList.contains('on')) fetchAudit(); }); }
+function cloudUpsertBudget(fy,cat,net){ if(!cloudReady())return; sb.from('bdg_year_budgets').upsert({fy_start:+fy,categoria:cat,budget_net:Number(net)||0},{onConflict:'fy_start,categoria'}).then(({error})=>{ error?cloudErr('budget',error):flashSynced(); }); cloudAudit('budget','budget',fy,`${cat} = ${eur(Number(net)||0)} netto`); }
+function cloudSetSetting(key,val){ if(!cloudReady())return; sb.from('bdg_settings').upsert({key,value:val}).then(({error})=>{ error?cloudErr('impostazioni',error):flashSynced(); }); }
+function cloudReplaceYearExpenses(fy,expenses){ if(!cloudReady())return; sb.from('bdg_expenses').delete().eq('fy_start',+fy).then(({error})=>{ if(error){cloudErr('sostituzione spese anno',error);return;} const rows=expenses.filter(e=>(e.categoria!=null?String(e.categoria):"").trim()!=="").map(e=>{ if(!isUuid(e.id))e.id=uuid(); return expToRow(e,+fy); }); (async()=>{ for(let i=0;i<rows.length;i+=200){ const {error:er}=await sb.from('bdg_expenses').insert(rows.slice(i,i+200)); if(er){cloudErr('sostituzione spese anno',er);return;} } flashSynced(); })(); }); }
 
 /* ---- realtime ---- */
 let rtChannel=null, _rtSelfUntil=0, _rtT=null;

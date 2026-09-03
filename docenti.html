@@ -269,6 +269,7 @@ tfoot td.l{text-align:left}
 .empty{padding:26px;text-align:center;color:var(--ink-mute)}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:80;box-shadow:var(--shadow-lg)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
+#toast.err{background:var(--over)}
 @media (prefers-reduced-motion:reduce){#toast{transition:opacity .01s}}
 
 /* cloud modal reuse */
@@ -1782,7 +1783,7 @@ function renderUsersTable(){
   h+=`</tbody>`; document.getElementById("usersTable").innerHTML=h;
   document.querySelectorAll(".uRole").forEach(s=>s.onchange=()=>{ const email=s.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.role=s.value; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
   document.querySelectorAll(".uAttivo").forEach(c=>c.onchange=()=>{ const email=c.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.attivo=c.checked; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
-  document.querySelectorAll(".uDel").forEach(b=>b.onclick=async()=>{ const email=b.dataset.email; if(!confirm(`Rimuovere l'utente ${email}?`))return; delete STATE.appUsers[email]; save(); renderUsersTable(); applyRole(); if(cloudReady()){ const {error}=await sb.from('bdg_app_users').delete().eq('email',email); error?console.error(error):flashSynced(); } });
+  document.querySelectorAll(".uDel").forEach(b=>b.onclick=async()=>{ const email=b.dataset.email; if(!confirm(`Rimuovere l'utente ${email}?`))return; delete STATE.appUsers[email]; save(); renderUsersTable(); applyRole(); if(cloudReady()){ const {error}=await sb.from('bdg_app_users').delete().eq('email',email); error?cloudErr('utente',error):flashSynced(); } });
 }
 function renderTabVisTable(){
   let h=`<thead><tr><th class="l">Strumento</th><th class="l">Sezione</th><th>Admin</th><th>Orientatore</th><th>Docente</th></tr></thead><tbody>`;
@@ -1817,6 +1818,7 @@ function cloudReady(){ return !!(sb&&cloudSession); }
 function cloudUser(){ return (cloudSession&&cloudSession.user&&cloudSession.user.email)||null; }
 function cloudSetDot(s){ const d=document.getElementById("cloudDot"),l=document.getElementById("cloudLbl"); if(!d)return; d.className="cloud-dot "+s; l.textContent=s==='on'?'Sincronizzato':s==='sync'?'Sync…':s==='err'?'Errore':'Cloud'; }
 function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clearTimeout(flashSynced._t); flashSynced._t=setTimeout(()=>{ if(cloudReady())cloudSetDot('on'); },600); }
+function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toast("Errore salvataggio cloud ("+ctx+"): "+(error&&error.message?error.message:'riprova')+" — dato solo in locale",'err'); }
 function interfaceRow(i){ return {id:i.id,nome:i.nome,email:i.email||null,aree:i.aree||[],attivo:i.attivo!==false}; }
 function teacherRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,interface_id:t.interface_id||null,ruolo:t.ruolo||null,regime_fiscale:t.regime_fiscale||null,tariffa_oraria:Number(t.tariffa_oraria)||0,attivo:t.attivo!==false,last_solicited_at:t.last_solicited_at||null}; }
 function activityRow(a){ return {id:a.id,teacher_id:a.teacher_id,school_id:a.school_id||null,luogo:a.luogo||null,area:a.area||null,nome:a.nome||null,tipo:a.tipo,data:a.data,ore:Number(a.ore)||0,tariffa_oraria:a.tariffa_oraria==null?null:Number(a.tariffa_oraria),importo:a.importo==null?null:Number(a.importo),stato:a.stato||'programmata',rda_id:a.rda_id||null,note:a.note||null,gruppo_id:a.gruppo_id||null,bonus_ore:a.bonus_ore==null?null:Number(a.bonus_ore),bonus_importo:a.bonus_importo==null?null:Number(a.bonus_importo),cal_added_at:a.cal_added_at||null,rda_mode:a.rda_mode||'fine_periodo'}; }
@@ -1851,13 +1853,13 @@ async function cloudFetchRoles(){
     STATE.appUsers=users; STATE.tabVisibility=vis;
   }catch(e){ console.error('roles fetch',e); }
 }
-function cloudUpsertAppUser(email,role,attivo){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_app_users').upsert({email:String(email||'').toLowerCase(),role,attivo:attivo!==false}).then(({error})=>{ error?console.error(error):flashSynced(); return {error}; }); }
-function cloudSetTabVisible(tool,tabKey,role,visible){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_tab_visibility').upsert({tool,tab_key:tabKey,role,visible}).then(({error})=>{ error?console.error(error):flashSynced(); return {error}; }); }
-function cloudUpsertInterface(i){ if(!cloudReady())return; sb.from('bdg_orientamento_interfaces').upsert(interfaceRow(i)).then(({error})=>{ error?console.error(error):flashSynced(); }); }
-function cloudUpsertTeacher(t){ if(!cloudReady())return; sb.from('bdg_teachers').upsert(teacherRow(t)).then(({error})=>{ error?console.error(error):flashSynced(); }); }
-function cloudUpsertActivity(a){ if(!cloudReady())return; sb.from('bdg_teacher_activities').upsert(activityRow(a)).then(({error})=>{ error?console.error(error):flashSynced(); }); }
-function cloudDeleteActivity(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_teacher_activities').delete().eq('id',id).then(({error})=>{ error?console.error(error):flashSynced(); }); }
-function cloudUpsertRda(r){ if(!cloudReady())return; sb.from('bdg_teacher_rda').upsert(rdaRow(r)).then(({error})=>{ error?console.error(error):flashSynced(); }); }
+function cloudUpsertAppUser(email,role,attivo){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_app_users').upsert({email:String(email||'').toLowerCase(),role,attivo:attivo!==false}).then(({error})=>{ error?cloudErr('utente',error):flashSynced(); return {error}; }); }
+function cloudSetTabVisible(tool,tabKey,role,visible){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_tab_visibility').upsert({tool,tab_key:tabKey,role,visible}).then(({error})=>{ error?cloudErr('visibilità tab',error):flashSynced(); return {error}; }); }
+function cloudUpsertInterface(i){ if(!cloudReady())return; sb.from('bdg_orientamento_interfaces').upsert(interfaceRow(i)).then(({error})=>{ error?cloudErr('interfaccia',error):flashSynced(); }); }
+function cloudUpsertTeacher(t){ if(!cloudReady())return; sb.from('bdg_teachers').upsert(teacherRow(t)).then(({error})=>{ error?cloudErr('docente',error):flashSynced(); }); }
+function cloudUpsertActivity(a){ if(!cloudReady())return; sb.from('bdg_teacher_activities').upsert(activityRow(a)).then(({error})=>{ error?cloudErr('attività',error):flashSynced(); }); }
+function cloudDeleteActivity(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_teacher_activities').delete().eq('id',id).then(({error})=>{ error?cloudErr('eliminazione attività',error):flashSynced(); }); }
+function cloudUpsertRda(r){ if(!cloudReady())return; sb.from('bdg_teacher_rda').upsert(rdaRow(r)).then(({error})=>{ error?cloudErr('RDA',error):flashSynced(); }); }
 function cloudRealtimeSubscribe(){ if(!cloudReady()||!sb.channel)return; try{ if(rtChannel){sb.removeChannel(rtChannel);rtChannel=null;} }catch(e){} try{ rtChannel=sb.channel('docenti-rt').on('postgres_changes',{event:'*',schema:'public',table:'bdg_teacher_activities'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_teacher_rda'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_teachers'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_orientamento_interfaces'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_app_users'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_tab_visibility'},remoteRefresh).subscribe(); }catch(e){ console.error(e); } }
 function remoteRefresh(){ clearTimeout(_rtT); _rtT=setTimeout(()=>{ if(Date.now()<_rtSelfUntil)return; const busy=document.getElementById('actOverlay').classList.contains('on')||document.getElementById('cloudOverlay').classList.contains('on'); if(busy){ remoteRefresh(); return; } cloudPullAll(true).then(()=>toast("Dati aggiornati")); },1200); }
 function renderCloudModal(){
@@ -1869,7 +1871,7 @@ function renderCloudModal(){
 }
 
 /* ============================ WIRING + BOOT ============================ */
-function toast(m){ const t=document.getElementById("toast"); t.textContent=m; t.classList.add("on"); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),2200); }
+function toast(m,type){ const t=document.getElementById("toast"); t.textContent=m; t.className="on"+(type==='err'?' err':''); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),type==='err'?6000:2200); }
 document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on")); document.getElementById("panel-"+b.dataset.tab).classList.add("on"); if(b.dataset.tab==='chiusura') renderChiusura(); if(b.dataset.tab==='scuole') renderSchoolsTable([]); });
 document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); };
 document.getElementById("riepFySel").onchange=e=>{ STATE.riepFy=+e.target.value; STATE.riepMonths=[]; save(); renderRiepMonthChips(); renderRiepilogo(); };
