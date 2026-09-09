@@ -128,6 +128,8 @@ tfoot td.l{text-align:left}
 .act-row:last-child{border-bottom:0}
 .act-row:hover{background:var(--surface-2)}
 .act-row .ty{flex:1;min-width:180px;font-weight:600}
+.note-ic{display:inline-flex;vertical-align:middle;margin-left:6px;color:var(--ink-mute);cursor:default}
+.note-ic svg{width:14px;height:14px}
 .act-row .sc{color:var(--ink-soft);font-size:12.5px}
 .act-row .dt{color:var(--ink-mute);font-size:12px;font-family:'JetBrains Mono',monospace;min-width:70px}
 .act-row .amt{font-family:'JetBrains Mono',monospace;font-weight:700;min-width:90px;text-align:right;font-variant-numeric:tabular-nums}
@@ -196,6 +198,8 @@ tfoot td.l{text-align:left}
 .riep-stat.prog{color:var(--warn)}
 .riep-stat.done{color:var(--accent-ink)}
 .docente-row{padding-left:44px;background:var(--surface-2);border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+.school-row{cursor:pointer}
+.school-row:hover{background:var(--surface-2)}
 .docente-row:last-child{border-bottom:0}
 .docente-row:hover{background:var(--accent-soft)}
 .docente-row.selected{box-shadow:inset 3px 0 0 var(--accent)}
@@ -259,12 +263,13 @@ tfoot td.l{text-align:left}
 .mfoot .sp{margin-left:auto}
 .date-rows{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
 .date-row{display:grid;grid-template-columns:1fr 90px 1fr 30px;gap:10px;align-items:end}
+.date-row.ws{grid-template-columns:120px 70px 100px 150px 110px 30px}
 .date-row .field{margin-bottom:0}
 .date-total{margin:14px 0;padding-top:12px;border-top:1px solid var(--line)}
 .date-bonus{font-size:12.5px;color:var(--accent);font-weight:600;margin-bottom:6px}
 .date-total-row{display:grid;grid-template-columns:1fr 90px 1fr 30px;gap:10px;font-weight:700;font-size:14px}
 .date-total-row span:first-child{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);font-weight:600;align-self:center}
-@media(max-width:600px){ .date-row{grid-template-columns:1fr}.date-total-row{grid-template-columns:1fr} }
+@media(max-width:600px){ .date-row,.date-row.ws{grid-template-columns:1fr}.date-total-row{grid-template-columns:1fr} }
 
 .empty{padding:26px;text-align:center;color:var(--ink-mute)}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:80;box-shadow:var(--shadow-lg)}
@@ -365,7 +370,7 @@ tfoot td.l{text-align:left}
     <div id="riepFiltersPanel" style="display:none;margin:10px 0 18px">
       <div style="display:flex;gap:20px;flex-wrap:wrap">
         <div>
-          <div class="hint" style="margin-bottom:6px">Area</div>
+          <div class="hint" style="margin-bottom:6px">Corso</div>
           <div class="chips" id="riepAreaChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
         </div>
         <div>
@@ -394,12 +399,16 @@ tfoot td.l{text-align:left}
   <!-- SCUOLE -->
   <section class="panel" id="panel-scuole">
     <h2 class="sec">Scuole</h2>
-    <p class="sec-desc">Anagrafica scuole (sola lettura, da CRM). Cerca per nome, città, provincia o regione.</p>
-    <div class="field" style="max-width:420px;margin-bottom:16px">
-      <input type="text" id="schoolSearch" placeholder="Cerca scuola, città, provincia…">
+    <p class="sec-desc">Scuole con almeno un'attività registrata. Filtra per regione, provincia, città o cerca per nome.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px">
+      <div class="field" style="min-width:150px"><label>Regione</label><select id="scuoleRegione"></select></div>
+      <div class="field" style="min-width:150px"><label>Provincia</label><select id="scuoleProvincia"></select></div>
+      <div class="field" style="min-width:150px"><label>Città</label><select id="scuoleCitta"></select></div>
+      <div class="field" style="flex:1;min-width:200px"><label>Cerca</label><input type="text" id="schoolSearch" placeholder="Nome, città, provincia…"></div>
     </div>
     <div class="card scroll"><table id="schoolsTable"></table></div>
     <p class="hint" id="schoolsHint" style="margin-top:10px"></p>
+    <div id="schoolDetail" class="riep-detail" style="display:none;margin-top:16px"></div>
   </section>
 
   <!-- CHIUSURA MENSILE -->
@@ -416,7 +425,7 @@ tfoot td.l{text-align:left}
       <div class="hgroup" style="background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Docente</label><select id="chTeacherFilter" style="color:var(--ink)"></select></div>
     </div>
     <div id="chiusuraList"></div>
-    <p class="hint" style="margin-top:10px">Dopo che un'RDA è emessa/pagata, ricorda di registrare il movimento reale nel tool Budget (categoria CONS. COMM. MKTG) — l'attività qui non tocca mai il budget da sola.</p>
+    <p class="hint" style="margin-top:10px">Finché non c'è un Codice RDA, l'attività compare nel tool Budget solo come stima "Allocato". Appena si inserisce il Codice RDA qui sotto, il movimento reale (categoria CONS. COMM. MKTG) viene creato automaticamente nel tool Budget, sotto Speso — nessuna registrazione manuale necessaria.</p>
 
     <div style="display:flex;align-items:center;gap:12px;margin:30px 0 14px;flex-wrap:wrap">
       <h2 class="sec" style="margin:0">Storico RDA</h2>
@@ -443,7 +452,7 @@ tfoot td.l{text-align:left}
           <div class="ac-list" id="aScuolaAc"></div>
           <select id="aLuogoSelect" style="display:none"></select>
         </div>
-        <div class="field"><label>Area <span class="req">*</span></label><select id="aArea"></select></div>
+        <div class="field"><label>Corso <span class="req">*</span></label><select id="aArea"></select></div>
         <div class="field"><label>Importo orario <span class="req">*</span></label><input type="number" id="aRate" step="0.5" min="0"></div>
       </div>
       <div class="date-rows" id="aDateRows"></div>
@@ -551,7 +560,7 @@ tfoot td.l{text-align:left}
         <div style="display:flex;gap:8px;flex-wrap:wrap">
           <input type="text" id="newIfaceName" placeholder="Nome interfaccia" style="flex:1;min-width:140px">
           <input type="email" id="newIfaceEmail" placeholder="email di login" style="flex:1;min-width:160px">
-          <input type="text" id="newIfaceAree" placeholder="Aree (separate da virgola)" style="flex:1;min-width:180px">
+          <input type="text" id="newIfaceAree" placeholder="Corsi (separati da virgola)" style="flex:1;min-width:180px">
           <button class="btn ghost small" id="btnAddIface">+ Aggiungi</button>
         </div>
       </div>
@@ -627,7 +636,7 @@ function isUuid(s){ return typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-
 
 /* ---- stato ---- */
 function seed(){
-  return {view:"ALL", appUsers:{}, tabVisibility:{}, previewAs:null, localIdentity:null, interfaces:[], teachers:[], activities:[], rdas:[], riepFy:null, riepMonths:[], riepAree:[], riepTipi:[]};
+  return {view:"ALL", appUsers:{}, tabVisibility:{}, previewAs:null, localIdentity:null, interfaces:[], teachers:[], activities:[], rdas:[], riepFy:null, riepMonths:[], riepAree:[], riepTipi:[], scuoleFilter:{regione:'',provincia:'',citta:''}};
 }
 function load(){
   try{ const s=JSON.parse(localStorage.getItem(LS_KEY)||"null"); if(s&&s.teachers){ if(!s.view)s.view="ALL"; if(!s.appUsers)s.appUsers={}; if(!s.tabVisibility)s.tabVisibility={}; if(s.previewAs===undefined)s.previewAs=null; if(s.localIdentity===undefined)s.localIdentity=null; if(!s.interfaces)s.interfaces=[]; if(!s.activities)s.activities=[]; if(!s.rdas)s.rdas=[]; if(s.riepFy===undefined)s.riepFy=null; if(!s.riepMonths)s.riepMonths=[]; if(!s.riepAree)s.riepAree=[]; if(!s.riepTipi)s.riepTipi=[]; return s; } }catch(e){}
@@ -825,7 +834,7 @@ function renderRiepAreaChips(){
   const sel=STATE.riepAree||[];
   let h=areas.map(a=>`<button class="chip ${sel.includes(a)?'on':''}" data-a="${esc(a)}">${esc(a)}</button>`).join("");
   if(sel.length) h+=`<button class="chip reset" id="riepAreeReset">✕ azzera</button>`;
-  document.getElementById("riepAreaChips").innerHTML=h || `<span class="hint">Nessuna area configurata.</span>`;
+  document.getElementById("riepAreaChips").innerHTML=h || `<span class="hint">Nessun corso configurato.</span>`;
   document.querySelectorAll("#riepAreaChips .chip[data-a]").forEach(b=>b.onclick=()=>{
     const a=b.dataset.a, i=STATE.riepAree.indexOf(a);
     if(i>=0) STATE.riepAree.splice(i,1); else STATE.riepAree.push(a);
@@ -881,8 +890,9 @@ function activityRowHtml(a){
       <button class="rowbtn act-cancel" data-id="${a.id}" title="Annulla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </span>` : '';
   const titolo = a.nome || [a.tipo, activityLocation(a)].filter(Boolean).join(' · ');
+  const noteIc = a.note ? `<span class="note-ic" title="${esc(a.note)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>` : '';
   return `<div class="${cls}" data-id="${a.id}">
-      <span class="ty">${esc(titolo)}</span>
+      <span class="ty">${esc(titolo)}${noteIc}</span>
       <span class="dt">${fmtD(a.data)}</span>
       ${statoBadge(a.stato)}
       ${paymentBadge(a)}
@@ -938,14 +948,16 @@ function buildOutlookLink(a){
   const subject = a.nome || [a.tipo, loc].filter(Boolean).join(' · ');
   const bodyParts=[
     'Tipologia: '+a.tipo,
-    a.area?('Area: '+a.area):null,
+    a.area?('Corso: '+a.area):null,
     'Docente: '+(t?t.nome:''),
     loc?('Sede: '+loc):null,
     a.note?('Note: '+a.note):null
   ].filter(Boolean);
   const ore=Number(a.ore)||1;
-  const start=toOutlookUTC(a.data,9,0);
-  const end=toOutlookUTC(a.data,9+Math.floor(ore),Math.round((ore%1)*60));
+  let startH=9, startM=0;
+  if(a.ora_evento){ const [hh,mm]=a.ora_evento.split(':').map(Number); if(!isNaN(hh)){ startH=hh; startM=mm||0; } }
+  const start=toOutlookUTC(a.data,startH,startM);
+  const end=toOutlookUTC(a.data,startH+Math.floor(ore),startM+Math.round((ore%1)*60));
   const params=[
     ['path','/calendar/action/compose'],
     ['rru','addevent'],
@@ -1206,19 +1218,80 @@ async function fetchSchoolNames(ids){
     (data||[]).forEach(s=>{ SCHOOL_CACHE[s.id]=s; });
   }catch(e){ console.error(e); }
 }
-function renderSchoolsTable(rows){
-  const hint=document.getElementById("schoolsHint");
-  if(!cloudReady()){ document.getElementById("schoolsTable").innerHTML=''; hint.textContent='Connettiti al cloud per cercare tra le scuole.'; return; }
-  hint.textContent = rows.length>=30 ? 'Prime 30 corrispondenze — affina la ricerca per restringere.' : `${rows.length} risultati.`;
-  let h=`<thead><tr><th class="l">Nome</th><th class="l">Città</th><th class="l">Provincia</th><th class="l">Regione</th><th class="l">Tipo</th></tr></thead><tbody>`;
-  if(!rows.length) h+=`<tr><td colspan="5"><div class="empty">Digita per cercare una scuola.</div></td></tr>`;
-  rows.forEach(s=>{ h+=`<tr><td class="l">${esc(s.nome)}</td><td class="l">${esc(s.citta)||'—'}</td><td class="l">${esc(s.provincia)||'—'}</td><td class="l">${esc(s.regione)||'—'}</td><td class="l">${esc(s.tipo)||'—'}</td></tr>`; });
-  h+=`</tbody>`; document.getElementById("schoolsTable").innerHTML=h;
+// scuole che hanno almeno un'attività (non annullata) registrata: nessuna nuova query, SCHOOL_CACHE
+// è già popolata per tutti gli school_id realmente usati (fetchSchoolNames() alla pull iniziale)
+function schoolsWithActivity(){
+  const byId={};
+  STATE.activities.forEach(a=>{
+    if(!a.school_id || a.stato==='annullata') return;
+    const s=byId[a.school_id]||(byId[a.school_id]={id:a.school_id,programmata:0,svolta:0});
+    s[a.stato]=(s[a.stato]||0)+1;
+  });
+  const info=SCHOOL_CACHE;
+  return Object.values(byId).map(s=>{
+    const c=info[s.id]||{};
+    return {id:s.id, nome:c.nome||s.id, citta:c.citta||'', provincia:c.provincia||'', regione:c.regione||'', tipo:c.tipo||'', programmata:s.programmata||0, svolta:s.svolta||0};
+  }).sort((a,b)=>a.nome.localeCompare(b.nome));
 }
-document.getElementById("schoolSearch").addEventListener("input",e=>{
-  clearTimeout(_schoolSearchT); const q=e.target.value;
-  _schoolSearchT=setTimeout(async()=>{ const rows=await searchSchools(q,30); renderSchoolsTable(rows); },280);
-});
+function renderScuoleFilters(){
+  const all=schoolsWithActivity();
+  const f=STATE.scuoleFilter||(STATE.scuoleFilter={regione:'',provincia:'',citta:''});
+  const regioni=[...new Set(all.map(s=>s.regione).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const inRegione = f.regione ? all.filter(s=>s.regione===f.regione) : all;
+  const province=[...new Set(inRegione.map(s=>s.provincia).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  const inProvincia = f.provincia ? inRegione.filter(s=>s.provincia===f.provincia) : inRegione;
+  const citta=[...new Set(inProvincia.map(s=>s.citta).filter(Boolean))].sort((a,b)=>a.localeCompare(b));
+  if(f.regione && !regioni.includes(f.regione)) f.regione='';
+  if(f.provincia && !province.includes(f.provincia)) f.provincia='';
+  if(f.citta && !citta.includes(f.citta)) f.citta='';
+  const opt=(vals,cur)=>`<option value="">Tutte</option>`+vals.map(v=>`<option value="${esc(v)}" ${v===cur?'selected':''}>${esc(v)}</option>`).join("");
+  document.getElementById("scuoleRegione").innerHTML=opt(regioni,f.regione);
+  document.getElementById("scuoleProvincia").innerHTML=opt(province,f.provincia);
+  document.getElementById("scuoleCitta").innerHTML=opt(citta,f.citta);
+}
+let SCUOLA_SELECTED=null;
+function renderSchoolsTable(){
+  const hint=document.getElementById("schoolsHint");
+  if(!cloudReady()){ document.getElementById("schoolsTable").innerHTML=''; hint.textContent='Connettiti al cloud per vedere le scuole.'; return; }
+  renderScuoleFilters();
+  const f=STATE.scuoleFilter||{};
+  const q=(document.getElementById("schoolSearch").value||'').trim().toLowerCase();
+  let rows=schoolsWithActivity();
+  if(f.regione) rows=rows.filter(s=>s.regione===f.regione);
+  if(f.provincia) rows=rows.filter(s=>s.provincia===f.provincia);
+  if(f.citta) rows=rows.filter(s=>s.citta===f.citta);
+  if(q) rows=rows.filter(s=>(s.nome+' '+s.citta+' '+s.provincia).toLowerCase().includes(q));
+  hint.textContent = `${rows.length} scuol${rows.length===1?'a':'e'} con attività registrate.`;
+  let h=`<thead><tr><th class="l">Nome</th><th class="l">Città</th><th class="l">Provincia</th><th class="l">Regione</th><th>Programmate</th><th>Svolte</th></tr></thead><tbody>`;
+  if(!rows.length) h+=`<tr><td colspan="6"><div class="empty">Nessuna scuola trovata.</div></td></tr>`;
+  rows.forEach(s=>{ h+=`<tr class="school-row" data-id="${esc(s.id)}"><td class="l">${esc(s.nome)}</td><td class="l">${esc(s.citta)||'—'}</td><td class="l">${esc(s.provincia)||'—'}</td><td class="l">${esc(s.regione)||'—'}</td><td>${s.programmata}</td><td>${s.svolta}</td></tr>`; });
+  h+=`</tbody>`; document.getElementById("schoolsTable").innerHTML=h;
+  document.querySelectorAll("#schoolsTable .school-row").forEach(r=>r.onclick=()=>{ SCUOLA_SELECTED=r.dataset.id; renderSchoolDetail(); });
+  renderSchoolDetail();
+}
+function renderSchoolDetail(){
+  const el=document.getElementById("schoolDetail");
+  if(!el) return;
+  if(!SCUOLA_SELECTED){ el.style.display="none"; el.innerHTML=""; return; }
+  const acts=STATE.activities.filter(a=>a.school_id===SCUOLA_SELECTED);
+  if(!acts.length){ SCUOLA_SELECTED=null; el.style.display="none"; el.innerHTML=""; return; }
+  const s=SCHOOL_CACHE[SCUOLA_SELECTED]||{};
+  const rowsHtml=acts.slice().sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).map(a=>activityRowHtml(a)).join('');
+  el.style.display="";
+  el.innerHTML=`
+    <div class="riep-detail-h">
+      <h3>${esc(s.nome||SCUOLA_SELECTED)}</h3>
+      <button class="iconx" id="schoolDetailClose" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="riep-detail-body"><div class="card scroll"><div id="schoolDetailActs"></div></div></div>`;
+  document.getElementById("schoolDetailActs").innerHTML=rowsHtml;
+  wireActivityRows(document.getElementById("schoolDetailActs"));
+  document.getElementById("schoolDetailClose").onclick=()=>{ SCUOLA_SELECTED=null; renderSchoolDetail(); };
+}
+document.getElementById("schoolSearch").addEventListener("input",()=>renderSchoolsTable());
+document.getElementById("scuoleRegione").addEventListener("change",e=>{ STATE.scuoleFilter.regione=e.target.value; STATE.scuoleFilter.provincia=''; STATE.scuoleFilter.citta=''; save(); renderSchoolsTable(); });
+document.getElementById("scuoleProvincia").addEventListener("change",e=>{ STATE.scuoleFilter.provincia=e.target.value; STATE.scuoleFilter.citta=''; save(); renderSchoolsTable(); });
+document.getElementById("scuoleCitta").addEventListener("change",e=>{ STATE.scuoleFilter.citta=e.target.value; save(); renderSchoolsTable(); });
 
 /* autocomplete scuola nel form attività */
 let _acSearchT=null, _acItems=[];
@@ -1402,8 +1475,9 @@ function renderChiusuraList(){
     const r=rdaById(i.dataset.id); if(!r) return;
     const val=i.value.trim();
     r.rif_rda=val;
+    if(val && !r.rif_rda_data) r.rif_rda_data=todayISO(); // timbrata solo la prima volta che il codice viene inserito
     if(r.stato!=='pagata') r.stato = val ? 'emessa' : 'bozza';
-    save(); renderChiusura(); cloudUpsertRda(r);
+    save(); renderChiusura(); cloudUpsertRda(r); syncBudgetMovement(r);
   });
   box.querySelectorAll(".rda-pagato").forEach(b=>b.onclick=()=>{
     const r=rdaById(b.dataset.id); if(!r) return;
@@ -1450,16 +1524,34 @@ function renderChiusura(){
   fillSelectPreserving(document.getElementById("rdaHistMonth"), `<option value="ALL">Tutti i mesi</option>`+rdaMonths.map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join(""), 'ALL');
   renderRdaHistory();
 }
-function generateRda(teacherId, month){
+async function generateRda(teacherId, month){
   const acts=activitiesForRda(teacherId,month);
   const tot=acts.reduce((s,a)=>s+activityAmount(a),0)*cassaMultiplier(teacherById(teacherId));
   let r=STATE.rdas.find(x=>x.teacher_id===teacherId && (x.mese||'').slice(0,7)===month);
+  // riallinea con il server prima di decidere l'id locale: la cache STATE.rdas può essere stale
+  // (altro dispositivo/tab, o pull non ancora arrivata) — creare un id nuovo quando esiste già una
+  // riga server con lo stesso (teacher_id,mese) violava lo unique constraint -> 409 a cascata anche
+  // sulle attività (rda_id puntava a un id mai salvato), e "Pagato" restava propagato solo su quelle
+  // il cui upsert non era caduto nel 409.
+  if(cloudReady()){
+    try{
+      const {data,error}=await sb.from('bdg_teacher_rda').select('*').eq('teacher_id',teacherId).eq('mese',month+'-01').maybeSingle();
+      if(error) throw error;
+      if(data){
+        r = STATE.rdas.find(x=>x.id===data.id);
+        if(!r){ r={id:data.id,teacher_id:data.teacher_id,mese:data.mese,stato:data.stato||'bozza',rif_rda:data.rif_rda||'',rif_rda_data:data.rif_rda_data||null,importo_totale:Number(data.importo_totale)||0,note:data.note||''}; STATE.rdas.push(r); }
+      }
+    }catch(e){ cloudErr('RDA',e); return; }
+  }
   if(!r){ r={id:uuid(),teacher_id:teacherId,mese:month+'-01',stato:'bozza',rif_rda:'',importo_totale:tot,note:''}; STATE.rdas.push(r); }
   else r.importo_totale=tot;
+  save(); renderChiusura();
+  const {error}=await cloudUpsertRda(r);
+  if(error) return; // cloudErr ha già mostrato il toast: non incatenare le attività, 409-erebbero sulla FK
   acts.forEach(a=>{ a.rda_id=r.id; });
   save(); renderChiusura(); toast("RDA aggiornata: "+eur(tot));
-  cloudUpsertRda(r);
   acts.forEach(a=>cloudUpsertActivity(a));
+  syncBudgetMovement(r); // se l'RDA ha già un codice, riallinea anche il movimento in Gestione Budget
 }
 
 /* ============================ MODALI ATTIVITÀ ============================ */
@@ -1513,7 +1605,7 @@ function updateTeacherInfo(){
 let editGroupId=null; // id di gruppo dell'attività macro in modifica (null = nuova)
 let aRows=[]; // date della macro-attività aperta nella modale: {rowId:id-esistente|null, data, ore}
 let aRdaMode='fine_periodo'; // 'fine_periodo' | 'per_mese' — vale per l'intera macro-attività (tutte le righe del gruppo)
-function newDateRow(data,ore,rowId){ return {rowId:rowId||null, data:data||todayISO(), ore:(ore==null?'':ore)}; }
+function newDateRow(data,ore,rowId,sede,orario){ return {rowId:rowId||null, data:data||todayISO(), ore:(ore==null?'':ore), sede:sede||'scuola', orario:orario||''}; }
 // il campo compare solo con più date (con una sola non ha senso: c'è un solo mese possibile)
 function renderRdaModeField(){
   const field=document.getElementById("aRdaModeField");
@@ -1527,11 +1619,17 @@ function renderRdaModeField(){
 // l'eventuale bonus Workshop; l'importo orario è unico per tutta la macro-attività (campo aRate)
 function renderDateRows(){
   const wrap=document.getElementById("aDateRows");
+  const isWs = document.getElementById("aTipo").value==='Workshop';
   wrap.innerHTML = aRows.map((r,i)=>`
-    <div class="date-row" data-i="${i}">
+    <div class="date-row${isWs?' ws':''}" data-i="${i}">
       <div class="field"><label>Data <span class="req">*</span></label><input type="date" class="dr-data"></div>
       <div class="field"><label>Ore <span class="req">*</span></label><input type="number" step="0.5" min="0" class="dr-ore"></div>
       <div class="field"><label>Importo</label><input type="text" class="dr-imp" disabled></div>
+      ${isWs?`<div class="field"><label>Sede</label><div class="chips dr-sede" style="display:flex;gap:6px">
+          <button type="button" class="chip" data-sede="scuola">A scuola</button>
+          <button type="button" class="chip" data-sede="campus">In Campus</button>
+        </div></div>
+        <div class="field dr-orario-field" style="${r.sede==='campus'?'':'visibility:hidden'}"><label>Orario evento <span class="req">*</span></label><input type="time" class="dr-orario"></div>`:""}
       ${aRows.length>1?`<button type="button" class="rowbtn dr-del" title="Rimuovi data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`:""}
     </div>`).join("");
   wrap.querySelectorAll(".date-row").forEach((row,i)=>{
@@ -1548,6 +1646,15 @@ function renderDateRows(){
     };
     oEl.oninput=()=>{ aRows[i].ore=oEl.value; refreshDateTotals(); };
     if(delBtn) delBtn.onclick=()=>{ aRows.splice(i,1); renderDateRows(); };
+    const sedeChips=row.querySelectorAll(".dr-sede .chip"), orarioField=row.querySelector(".dr-orario-field"), orarioEl=row.querySelector(".dr-orario");
+    if(sedeChips.length){
+      sedeChips.forEach(c=>{ c.classList.toggle('on',c.dataset.sede===aRows[i].sede); c.onclick=()=>{
+        aRows[i].sede=c.dataset.sede;
+        if(aRows[i].sede!=='campus') aRows[i].orario='';
+        renderDateRows();
+      }; });
+    }
+    if(orarioEl){ orarioEl.value=aRows[i].orario; orarioEl.onchange=()=>{ aRows[i].orario=orarioEl.value; }; }
   });
   refreshDateTotals();
   renderRdaModeField();
@@ -1595,7 +1702,7 @@ function openActivity(id){
   document.getElementById("aRate").value = a&&a.tariffa_oraria!=null ? a.tariffa_oraria : (t?Number(t.tariffa_oraria)||0:0);
   const groupRows = editGroupId ? STATE.activities.filter(x=>(x.gruppo_id||x.id)===editGroupId) : [];
   aRows = groupRows.length
-    ? groupRows.slice().sort((x,y)=>String(x.data||'').localeCompare(String(y.data||''))).map(x=>newDateRow(x.data,x.ore,x.id))
+    ? groupRows.slice().sort((x,y)=>String(x.data||'').localeCompare(String(y.data||''))).map(x=>newDateRow(x.data,x.ore,x.id,x.sede_sessione,x.ora_evento))
     : [newDateRow(todayISO(),'')];
   aRdaMode = (groupRows[0] && groupRows[0].rda_mode) || 'fine_periodo';
   renderDateRows();
@@ -1605,10 +1712,12 @@ function openActivity(id){
 }
 function saveActivity(){
   if(!aRows.length){ toast("Aggiungi almeno una data"); return; }
+  const isWs = document.getElementById("aTipo").value==='Workshop';
   for(const r of aRows){
     if(!r.data){ toast("Inserisci tutte le date"); return; }
     const ore=parseFloat(r.ore);
     if(isNaN(ore)||ore<=0){ toast("Inserisci le ore per ogni data"); return; }
+    if(isWs && r.sede==='campus' && !r.orario){ toast("Inserisci l'orario evento per le date In Campus"); return; }
   }
   const rate=parseFloat(document.getElementById("aRate").value);
   if(isNaN(rate)||rate<0){ toast("Inserisci l'importo orario"); return; }
@@ -1629,7 +1738,9 @@ function saveActivity(){
   const touched=[];
   aRows.forEach(r=>{
     const ore=parseFloat(r.ore);
-    const base={ teacher_id:teacherId, school_id:schoolId, luogo, area, tipo, nome, data:r.data, ore, note, rda_mode:aRdaMode };
+    const sede_sessione = isWs ? r.sede : null;
+    const ora_evento = (isWs && r.sede==='campus') ? r.orario : null;
+    const base={ teacher_id:teacherId, school_id:schoolId, luogo, area, tipo, nome, data:r.data, ore, note, rda_mode:aRdaMode, sede_sessione, ora_evento };
     if(r.rowId){
       const existing=STATE.activities.find(x=>x.id===r.rowId);
       if(existing){
@@ -1729,12 +1840,12 @@ function interfaceSelectHtml(cls,id,current){
   </select>`;
 }
 function renderInterfacesTable(){
-  let h=`<thead><tr><th class="l">Nome</th><th class="l">Email (login)</th><th class="l">Aree</th><th>Attivo</th><th></th></tr></thead><tbody>`;
+  let h=`<thead><tr><th class="l">Nome</th><th class="l">Email (login)</th><th class="l">Corsi</th><th>Attivo</th><th></th></tr></thead><tbody>`;
   if(!STATE.interfaces.length) h+=`<tr><td colspan="5"><div class="empty">Nessuna interfaccia.</div></td></tr>`;
   STATE.interfaces.forEach(i=>{ h+=`<tr>
     <td class="l">${esc(i.nome)}</td>
     <td class="l"><input type="email" class="i-email" data-id="${i.id}" value="${esc(i.email||'')}" placeholder="email di login" style="border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;width:100%"></td>
-    <td class="l"><input type="text" class="i-aree" data-id="${i.id}" value="${esc((i.aree||[]).join(', '))}" placeholder="Area1, Area2" style="border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;width:100%"></td>
+    <td class="l"><input type="text" class="i-aree" data-id="${i.id}" value="${esc((i.aree||[]).join(', '))}" placeholder="Corso1, Corso2" style="border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;width:100%"></td>
     <td><input type="checkbox" class="i-attivo" data-id="${i.id}" ${i.attivo!==false?'checked':''}></td>
     <td><button class="rowbtn i-del" data-id="${i.id}" title="Rimuovi">✕</button></td>
   </tr>`; });
@@ -1821,8 +1932,8 @@ function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clear
 function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toast("Errore salvataggio cloud ("+ctx+"): "+(error&&error.message?error.message:'riprova')+" — dato solo in locale",'err'); }
 function interfaceRow(i){ return {id:i.id,nome:i.nome,email:i.email||null,aree:i.aree||[],attivo:i.attivo!==false}; }
 function teacherRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,interface_id:t.interface_id||null,ruolo:t.ruolo||null,regime_fiscale:t.regime_fiscale||null,tariffa_oraria:Number(t.tariffa_oraria)||0,attivo:t.attivo!==false,last_solicited_at:t.last_solicited_at||null}; }
-function activityRow(a){ return {id:a.id,teacher_id:a.teacher_id,school_id:a.school_id||null,luogo:a.luogo||null,area:a.area||null,nome:a.nome||null,tipo:a.tipo,data:a.data,ore:Number(a.ore)||0,tariffa_oraria:a.tariffa_oraria==null?null:Number(a.tariffa_oraria),importo:a.importo==null?null:Number(a.importo),stato:a.stato||'programmata',rda_id:a.rda_id||null,note:a.note||null,gruppo_id:a.gruppo_id||null,bonus_ore:a.bonus_ore==null?null:Number(a.bonus_ore),bonus_importo:a.bonus_importo==null?null:Number(a.bonus_importo),cal_added_at:a.cal_added_at||null,rda_mode:a.rda_mode||'fine_periodo'}; }
-function rdaRow(r){ return {id:r.id,teacher_id:r.teacher_id,mese:r.mese,stato:r.stato||'bozza',rif_rda:r.rif_rda||null,importo_totale:Number(r.importo_totale)||0,note:r.note||null}; }
+function activityRow(a){ return {id:a.id,teacher_id:a.teacher_id,school_id:a.school_id||null,luogo:a.luogo||null,area:a.area||null,nome:a.nome||null,tipo:a.tipo,data:a.data,ore:Number(a.ore)||0,tariffa_oraria:a.tariffa_oraria==null?null:Number(a.tariffa_oraria),importo:a.importo==null?null:Number(a.importo),stato:a.stato||'programmata',rda_id:a.rda_id||null,note:a.note||null,gruppo_id:a.gruppo_id||null,bonus_ore:a.bonus_ore==null?null:Number(a.bonus_ore),bonus_importo:a.bonus_importo==null?null:Number(a.bonus_importo),cal_added_at:a.cal_added_at||null,rda_mode:a.rda_mode||'fine_periodo',sede_sessione:a.sede_sessione||null,ora_evento:a.ora_evento||null}; }
+function rdaRow(r){ return {id:r.id,teacher_id:r.teacher_id,mese:r.mese,stato:r.stato||'bozza',rif_rda:r.rif_rda||null,rif_rda_data:r.rif_rda_data||null,importo_totale:Number(r.importo_totale)||0,note:r.note||null}; }
 
 async function cloudInit(){ const cfg=cloudCfg(); if(!cfg||!window.supabase){ cloudSetDot('off'); return; } try{ sb=window.supabase.createClient(cfg.url,cfg.anonKey); const {data}=await sb.auth.getSession(); cloudSession=data.session||null; if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else cloudSetDot('off'); }catch(e){ console.error(e); cloudSetDot('err'); } }
 async function cloudLogin(email,pw){ if(!sb){ toast("Configura prima il progetto"); return; } if(!email||!pw){ toast("Inserisci email e password"); return; } const {data,error}=await sb.auth.signInWithPassword({email,password:pw}); if(error){ toast("Accesso fallito: "+error.message); cloudSetDot('err'); return; } cloudSession=data.session; forceLogin=false; cloudSetDot('on'); toast("Connesso"); renderCloudModal(); await cloudPullAll(false); }
@@ -1836,8 +1947,8 @@ async function cloudPullAll(silent){
     const {data:rd,error:e3}=await sb.from('bdg_teacher_rda').select('*'); if(e3) throw e3;
     STATE.interfaces=(ifc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",aree:x.aree||[],attivo:x.attivo!==false}));
     STATE.teachers=(tc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",interface_id:x.interface_id||null,ruolo:x.ruolo||"",regime_fiscale:x.regime_fiscale||"",tariffa_oraria:Number(x.tariffa_oraria)||50,attivo:x.attivo!==false,last_solicited_at:x.last_solicited_at||null}));
-    STATE.activities=(ac||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,school_id:x.school_id||null,luogo:x.luogo||null,area:x.area||null,nome:x.nome||"",tipo:x.tipo,data:x.data,ore:Number(x.ore)||0,tariffa_oraria:x.tariffa_oraria==null?null:Number(x.tariffa_oraria),importo:x.importo==null?null:Number(x.importo),stato:x.stato||'programmata',rda_id:x.rda_id||null,note:x.note||"",gruppo_id:x.gruppo_id||null,bonus_ore:x.bonus_ore==null?null:Number(x.bonus_ore),bonus_importo:x.bonus_importo==null?null:Number(x.bonus_importo),cal_added_at:x.cal_added_at||null,rda_mode:x.rda_mode||'fine_periodo'}));
-    STATE.rdas=(rd||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,mese:x.mese,stato:x.stato||'bozza',rif_rda:x.rif_rda||"",importo_totale:Number(x.importo_totale)||0,note:x.note||""}));
+    STATE.activities=(ac||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,school_id:x.school_id||null,luogo:x.luogo||null,area:x.area||null,nome:x.nome||"",tipo:x.tipo,data:x.data,ore:Number(x.ore)||0,tariffa_oraria:x.tariffa_oraria==null?null:Number(x.tariffa_oraria),importo:x.importo==null?null:Number(x.importo),stato:x.stato||'programmata',rda_id:x.rda_id||null,note:x.note||"",gruppo_id:x.gruppo_id||null,bonus_ore:x.bonus_ore==null?null:Number(x.bonus_ore),bonus_importo:x.bonus_importo==null?null:Number(x.bonus_importo),cal_added_at:x.cal_added_at||null,rda_mode:x.rda_mode||'fine_periodo',sede_sessione:x.sede_sessione||null,ora_evento:x.ora_evento||null}));
+    STATE.rdas=(rd||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,mese:x.mese,stato:x.stato||'bozza',rif_rda:x.rif_rda||"",rif_rda_data:x.rif_rda_data||null,importo_totale:Number(x.importo_totale)||0,note:x.note||""}));
     await cloudFetchRoles();
     await fetchSchoolNames([...new Set(STATE.activities.map(a=>a.school_id).filter(Boolean))]);
     save(); fillSelects(); renderAll(); gate(); cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud"); cloudRealtimeSubscribe();
@@ -1859,7 +1970,43 @@ function cloudUpsertInterface(i){ if(!cloudReady())return; sb.from('bdg_orientam
 function cloudUpsertTeacher(t){ if(!cloudReady())return; sb.from('bdg_teachers').upsert(teacherRow(t)).then(({error})=>{ error?cloudErr('docente',error):flashSynced(); }); }
 function cloudUpsertActivity(a){ if(!cloudReady())return; sb.from('bdg_teacher_activities').upsert(activityRow(a)).then(({error})=>{ error?cloudErr('attività',error):flashSynced(); }); }
 function cloudDeleteActivity(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_teacher_activities').delete().eq('id',id).then(({error})=>{ error?cloudErr('eliminazione attività',error):flashSynced(); }); }
-function cloudUpsertRda(r){ if(!cloudReady())return; sb.from('bdg_teacher_rda').upsert(rdaRow(r)).then(({error})=>{ error?cloudErr('RDA',error):flashSynced(); }); }
+function cloudUpsertRda(r){ if(!cloudReady())return Promise.resolve({}); return sb.from('bdg_teacher_rda').upsert(rdaRow(r)).then(({error})=>{ error?cloudErr('RDA',error):flashSynced(); return {error}; }); }
+// anno fiscale NABA: 1 luglio -> 30 giugno (FY 2026 = AF 2026-27), stessa regola di Gestione Budget
+function fyStartOf(dateStr){ if(!dateStr) return null; const [y,m]=dateStr.split('-').map(Number); return m>=7?y:y-1; }
+// bridge verso Gestione Budget: finché l'RDA non ha un codice, l'attività resta solo una stima letta
+// da bdg_v_budget_docenti_allocations (nessuna riga scritta qui). Da quando il codice c'è, scrive/
+// aggiorna una riga reale in bdg_expenses (stesso progetto Supabase, scrittura diretta cross-tool),
+// una sola per RDA grazie allo unique su source_rda_id — i ricalcoli successivi la aggiornano invece
+// di duplicarla. Se il codice viene azzerato, la riga collegata si soft-elimina (mai DELETE fisico).
+async function syncBudgetMovement(r){
+  if(!cloudReady()) return;
+  try{
+    if(r.rif_rda){
+      const acts=STATE.activities.filter(a=>a.rda_id===r.id);
+      const dates=acts.map(a=>a.data).filter(Boolean).sort();
+      const t=teacherById(r.teacher_id);
+      const row={
+        fy_start:fyStartOf(r.rif_rda_data||r.mese),
+        data_ordine:r.rif_rda_data||null,
+        num_ordine:r.rif_rda,
+        categoria:'CONS. COMM. MKTG',
+        importo:Number(r.importo_totale)||0,
+        comp_da:dates[0]||r.mese,
+        comp_a:dates[dates.length-1]||r.mese,
+        fornitore:t?t.nome:null,
+        oggetto:(t?t.nome:'')+' · '+monthLabel((r.mese||'').slice(0,7)),
+        tipo_pagamento:'RDA',
+        source_rda_id:r.id,
+        deleted_at:null, deleted_by:null
+      };
+      const {error}=await sb.from('bdg_expenses').upsert(row,{onConflict:'source_rda_id'});
+      if(error) cloudErr('movimento budget',error);
+    } else {
+      const {error}=await sb.from('bdg_expenses').update({deleted_at:new Date().toISOString()}).eq('source_rda_id',r.id).is('deleted_at',null);
+      if(error) cloudErr('rimozione movimento budget',error);
+    }
+  }catch(e){ cloudErr('movimento budget',e); }
+}
 function cloudRealtimeSubscribe(){ if(!cloudReady()||!sb.channel)return; try{ if(rtChannel){sb.removeChannel(rtChannel);rtChannel=null;} }catch(e){} try{ rtChannel=sb.channel('docenti-rt').on('postgres_changes',{event:'*',schema:'public',table:'bdg_teacher_activities'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_teacher_rda'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_teachers'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_orientamento_interfaces'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_app_users'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_tab_visibility'},remoteRefresh).subscribe(); }catch(e){ console.error(e); } }
 function remoteRefresh(){ clearTimeout(_rtT); _rtT=setTimeout(()=>{ if(Date.now()<_rtSelfUntil)return; const busy=document.getElementById('actOverlay').classList.contains('on')||document.getElementById('cloudOverlay').classList.contains('on'); if(busy){ remoteRefresh(); return; } cloudPullAll(true).then(()=>toast("Dati aggiornati")); },1200); }
 function renderCloudModal(){
@@ -1872,7 +2019,7 @@ function renderCloudModal(){
 
 /* ============================ WIRING + BOOT ============================ */
 function toast(m,type){ const t=document.getElementById("toast"); t.textContent=m; t.className="on"+(type==='err'?' err':''); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),type==='err'?6000:2200); }
-document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on")); document.getElementById("panel-"+b.dataset.tab).classList.add("on"); if(b.dataset.tab==='chiusura') renderChiusura(); if(b.dataset.tab==='scuole') renderSchoolsTable([]); });
+document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on")); document.getElementById("panel-"+b.dataset.tab).classList.add("on"); if(b.dataset.tab==='chiusura') renderChiusura(); if(b.dataset.tab==='scuole') renderSchoolsTable(); });
 document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); };
 document.getElementById("riepFySel").onchange=e=>{ STATE.riepFy=+e.target.value; STATE.riepMonths=[]; save(); renderRiepMonthChips(); renderRiepilogo(); };
 document.getElementById("riepFiltersToggle").onclick=()=>{
@@ -1895,7 +2042,7 @@ document.getElementById("actClose").onclick=()=>document.getElementById("actOver
 document.getElementById("aCancel").onclick=()=>document.getElementById("actOverlay").classList.remove("on");
 document.getElementById("aSave").onclick=saveActivity;
 document.getElementById("aDelete").onclick=deleteActivity;
-document.getElementById("aTipo").addEventListener("change",()=>{ updateLuogoField(); refreshDateTotals(); });
+document.getElementById("aTipo").addEventListener("change",()=>{ updateLuogoField(); renderDateRows(); });
 document.getElementById("aTeacher").addEventListener("change",()=>{
   const sel=document.getElementById("aTeacher");
   if(sel.value==='__new__'){ openNewTeacherModal(); return; }

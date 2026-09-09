@@ -605,6 +605,10 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
       <button class="iconx" id="modalClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
     </div>
     <div class="mbody">
+      <div class="spill" id="lockBanner" style="display:none;margin-bottom:14px;justify-content:space-between">
+        <span>Voce generata automaticamente da un'attività Docenti già a RDA — modificarla qui può essere sovrascritta al prossimo aggiornamento da Docenti.</span>
+        <button type="button" class="btn ghost small" id="btnForceEdit">Forza modifica</button>
+      </div>
       <div class="fgrid">
         <div class="field">
           <label>Data ordine <span class="req">*</span></label>
@@ -614,6 +618,15 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
         <div class="field">
           <label>N. ordine / RDA</label>
           <input type="text" id="fNum" placeholder="es. 40421" list="dlNum" autocomplete="off">
+        </div>
+        <div class="field">
+          <label>Tipo pagamento</label>
+          <select id="fTipoPag">
+            <option value="RDA">RDA</option>
+            <option value="Carta NABA">Carta NABA</option>
+            <option value="Carta Ufficio">Carta Ufficio</option>
+            <option value="Voucher">Voucher</option>
+          </select>
         </div>
         <div class="field">
           <label>Categoria <span class="req">*</span></label>
@@ -807,7 +820,7 @@ function defaultState(){
   });
   const start = years["2026"] ? 2026 : +Object.keys(years).sort().pop();
   return { fyStart:start, ivaRate:22, ivaByCat:defaultIva(), refDate:todayISO(), calCat:"ALL", calMode:"mensile", years, trash:[],
-           finance: JSON.parse(JSON.stringify(FINANCE_SEED)), travelEstimates:[], appUsers:{}, tabVisibility:{} };
+           finance: JSON.parse(JSON.stringify(FINANCE_SEED)), travelEstimates:[], docentiEstimates:[], appUsers:{}, tabVisibility:{} };
 }
 function load(){
   try{
@@ -818,6 +831,7 @@ function load(){
         CATEGORIES.forEach(c=>{ if(s.ivaByCat[c]==null) s.ivaByCat[c]=(c==="TUTOR"?0:22); });
         if(!s.trash) s.trash=[];
         if(!s.travelEstimates) s.travelEstimates=[];
+        if(!s.docentiEstimates) s.docentiEstimates=[];
         if(!s.appUsers) s.appUsers={};
         if(!s.tabVisibility) s.tabVisibility={};
         return sanitizeState(s); } }
@@ -898,11 +912,11 @@ function compute(){
   const fs=fyStartKey(), fe=fyEndKey(), rk=refKey();
   const DS=cur(), BUD=DS.budget, EXP=DS.expenses;
   const cats={};
-  CATEGORIES.forEach(c=>cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,fuori:0,months:{}});
+  CATEGORIES.forEach(c=>cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,stimaDocenti:0,fuori:0,months:{}});
   // includi categorie extra eventualmente presenti nei dati
-  EXP.forEach(e=>{ const c=e.categoria; if(c && !cats[c]) cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,fuori:0,months:{}}; });
+  EXP.forEach(e=>{ const c=e.categoria; if(c && !cats[c]) cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,stimaDocenti:0,fuori:0,months:{}}; });
 
-  let gSpeso=0,gAlloc=0,gFuori=0,gStimaEC=0;
+  let gSpeso=0,gAlloc=0,gFuori=0,gStimaEC=0,gStimaDocenti=0;
   for(const e of EXP){
     const c=e.categoria; if(!c||!cats[c]) continue;
     const f=ivaFactor(c);
@@ -911,7 +925,7 @@ function compute(){
       const mk=+mkS, amt=dist[mkS]*f;   // valore IVA inclusa
       if(mk<fs || mk>fe){ cats[c].fuori+=amt; gFuori+=amt; continue; }
       if(mk<=rk){ cats[c].speso+=amt; gSpeso+=amt; } else { cats[c].allocato+=amt; gAlloc+=amt; }
-      if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0};
+      if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaDocenti:0};
       if(mk<=rk) cats[c].months[mk].speso+=amt; else cats[c].months[mk].allocato+=amt;
     }
   }
@@ -923,11 +937,23 @@ function compute(){
     const mk=my.key; if(mk<fs||mk>fe) continue;
     const amt=(Number(r.importo)||0)*ivaFactor(c);
     cats[c].allocato+=amt; cats[c].stimaEC+=amt; gAlloc+=amt; gStimaEC+=amt;
-    if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0};
+    if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaDocenti:0};
     cats[c].months[mk].allocato+=amt; cats[c].months[mk].stimaEC+=amt;
   }
+  // stime da Docenti (attività programmata/svolta il cui gruppo RDA non ha ancora un codice): stesso
+  // principio delle stime Spese EC — sommate all'allocato, tracciate a parte finché non arriva il
+  // codice RDA (a quel punto l'attività scompare da qui e diventa una riga reale in EXP, vedi docenti.html syncBudgetMovement()).
+  for(const r of (STATE.docentiEstimates||[])){
+    const c=r.categoria; if(!c||!cats[c]) continue;
+    const my=ym(r.mese); if(!my) continue;
+    const mk=my.key; if(mk<fs||mk>fe) continue;
+    const amt=(Number(r.importo)||0)*ivaFactor(c);
+    cats[c].allocato+=amt; cats[c].stimaDocenti+=amt; gAlloc+=amt; gStimaDocenti+=amt;
+    if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaDocenti:0};
+    cats[c].months[mk].allocato+=amt; cats[c].months[mk].stimaDocenti+=amt;
+  }
   let gBudget=0; Object.values(cats).forEach(o=>gBudget+=o.budget);
-  return {cats, gBudget, gSpeso, gAlloc, gFuori, gStimaEC, gImpegnato:gSpeso+gAlloc, gResiduo:gBudget-gSpeso-gAlloc};
+  return {cats, gBudget, gSpeso, gAlloc, gFuori, gStimaEC, gStimaDocenti, gImpegnato:gSpeso+gAlloc, gResiduo:gBudget-gSpeso-gAlloc};
 }
 
 /* ---------- formattazione ---------- */
@@ -998,7 +1024,7 @@ function renderKpis(d){
   <div class="kpi">
     <div class="lab"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Allocato</span></div>
     <div class="v">${eur(d.gAlloc)}</div>
-    <div class="sub">impegnato ${eur(d.gImpegnato)}${d.gStimaEC>0?` · di cui stima EC ${eur(d.gStimaEC)}`:''}</div>
+    <div class="sub">impegnato ${eur(d.gImpegnato)}${d.gStimaEC>0?` · di cui stima EC ${eur(d.gStimaEC)}`:''}${d.gStimaDocenti>0?` · di cui stima Docenti ${eur(d.gStimaDocenti)}`:''}</div>
   </div>
   <div class="kpi residuo">
     <div class="lab"><span class="sw" style="background:var(--residuo)"></span><span class="eyebrow">Residuo</span></div>
@@ -1032,7 +1058,7 @@ function renderRiep(d){
       <td class="l" data-label="Categoria"><span class="catdot" style="background:${CAT_COLOR[c]||'#8A8F88'}"></span>${c}${catInfoIcon(c)}</td>
       <td data-label="Budget">${eur(o.budget)}</td>
       <td data-label="Speso">${eur(o.speso)}</td>
-      <td data-label="Allocato" style="color:var(--allocato)">${o.allocato>0?eur(o.allocato):'—'}${o.stimaEC>0?`<span class="tag stima" title="di cui stima da Spese EC (viaggi/alberghi non ancora riconciliati)">stima EC ${eur(o.stimaEC)}</span>`:''}</td>
+      <td data-label="Allocato" style="color:var(--allocato)">${o.allocato>0?eur(o.allocato):'—'}${o.stimaEC>0?`<span class="tag stima" title="di cui stima da Spese EC (viaggi/alberghi non ancora riconciliati)">stima EC ${eur(o.stimaEC)}</span>`:''}${o.stimaDocenti>0?`<span class="tag stima" title="di cui stima da attività Docenti non ancora a RDA">stima Docenti ${eur(o.stimaDocenti)}</span>`:''}</td>
       <td data-label="Impegnato">${eur(imp)}</td>
       <td data-label="Residuo" class="${res<0?'neg':''}">${eur(res)}</td>
       <td class="l cell-bar" data-label="Utilizzo" style="padding-left:20px">
@@ -1049,7 +1075,7 @@ function renderRiep(d){
   const gOver=d.gImpegnato>d.gBudget;
   html += `</tbody><tfoot><tr>
     <td class="l" data-label="Totale">Totale</td><td data-label="Budget">${eur(d.gBudget)}</td><td data-label="Speso">${eur(d.gSpeso)}</td>
-    <td data-label="Allocato" style="color:var(--allocato)">${eur(d.gAlloc)}${d.gStimaEC>0?`<span class="tag stima" title="di cui stima da Spese EC (viaggi/alberghi non ancora riconciliati)">stima EC ${eur(d.gStimaEC)}</span>`:''}</td><td data-label="Impegnato">${eur(d.gImpegnato)}</td>
+    <td data-label="Allocato" style="color:var(--allocato)">${eur(d.gAlloc)}${d.gStimaEC>0?`<span class="tag stima" title="di cui stima da Spese EC (viaggi/alberghi non ancora riconciliati)">stima EC ${eur(d.gStimaEC)}</span>`:''}${d.gStimaDocenti>0?`<span class="tag stima" title="di cui stima da attività Docenti non ancora a RDA">stima Docenti ${eur(d.gStimaDocenti)}</span>`:''}</td><td data-label="Impegnato">${eur(d.gImpegnato)}</td>
     <td data-label="Residuo" class="${d.gResiduo<0?'neg':''}">${eur(d.gResiduo)}</td>
     <td class="l cell-bar-empty" style="padding-left:20px"></td><td data-label="%" class="${gOver?'neg':''}" style="${gOver?'font-weight:700':''}">${pct(d.gImpegnato,d.gBudget)}%</td></tr></tfoot>`;
   document.getElementById("riepTable").innerHTML=html;
@@ -1330,7 +1356,7 @@ function renderMovimenti(){
     const net=+e.importo||0, gross=net*ivaFactor(e.categoria);
     html+=`<tr>
       <td class="l" data-label="Ordine"><div class="obj">${fmtD(e.dataOrdine)}</div><div class="meta">${e.numOrdine||'—'}</div></td>
-      <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[e.categoria]||'#8A8F88',.13)};color:${CAT_COLOR[e.categoria]||'#6A6F6A'}">${e.categoria||''}</span></td>
+      <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[e.categoria]||'#8A8F88',.13)};color:${CAT_COLOR[e.categoria]||'#6A6F6A'}">${e.categoria||''}</span>${e.sourceRdaId?` <span class="tag" style="background:var(--warn-soft);color:var(--warn)" title="Generata automaticamente da un'attività Docenti">Auto · Docenti</span>`:''}</td>
       <td class="l" data-label="Fornitore"><div class="obj">${esc(e.fornitore)||'—'}</div><div class="meta">${esc(e.oggetto)||''}</div></td>
       <td class="l" data-label="Competenza"><span class="meta">${comp}</span></td>
       <td data-label="Netto" style="color:var(--ink-mute)">${eur2(net)}</td>
@@ -1518,6 +1544,16 @@ function importFinance(file){
 }
 
 let editingId=null;
+let formLocked=false;
+// righe generate dal bridge Docenti (sourceRdaId valorizzato) restano bloccate finché non si preme
+// "Forza modifica": si risincronizzano da sole da Docenti, una modifica manuale non protetta verrebbe
+// sovrascritta al prossimo aggiornamento senza che chi la fa se ne accorga
+function setFormLocked(locked){
+  formLocked=locked;
+  ['fOrdine','fNum','fTipoPag','fCat','fImporto','fCompDa','fCompA','fConsegna','fForn','fOgg','fNote'].forEach(id=>{ document.getElementById(id).disabled=locked; });
+  document.getElementById("btnDelete").disabled=locked;
+  document.getElementById("lockBanner").style.display = locked ? "flex" : "none";
+}
 function buildSuggestions(field, cat){
   const freqAll={}, freqCat={};
   Object.values(STATE.years||{}).forEach(ds=>(ds.expenses||[]).forEach(e=>{
@@ -1552,6 +1588,7 @@ function openModal(id){
   document.getElementById("fCat").innerHTML=catOptions(e?e.categoria:CATEGORIES[0]);
   set("fOrdine", e?e.dataOrdine:todayISO());
   set("fNum", e?e.numOrdine:"");
+  set("fTipoPag", e?(e.tipoPagamento||'RDA'):'RDA');
   set("fImporto", e?e.importo:"");
   set("fCompDa", e?e.compDa:"");
   set("fCompA", e?e.compA:"");
@@ -1562,6 +1599,7 @@ function openModal(id){
   fillDatalists();
   updateCatHelp();
   document.getElementById("btnDelete").style.display = e? "inline-flex":"none";
+  setFormLocked(!!(e && e.sourceRdaId));
   updatePreview();
   document.getElementById("overlay").classList.add("on");
 }
@@ -1570,7 +1608,7 @@ function get(id){ return document.getElementById(id).value; }
 function closeModal(){ document.getElementById("overlay").classList.remove("on"); editingId=null; }
 function readForm(){
   return {
-    dataOrdine:get("fOrdine")||null, numOrdine:get("fNum"), categoria:get("fCat"),
+    dataOrdine:get("fOrdine")||null, numOrdine:get("fNum"), tipoPagamento:get("fTipoPag"), categoria:get("fCat"),
     importo:parseFloat(get("fImporto"))||0, compDa:get("fCompDa")||null, compA:get("fCompA")||null,
     dataConsegna:get("fConsegna")||null, fornitore:get("fForn"), oggetto:get("fOgg"), note:get("fNote")
   };
@@ -1606,7 +1644,11 @@ function saveForm(){
   const DS=cur(); let saved;
   if(editingId){
     const i=DS.expenses.findIndex(x=>x.id===editingId);
-    saved=Object.assign({id:editingId}, e);
+    // sourceRdaId non è nel form (readForm) e non va mai toccato da un salvataggio manuale — expToRow()
+    // lo omette apposta dal payload cloud; lo riportiamo qui solo per non perderlo nello STATE locale
+    // finché non arriva la prossima pull dal server (che lo confermerebbe comunque).
+    const prevSourceRdaId = DS.expenses[i] ? DS.expenses[i].sourceRdaId : null;
+    saved=Object.assign({id:editingId, sourceRdaId:prevSourceRdaId||null}, e);
     DS.expenses[i]=saved;
     toast("Spesa aggiornata");
   } else {
@@ -1785,6 +1827,10 @@ document.getElementById("btnAdd").onclick=()=>openModal(null);
 document.getElementById("modalClose").onclick=closeModal;
 document.getElementById("btnCancel").onclick=closeModal;
 document.getElementById("btnSave").onclick=saveForm;
+document.getElementById("btnForceEdit").onclick=()=>{
+  if(!confirm("Questa voce è generata da un'attività Docenti già collegata a un codice RDA. Una modifica manuale può essere sovrascritta al prossimo aggiornamento da Docenti. Continuare?")) return;
+  setFormLocked(false);
+};
 document.getElementById("btnDelete").onclick=deleteForm;
 document.getElementById("overlay").onclick=e=>{ if(e.target.id==="overlay") closeModal(); };
 ["fOrdine","fImporto","fCompDa","fCompA","fConsegna","fCat"].forEach(id=>{
@@ -1910,7 +1956,7 @@ function renderTabVisTable(){
 }
 function uuid(){ return (window.crypto&&crypto.randomUUID)?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);}); }
 function isUuid(s){ return typeof s==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s); }
-function expToRow(e,fy){ return { id:e.id, fy_start:+fy, data_ordine:e.dataOrdine||null, num_ordine:e.numOrdine||null, categoria:e.categoria, cat_altro:e.catAltro||null, fornitore:e.fornitore||null, importo:Number(e.importo)||0, comp_da:e.compDa||null, comp_a:e.compA||null, data_consegna:e.dataConsegna||null, oggetto:e.oggetto||null, note:e.note||null }; }
+function expToRow(e,fy){ return { id:e.id, fy_start:+fy, data_ordine:e.dataOrdine||null, num_ordine:e.numOrdine||null, categoria:e.categoria, cat_altro:e.catAltro||null, fornitore:e.fornitore||null, importo:Number(e.importo)||0, comp_da:e.compDa||null, comp_a:e.compA||null, data_consegna:e.dataConsegna||null, oggetto:e.oggetto||null, note:e.note||null, tipo_pagamento:e.tipoPagamento||'RDA' }; }
 function cloudSetDot(state){ const d=document.getElementById("cloudDot"), l=document.getElementById("cloudLbl"); if(!d)return; d.className="cloud-dot "+state; l.textContent = state==='on'?'Sincronizzato':state==='sync'?'Sync…':state==='err'?'Errore':'Cloud'; }
 function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clearTimeout(flashSynced._t); flashSynced._t=setTimeout(()=>{ if(cloudReady())cloudSetDot('on'); },600); }
 function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toast("Errore salvataggio cloud ("+ctx+"): "+(error&&error.message?error.message:'riprova')+" — dato solo in locale",'err'); }
@@ -1958,7 +2004,7 @@ async function cloudPullAll(silent){
     const ensure=y=>{ y=String(y); if(!years[y]) years[y]={budget:{}, expenses:[]}; CATEGORIES.forEach(c=>{ if(years[y].budget[c]==null) years[y].budget[c]=0; }); return years[y]; };
     (buds||[]).forEach(b=>{ ensure(b.fy_start).budget[b.categoria]=Number(b.budget_net)||0; });
     const active=(all||[]).filter(r=>!r.deleted_at), deleted=(all||[]).filter(r=>r.deleted_at);
-    active.forEach(r=>{ ensure(r.fy_start).expenses.push({ id:r.id, dataOrdine:r.data_ordine, numOrdine:r.num_ordine||"", categoria:r.categoria, catAltro:r.cat_altro||"", fornitore:r.fornitore||"", importo:Number(r.importo)||0, compDa:r.comp_da, compA:r.comp_a, dataConsegna:r.data_consegna, oggetto:r.oggetto||"", note:r.note||"" }); });
+    active.forEach(r=>{ ensure(r.fy_start).expenses.push({ id:r.id, dataOrdine:r.data_ordine, numOrdine:r.num_ordine||"", categoria:r.categoria, catAltro:r.cat_altro||"", fornitore:r.fornitore||"", importo:Number(r.importo)||0, compDa:r.comp_da, compA:r.comp_a, dataConsegna:r.data_consegna, oggetto:r.oggetto||"", note:r.note||"", tipoPagamento:r.tipo_pagamento||"RDA", sourceRdaId:r.source_rda_id||null }); });
     if(Object.keys(years).length){ STATE.years=years; if(!STATE.years[String(STATE.fyStart)]){ STATE.fyStart=+Object.keys(STATE.years).sort().pop(); } }
     STATE.trash = deleted.map(r=>({ id:r.id, _fy:r.fy_start, deletedAt:r.deleted_at, dataOrdine:r.data_ordine, numOrdine:r.num_ordine||"", categoria:r.categoria, catAltro:r.cat_altro||"", fornitore:r.fornitore||"", importo:Number(r.importo)||0, compDa:r.comp_da, compA:r.comp_a, dataConsegna:r.data_consegna, oggetto:r.oggetto||"", note:r.note||"" }));
     sanitizeState(STATE);
@@ -1966,6 +2012,7 @@ async function cloudPullAll(silent){
     if(smap.iva_by_cat){ STATE.ivaByCat=Object.assign(defaultIva(), smap.iva_by_cat); }
     if(smap.finance){ STATE.finance=smap.finance; }
     await cloudFetchTravelEstimates();
+    await cloudFetchDocentiEstimates();
     await cloudFetchRoles();
     save(); initFY(); document.getElementById("refDate").value=STATE.refDate; renderCalChips(); renderAll();
     cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud");
@@ -1980,6 +2027,15 @@ async function cloudFetchTravelEstimates(){
     if(error) throw error;
     STATE.travelEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0}));
   }catch(e){ console.error('travel estimates', e); }
+}
+/* stime Docenti (attività non ancora a RDA) dalla vista bdg_v_budget_docenti_allocations — stesso pattern, sola lettura, non fatale se assente */
+async function cloudFetchDocentiEstimates(){
+  if(!cloudReady()) return;
+  try{
+    const {data,error}=await sb.from('bdg_v_budget_docenti_allocations').select('categoria,mese,importo');
+    if(error) throw error;
+    STATE.docentiEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0}));
+  }catch(e){ console.error('docenti estimates', e); }
 }
 /* ruoli/visibilità tab: tabelle condivise con Spese EC. Fetch protetta a parte
    (un errore qui non deve rompere la sync di spese/budget); su errore si tiene
