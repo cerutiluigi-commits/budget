@@ -322,6 +322,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
 
   /* ---- tabelle "responsive" → schede ---- */
   #panel-riepilogo .card.scroll, #panel-movimenti .card.scroll{border:0;box-shadow:none;background:transparent;overflow:visible;border-radius:0}
+  #panel-movimenti .card.scroll.estimates{border:1px dashed var(--line-strong)!important;border-radius:10px;background:var(--surface-2)!important;opacity:.85}
   table.responsive thead{display:none}
   table.responsive tbody,table.responsive tr,table.responsive td{display:block;width:100%}
   table.responsive tr{border:1px solid var(--line);border-radius:10px;margin:0 0 10px;padding:6px 14px;background:var(--surface);box-shadow:var(--shadow)}
@@ -510,6 +511,13 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
     </div>
     <div class="card scroll">
       <table class="mv-table responsive" id="mvTable"></table>
+    </div>
+    <div id="mvEstimatesWrap" style="display:none;margin-top:22px">
+      <h3 class="sec" style="font-size:15px;margin-bottom:2px">Stime aperte</h3>
+      <p class="hint" style="margin:0 0 10px">Attività/voci non ancora confermate come spesa reale (nessun Codice RDA / non ancora riconciliate) — sola lettura, non generano un movimento vero finché non si conferma a monte (Docenti / Spese EC).</p>
+      <div class="card scroll estimates">
+        <table class="mv-table responsive" id="mvEstimatesTable"></table>
+      </div>
     </div>
   </section>
 
@@ -1344,6 +1352,7 @@ function renderMovimenti(){
     document.getElementById("mvTable").innerHTML=`<tbody><tr><td><div class="empty">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 11H5a2 2 0 00-2 2v6a2 2 0 002 2h14a2 2 0 002-2v-6a2 2 0 00-2-2h-4M9 11V5a2 2 0 012-2h2a2 2 0 012 2v6M9 11h6"/></svg>
       <div>Nessun movimento trovato.</div></div></td></tr></tbody>`;
+    renderMvEstimates(catF,q);
     return;
   }
   let html=`<thead><tr>
@@ -1368,6 +1377,46 @@ function renderMovimenti(){
   const t=document.getElementById("mvTable");
   t.innerHTML=html;
   t.querySelectorAll(".rowbtn").forEach(b=>b.onclick=()=>openModal(b.dataset.id));
+  renderMvEstimates(catF,q);
+}
+// righe non ancora spesa reale (attività Docenti senza Codice RDA, voci Spese EC non ALLOCATED->reali):
+// sola lettura, stesso filtro categoria/ricerca/anno fiscale della lista movimenti sopra, mai un
+// bdg_expenses vero dietro (vedi bdg_v_budget_docenti_allocations / bdg_v_budget_allocations)
+function renderMvEstimates(catF,q){
+  const wrap=document.getElementById("mvEstimatesWrap");
+  const fs=fyStartKey(), fe=fyEndKey();
+  const rows=[];
+  (STATE.docentiEstimates||[]).forEach(r=>{
+    const my=ym(r.mese); if(!my||my.key<fs||my.key>fe) return;
+    if(catF!=="ALL" && r.categoria!==catF) return;
+    const label=[r.tipo,r.luogo,r.docenteNome].filter(Boolean).join(" · ");
+    if(q && !(label+" "+(r.categoria||"")).toLowerCase().includes(q)) return;
+    rows.push({categoria:r.categoria, data:r.data, label, sub:"Docenti", importo:r.importo});
+  });
+  (STATE.travelEstimates||[]).forEach(r=>{
+    const my=ym(r.mese); if(!my||my.key<fs||my.key>fe) return;
+    if(catF!=="ALL" && r.categoria!==catF) return;
+    const label=[r.voceTipo, r.destinazione||r.scopo, r.travelerNome].filter(Boolean).join(" · ");
+    if(q && !(label+" "+(r.categoria||"")).toLowerCase().includes(q)) return;
+    rows.push({categoria:r.categoria, data:r.data, label, sub:"Spese EC", importo:r.importo});
+  });
+  if(!rows.length){ wrap.style.display="none"; return; }
+  wrap.style.display="";
+  rows.sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+  let html=`<thead><tr>
+    <th class="l">Data</th><th class="l">Categoria</th><th class="l">Descrizione</th><th>Netto</th><th>IVA incl.</th></tr></thead><tbody>`;
+  for(const r of rows){
+    const net=+r.importo||0, gross=net*ivaFactor(r.categoria);
+    html+=`<tr>
+      <td class="l" data-label="Data"><div class="obj">${fmtD(r.data)}</div></td>
+      <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[r.categoria]||'#8A8F88',.13)};color:${CAT_COLOR[r.categoria]||'#6A6F6A'}">${r.categoria||''}</span></td>
+      <td class="l" data-label="Descrizione"><div class="obj">${esc(r.label)||'—'}</div><div class="meta">stima · ${r.sub}</div></td>
+      <td data-label="Netto" style="color:var(--ink-mute)">${eur2(net)}</td>
+      <td data-label="IVA incl.">${eur2(gross)}</td>
+    </tr>`;
+  }
+  html+=`</tbody>`;
+  document.getElementById("mvEstimatesTable").innerHTML=html;
 }
 function fmtD(s){ if(!s) return "—"; const p=String(s).split("-"); if(p.length<3) return s; return p[2]+"/"+p[1]+"/"+p[0].slice(2); }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
@@ -2023,18 +2072,18 @@ async function cloudPullAll(silent){
 async function cloudFetchTravelEstimates(){
   if(!cloudReady()) return;
   try{
-    const {data,error}=await sb.from('bdg_v_budget_allocations').select('categoria,mese,importo');
+    const {data,error}=await sb.from('bdg_v_budget_allocations').select('categoria,mese,importo,competenza,traveler_nome,voce_tipo,fornitore,destinazione,scopo');
     if(error) throw error;
-    STATE.travelEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0}));
+    STATE.travelEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0,data:r.competenza||null,travelerNome:r.traveler_nome||'',voceTipo:r.voce_tipo||'',fornitore:r.fornitore||'',destinazione:r.destinazione||'',scopo:r.scopo||''}));
   }catch(e){ console.error('travel estimates', e); }
 }
 /* stime Docenti (attività non ancora a RDA) dalla vista bdg_v_budget_docenti_allocations — stesso pattern, sola lettura, non fatale se assente */
 async function cloudFetchDocentiEstimates(){
   if(!cloudReady()) return;
   try{
-    const {data,error}=await sb.from('bdg_v_budget_docenti_allocations').select('categoria,mese,importo');
+    const {data,error}=await sb.from('bdg_v_budget_docenti_allocations').select('categoria,mese,importo,docente_nome,tipo,data,luogo');
     if(error) throw error;
-    STATE.docentiEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0}));
+    STATE.docentiEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0,docenteNome:r.docente_nome||'',tipo:r.tipo||'',data:r.data||null,luogo:r.luogo||''}));
   }catch(e){ console.error('docenti estimates', e); }
 }
 /* ruoli/visibilità tab: tabelle condivise con Spese EC. Fetch protetta a parte
