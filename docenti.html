@@ -128,8 +128,8 @@ tfoot td.l{text-align:left}
 .act-row:last-child{border-bottom:0}
 .act-row:hover{background:var(--surface-2)}
 .act-row .ty{flex:1;min-width:180px;font-weight:600}
-.note-ic{display:inline-flex;vertical-align:middle;margin-left:6px;color:var(--ink-mute);cursor:default}
-.note-ic svg{width:14px;height:14px}
+.note-ic{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-left:6px;width:21px;height:21px;border-radius:6px;background:var(--warn-soft);color:var(--warn);cursor:default}
+.note-ic svg{width:12px;height:12px}
 .confirm-icon{width:52px;height:52px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto}
 .confirm-icon svg{width:26px;height:26px}
 .act-row .sc{color:var(--ink-soft);font-size:12.5px}
@@ -194,7 +194,7 @@ tfoot td.l{text-align:left}
 .riep-filters-toggle.active{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
 @media (prefers-reduced-motion:reduce){.riep-filters-toggle .twisty{transition:none}}
 .riep-stats{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;justify-content:flex-end}
-.riep-stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;flex:0 0 170px}
+.riep-stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;flex:0 0 230px}
 .riep-stat .rl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
 .riep-stat .rv{font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .riep-stat.prog{color:var(--warn)}
@@ -220,7 +220,7 @@ tfoot td.l{text-align:left}
 .admin-sec{display:none}
 .admin-sec.on{display:block}
 
-.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:0;border-radius:9px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:0;border-radius:9px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap}
 .btn:hover{filter:brightness(1.08)}
 .btn svg{width:15px;height:15px}
 .btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);box-shadow:var(--shadow-sm)}
@@ -313,6 +313,16 @@ tfoot td.l{text-align:left}
   .grid2{grid-template-columns:1fr}
   .rda-h .tot{margin-left:0;width:100%}
   main{padding:16px 12px 70px}
+  .node-row{flex-wrap:wrap}
+  .node-meta{width:100%}
+  .riep-stats{justify-content:flex-start;width:100%}
+  .riep-stat{flex:1 1 150px;align-items:flex-start}
+  .riep-stat .rv{white-space:normal}
+  .docente-line{flex-wrap:wrap}
+  .docente-line .riep-stats{margin-left:0;width:100%}
+  .mfoot{flex-direction:column-reverse;flex-wrap:nowrap}
+  .mfoot .btn{width:100%;justify-content:center}
+  .mfoot .sp{display:none}
 }
 </style>
 </head>
@@ -395,7 +405,7 @@ tfoot td.l{text-align:left}
       <button class="btn" id="btnNewAct" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuova attività</button>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
-      <button class="btn small" id="btnCalAdd"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>Aggiungi al calendario</button>
+      <button class="btn small" id="btnCalAdd" title="Apre un link Outlook per ogni attività 'programmata' futura, uno alla volta: scegli quali aggiungere al tuo calendario"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>Aggiungi al calendario</button>
     </div>
     <div class="card scroll"><div id="actList"></div></div>
   </section>
@@ -476,10 +486,10 @@ tfoot td.l{text-align:left}
       </div>
     </div>
     <div class="mfoot">
-      <button class="btn danger" id="aDelete" style="display:none">Elimina</button>
+      <button class="btn danger" id="aDelete" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>Elimina</button>
       <div class="sp"></div>
-      <button class="btn ghost" id="aCancel">Annulla</button>
-      <button class="btn" id="aSave">Salva attività</button>
+      <button class="btn ghost" id="aCancel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>Annulla</button>
+      <button class="btn" id="aSave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Salva attività</button>
     </div>
   </div>
 </div>
@@ -499,8 +509,8 @@ tfoot td.l{text-align:left}
     </div>
     <div class="mfoot">
       <div class="sp"></div>
-      <button class="btn ghost" id="ntCancel">Annulla</button>
-      <button class="btn" id="ntSave">Aggiungi docente</button>
+      <button class="btn ghost" id="ntCancel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>Annulla</button>
+      <button class="btn" id="ntSave"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Aggiungi docente</button>
     </div>
   </div>
 </div>
@@ -514,7 +524,7 @@ tfoot td.l{text-align:left}
       <p id="confirmMsg" class="hint" style="margin:0 0 6px;font-size:13px;line-height:1.5"></p>
     </div>
     <div class="mfoot" style="justify-content:center;gap:10px">
-      <button class="btn ghost" id="confirmCancel">Annulla</button>
+      <button class="btn ghost" id="confirmCancel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>Annulla</button>
       <button class="btn" id="confirmOk">Conferma</button>
     </div>
   </div>
@@ -530,7 +540,7 @@ tfoot td.l{text-align:left}
     </div>
     <div class="mfoot">
       <div class="sp"></div>
-      <button class="btn ghost" id="calDone">Chiudi</button>
+      <button class="btn ghost" id="calDone"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>Chiudi</button>
     </div>
   </div>
 </div>
@@ -910,7 +920,7 @@ function activityRowHtml(a){
       <button class="rowbtn act-cancel" data-id="${a.id}" title="Annulla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </span>` : '';
   const titolo = a.nome || [a.tipo, activityLocation(a)].filter(Boolean).join(' · ');
-  const noteIc = a.note ? `<span class="note-ic" title="${esc(a.note)}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>` : '';
+  const noteIc = a.note ? `<span class="note-ic" title="${esc(a.note)}"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>` : '';
   return `<div class="${cls}" data-id="${a.id}">
       <span class="ty">${esc(titolo)}${noteIc}</span>
       <span class="dt">${fmtD(a.data)}</span>
@@ -1046,12 +1056,15 @@ function markCalAdded(id){
   openCalModal(); // ridisegna la modale: la riga appena aperta passa allo stato "già aggiunta"
 }
 
+// "attività" = macro-evento (righe che condividono lo stesso gruppo_id, o una singola data senza
+// gruppo), "giornata" = singola data — vedi riepStatsHtml()/CLAUDE.md per la distinzione
+function countAttivita(acts){ return new Set(acts.map(a=>a.gruppo_id||a.id)).size; }
 function computeRiepStats(months){
   const acts=riepActivities().filter(a=>months.includes((a.data||'').slice(0,7)));
   const svolte=acts.filter(a=>a.stato==='svolta'), programmate=acts.filter(a=>a.stato==='programmata');
   return {
-    svolte:svolte.length, ore:svolte.reduce((s,a)=>s+activityOre(a),0), importo:svolte.reduce((s,a)=>s+activityAmount(a),0),
-    programmate:programmate.length, importoProgrammate:programmate.reduce((s,a)=>s+activityAmount(a),0), annullate:acts.filter(a=>a.stato==='annullata').length
+    svolte:svolte.length, svolteAttivita:countAttivita(svolte), ore:svolte.reduce((s,a)=>s+activityOre(a),0), importo:svolte.reduce((s,a)=>s+activityAmount(a),0),
+    programmate:programmate.length, programmateAttivita:countAttivita(programmate), importoProgrammate:programmate.reduce((s,a)=>s+activityAmount(a),0), annullate:acts.filter(a=>a.stato==='annullata').length
   };
 }
 // aggrega le attività del mese per docente, separando programmata/svolta (le annullate non contano
@@ -1061,25 +1074,27 @@ function docenteBreakdownForMonth(monthYM){
   const byTeacher={};
   acts.forEach(a=>{
     const t=teacherById(a.teacher_id);
-    if(!byTeacher[a.teacher_id]) byTeacher[a.teacher_id]={nome:t.nome, programmata:{n:0,ore:0,importo:0}, svolta:{n:0,ore:0,importo:0}};
+    if(!byTeacher[a.teacher_id]) byTeacher[a.teacher_id]={nome:t.nome, programmata:{n:0,ore:0,importo:0,groups:new Set()}, svolta:{n:0,ore:0,importo:0,groups:new Set()}};
     const bucket=byTeacher[a.teacher_id][a.stato];
     if(!bucket) return;
-    bucket.n++; bucket.ore+=activityOre(a); bucket.importo+=activityAmount(a);
+    bucket.n++; bucket.ore+=activityOre(a); bucket.importo+=activityAmount(a); bucket.groups.add(a.gruppo_id||a.id);
   });
   return byTeacher;
 }
-function giornoLabel(n){ return n===1 ? '1 giorno' : `${n} giorni`; }
+function giornataLabel(n){ return n===1 ? '1 giornata' : `${n} giornate`; }
+function attivitaLabel(n){ return n===1 ? '1 attività' : `${n} attività`; }
 function riepStatsHtml(prog,done){
+  const pAtt=prog.groups?prog.groups.size:(prog.attivita||0), dAtt=done.groups?done.groups.size:(done.attivita||0);
   return `<div class="riep-stats">
-    <div class="riep-stat prog"><span class="rl">Programmate</span><span class="rv">${giornoLabel(prog.n)} · ${prog.ore} ore · ${eur2(prog.importo)}</span></div>
-    <div class="riep-stat done"><span class="rl">Svolte</span><span class="rv">${giornoLabel(done.n)} · ${done.ore} ore · ${eur2(done.importo)}</span></div>
+    <div class="riep-stat prog" title="Attività = macro-evento (una o più date collegate); giornate = singole date"><span class="rl">Programmate</span><span class="rv">${attivitaLabel(pAtt)} · ${giornataLabel(prog.n)} · ${prog.ore} ore · ${eur2(prog.importo)}</span></div>
+    <div class="riep-stat done" title="Attività = macro-evento (una o più date collegate); giornate = singole date"><span class="rl">Svolte</span><span class="rv">${attivitaLabel(dAtt)} · ${giornataLabel(done.n)} · ${done.ore} ore · ${eur2(done.importo)}</span></div>
   </div>`;
 }
 function renderMonthCard(monthYM,alertMsg,isCurrent){
   const acts=riepActivities().filter(a=>(a.data||'').slice(0,7)===monthYM);
   const svolte=acts.filter(a=>a.stato==='svolta'), programmate=acts.filter(a=>a.stato==='programmata'), annullate=acts.filter(a=>a.stato==='annullata');
-  const doneTot={n:svolte.length, ore:svolte.reduce((s,a)=>s+activityOre(a),0), importo:svolte.reduce((s,a)=>s+activityAmount(a),0)};
-  const progTot={n:programmate.length, ore:programmate.reduce((s,a)=>s+activityOre(a),0), importo:programmate.reduce((s,a)=>s+activityAmount(a),0)};
+  const doneTot={n:svolte.length, attivita:countAttivita(svolte), ore:svolte.reduce((s,a)=>s+activityOre(a),0), importo:svolte.reduce((s,a)=>s+activityAmount(a),0)};
+  const progTot={n:programmate.length, attivita:countAttivita(programmate), ore:programmate.reduce((s,a)=>s+activityOre(a),0), importo:programmate.reduce((s,a)=>s+activityAmount(a),0)};
   const [y,m]=monthYM.split('-').map(Number);
   const teachers=docenteBreakdownForMonth(monthYM);
   const teacherIds=Object.keys(teachers).sort((x,y2)=>(teachers[y2].svolta.importo+teachers[y2].programmata.importo)-(teachers[x].svolta.importo+teachers[x].programmata.importo));
@@ -1148,10 +1163,10 @@ function renderRiepilogo(){
   const scope=selected.length?selected:allMonths;
   const stats=computeRiepStats(scope);
   document.getElementById("kpis").innerHTML=`
-    <div class="kpi" style="--bar:var(--accent)"><div class="l"><span class="sw" style="background:var(--speso)"></span><span class="eyebrow">Svolte</span></div><div class="v">${stats.svolte}</div><div class="sub">${stats.ore} ore</div></div>
-    <div class="kpi" style="--bar:var(--ink-mute)"><div class="l"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Importo svolto</span></div><div class="v">${eur(stats.importo)}</div><div class="sub">da rendicontare in RDA</div></div>
-    <div class="kpi" style="--bar:var(--warn)"><div class="l"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Programmate</span></div><div class="v">${stats.programmate}</div><div class="sub">${eur2(stats.importoProgrammate)} ancora da confermare</div></div>
-    <div class="kpi" style="--bar:var(--over)"><div class="l"><span class="sw" style="background:var(--over)"></span><span class="eyebrow">Annullate</span></div><div class="v">${stats.annullate}</div><div class="sub">nel periodo selezionato</div></div>`;
+    <div class="kpi" style="--bar:var(--accent)" title="Attività = macro-evento (una o più date collegate) confermato come svolto"><div class="l"><span class="sw" style="background:var(--speso)"></span><span class="eyebrow">Attività svolte</span></div><div class="v">${stats.svolteAttivita}</div><div class="sub">${giornataLabel(stats.svolte)} · ${stats.ore} ore</div></div>
+    <div class="kpi" style="--bar:var(--ink-mute)" title="Totale da rendicontare in RDA per le giornate svolte nel periodo"><div class="l"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Importo svolto</span></div><div class="v">${eur(stats.importo)}</div><div class="sub">da rendicontare in RDA</div></div>
+    <div class="kpi" style="--bar:var(--warn)" title="Attività con almeno una giornata ancora 'programmata': da confermare come svolta o annullata una volta avvenuta"><div class="l"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Attività programmate</span></div><div class="v">${stats.programmateAttivita}</div><div class="sub">${giornataLabel(stats.programmate)} · ${eur2(stats.importoProgrammate)} ancora da confermare</div></div>
+    <div class="kpi" style="--bar:var(--over)" title="Giornate annullate nel periodo selezionato: non contano su ore, importo o RDA"><div class="l"><span class="sw" style="background:var(--over)"></span><span class="eyebrow">Annullate</span></div><div class="v">${stats.annullate}</div><div class="sub">nel periodo selezionato</div></div>`;
 
   const box=document.getElementById("riepBlocks");
   let html="";
@@ -1424,7 +1439,7 @@ function renderChOverview(){
       ${pending.map(p=>{ const t=teacherById(p.teacherId); const iface=t.interface_id?interfaceById(t.interface_id):null; return `<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span style="flex:1;min-width:160px"><b>${esc(t.nome)}</b> <span class="hint">${p.count} attività ancora "programmata" · interfaccia ${esc(iface?iface.nome:'—')}</span></span>
         ${t.last_solicited_at?`<span class="hint">Sollecito inviato il ${fmtD(t.last_solicited_at.slice(0,10))}</span>`:''}
-        <button class="btn ghost small ch-sollecita" data-id="${p.teacherId}" ${iface&&iface.email?'':'disabled title="Nessuna interfaccia con email collegata"'}>Sollecita via email</button>
+        <button class="btn ghost small ch-sollecita" data-id="${p.teacherId}" ${iface&&iface.email?'title="Apre un\'email precompilata verso l\'interfaccia orientamento, per chiedere di confermare le attività ancora programmata"':'disabled title="Nessuna interfaccia con email collegata"'}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z"/><path d="M22 6l-10 7L2 6"/></svg>Sollecita via email</button>
       </div>`; }).join("")}
     </div>`;
   box.querySelectorAll(".ch-sollecita").forEach(b=>b.onclick=()=>sollecitaDocente(b.dataset.id));
@@ -1484,9 +1499,9 @@ function renderChiusuraList(){
             ${existing.stato!=='pagata'
               ? `<input type="text" class="rda-rif" data-id="${existing.id}" placeholder="Codice RDA (numero SAP)" value="${esc(existing.rif_rda||'')}" style="flex:1;min-width:140px;border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px">`
               : `<span class="hint" style="flex:1">Codice RDA: <b>${esc(existing.rif_rda||'—')}</b></span>`}
-            ${(existing.stato!=='pagata' && existing.rif_rda) ? `<button class="btn small rda-pagato" data-id="${existing.id}">Segna come pagato</button>` : ''}
-            <button class="btn ghost small rda-regen" data-teacher="${tid}" data-month="${month}">Ricalcola totale</button>
-          `:`<button class="btn small rda-gen" data-teacher="${tid}" data-month="${month}" ${acts.length?'':'disabled'}>Genera RDA</button>
+            ${(existing.stato!=='pagata' && existing.rif_rda) ? `<button class="btn small rda-pagato" data-id="${existing.id}" title="Segna l'RDA come pagata: chiude il ciclo, l'importo passa da Allocato a Speso nel tool Budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Segna come pagato</button>` : ''}
+            <button class="btn ghost small rda-regen" data-teacher="${tid}" data-month="${month}" title="Ricalcola l'importo dalle attività attuali del gruppo (utile se sono cambiate ore, tariffa o attività dopo la prima generazione) — non tocca Codice RDA o stato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Ricalcola totale</button>
+          `:`<button class="btn small rda-gen" data-teacher="${tid}" data-month="${month}" ${acts.length?'':'disabled'} title="Crea la proposta di RDA per questo docente/mese dalle attività svolte idonee, da inserire poi in SAP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Genera RDA</button>
           ${(!acts.length && pending.length) ? `<span class="hint">Attività non idonee qui: gruppo multi-data non chiuso, o di competenza di un altro mese.</span>` : ''}`}
         </div>
       </div>
@@ -1510,7 +1525,7 @@ function renderChiusuraList(){
     const t=teacherById(r.teacher_id);
     const ok=await showConfirm("Segna RDA come pagata", `${t?t.nome:''} · ${monthLabel((r.mese||'').slice(0,7))} · ${eur2(r.importo_totale)}${r.rif_rda?' · Codice '+r.rif_rda:''}`, "Segna come pagata");
     if(!ok) return;
-    r.stato='pagata'; save(); renderChiusura(); cloudUpsertRda(r);
+    r.stato='pagata'; renderAll(); cloudUpsertRda(r);
   });
 }
 // stato derivato di una RDA: bozza+niente codice = in inserimento, codice inserito = "inserita"
@@ -1646,6 +1661,11 @@ function renderRdaModeField(){
 // una riga per data (Data/Ore/Importo, rimuovibile se ce n'è più di una) + riga Totale con
 // l'eventuale bonus Workshop; l'importo orario è unico per tutta la macro-attività (campo aRate)
 // fasce orarie a step di 30 minuti (07:00-22:00), usate per Dalle/Alle delle sessioni Workshop in Campus
+function nextHalfHour(hhmm){
+  const [h,m]=hhmm.split(':').map(Number);
+  const total=Math.min(h*60+m+30, 22*60);
+  return `${String(Math.floor(total/60)).padStart(2,'0')}:${String(total%60).padStart(2,'0')}`;
+}
 function timeSlotOptions(selected){
   let h="";
   for(let m=7*60;m<=22*60;m+=30){
@@ -1663,8 +1683,8 @@ function renderDateRows(){
       <div class="field"><label>Ore <span class="req">*</span></label><input type="number" step="0.5" min="0" class="dr-ore"></div>
       <div class="field"><label>Importo</label><input type="text" class="dr-imp" disabled></div>
       ${isWs?`<div class="field"><label>Sede</label><div class="chips dr-sede" style="display:flex;gap:6px">
-          <button type="button" class="chip" data-sede="scuola">A scuola</button>
-          <button type="button" class="chip" data-sede="campus">In Campus</button>
+          <button type="button" class="chip" data-sede="scuola" title="Sessione tenuta presso la scuola già selezionata sopra">A scuola</button>
+          <button type="button" class="chip" data-sede="campus" title="Sessione in sede NABA: richiede l'orario Dalle/Alle, usato anche nel link Outlook">In Campus</button>
         </div></div>
         <div class="field dr-orario-field" style="${r.sede==='campus'?'':'visibility:hidden'}"><label>Dalle <span class="req">*</span></label><select class="dr-orario"><option value="">—</option>${timeSlotOptions(r.orario)}</select></div>
         <div class="field dr-orario-field" style="${r.sede==='campus'?'':'visibility:hidden'}"><label>Alle <span class="req">*</span></label><select class="dr-orario-fine"><option value="">—</option>${timeSlotOptions(r.orarioFine)}</select></div>`:""}
@@ -1692,7 +1712,14 @@ function renderDateRows(){
         renderDateRows();
       }; });
     }
-    if(orarioEl) orarioEl.onchange=()=>{ aRows[i].orario=orarioEl.value; };
+    if(orarioEl) orarioEl.onchange=()=>{
+      aRows[i].orario=orarioEl.value;
+      // Alle si propone sempre alla mezz'ora successiva a Dalle, finché non lo si cambia a mano
+      if(orarioEl.value && (!aRows[i].orarioFine || aRows[i].orarioFine<=orarioEl.value)){
+        aRows[i].orarioFine=nextHalfHour(orarioEl.value);
+        renderDateRows();
+      }
+    };
     if(orarioFineEl) orarioFineEl.onchange=()=>{ aRows[i].orarioFine=orarioFineEl.value; };
   });
   refreshDateTotals();
