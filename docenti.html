@@ -130,6 +130,8 @@ tfoot td.l{text-align:left}
 .act-row .ty{flex:1;min-width:180px;font-weight:600}
 .note-ic{display:inline-flex;vertical-align:middle;margin-left:6px;color:var(--ink-mute);cursor:default}
 .note-ic svg{width:14px;height:14px}
+.confirm-icon{width:52px;height:52px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto}
+.confirm-icon svg{width:26px;height:26px}
 .act-row .sc{color:var(--ink-soft);font-size:12.5px}
 .act-row .dt{color:var(--ink-mute);font-size:12px;font-family:'JetBrains Mono',monospace;min-width:70px}
 .act-row .amt{font-family:'JetBrains Mono',monospace;font-weight:700;min-width:90px;text-align:right;font-variant-numeric:tabular-nums}
@@ -263,8 +265,8 @@ tfoot td.l{text-align:left}
 .mfoot .sp{margin-left:auto}
 .date-rows{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
 .date-row{display:grid;grid-template-columns:1fr 90px 1fr 30px;gap:10px;align-items:end}
-.date-row.ws{grid-template-columns:150px 65px 85px 145px 120px 30px}
-#actOverlay .modal{max-width:700px}
+.date-row.ws{grid-template-columns:140px 60px 80px 140px 85px 85px 30px}
+#actOverlay .modal{max-width:780px}
 .date-row .field{margin-bottom:0}
 .date-total{margin:14px 0;padding-top:12px;border-top:1px solid var(--line)}
 .date-bonus{font-size:12.5px;color:var(--accent);font-weight:600;margin-bottom:6px}
@@ -362,6 +364,7 @@ tfoot td.l{text-align:left}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <div class="hgroup" style="background:var(--surface);border:1px solid var(--line-strong)"><label style="color:var(--ink-mute)">Anno fiscale</label><select id="riepFySel" style="color:var(--ink)"></select></div>
       <span class="hint">luglio → giugno · o seleziona uno o più mesi singoli qui sotto</span>
+      <button class="btn" id="btnNewActRiep" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuova attività</button>
     </div>
     <div class="chips" id="riepMonthChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
     <button type="button" class="riep-filters-toggle" id="riepFiltersToggle">
@@ -498,6 +501,21 @@ tfoot td.l{text-align:left}
       <div class="sp"></div>
       <button class="btn ghost" id="ntCancel">Annulla</button>
       <button class="btn" id="ntSave">Aggiungi docente</button>
+    </div>
+  </div>
+</div>
+
+<!-- CONFERMA GENERICA (sostituisce confirm() nativo dove serve un po' più di contesto/cura grafica) -->
+<div class="overlay" id="confirmOverlay">
+  <div class="modal" style="max-width:420px">
+    <div class="mbody" style="text-align:center;padding-top:30px">
+      <div class="confirm-icon" id="confirmIcon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></div>
+      <h3 id="confirmTitle" style="margin:16px 0 8px"></h3>
+      <p id="confirmMsg" class="hint" style="margin:0 0 6px;font-size:13px;line-height:1.5"></p>
+    </div>
+    <div class="mfoot" style="justify-content:center;gap:10px">
+      <button class="btn ghost" id="confirmCancel">Annulla</button>
+      <button class="btn" id="confirmOk">Conferma</button>
     </div>
   </div>
 </div>
@@ -740,6 +758,7 @@ function applyRole(){
   }
   else banner.style.display='none';
   document.getElementById('btnNewAct').style.display=(isAdmin||teach)?'':'none';
+  document.getElementById('btnNewActRiep').style.display=(isAdmin||teach)?'':'none';
   if(!anyVisible){ document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('on')); document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on')); }
   else if((activeHidden || !document.querySelector('nav.tabs button.on')) && firstBtn) firstBtn.click();
   renderDueBanner();
@@ -958,7 +977,13 @@ function buildOutlookLink(a){
   let startH=9, startM=0;
   if(a.ora_evento){ const [hh,mm]=a.ora_evento.split(':').map(Number); if(!isNaN(hh)){ startH=hh; startM=mm||0; } }
   const start=toOutlookUTC(a.data,startH,startM);
-  const end=toOutlookUTC(a.data,startH+Math.floor(ore),startM+Math.round((ore%1)*60));
+  let end;
+  if(a.ora_evento_fine){
+    const [hh,mm]=a.ora_evento_fine.split(':').map(Number);
+    end = !isNaN(hh) ? toOutlookUTC(a.data,hh,mm||0) : toOutlookUTC(a.data,startH+Math.floor(ore),startM+Math.round((ore%1)*60));
+  } else {
+    end = toOutlookUTC(a.data,startH+Math.floor(ore),startM+Math.round((ore%1)*60));
+  }
   const params=[
     ['path','/calendar/action/compose'],
     ['rru','addevent'],
@@ -1480,9 +1505,11 @@ function renderChiusuraList(){
     if(r.stato!=='pagata') r.stato = val ? 'emessa' : 'bozza';
     save(); renderChiusura(); cloudUpsertRda(r); syncBudgetMovement(r);
   });
-  box.querySelectorAll(".rda-pagato").forEach(b=>b.onclick=()=>{
+  box.querySelectorAll(".rda-pagato").forEach(b=>b.onclick=async()=>{
     const r=rdaById(b.dataset.id); if(!r) return;
-    if(!confirm("Segnare questa RDA come pagata?")) return;
+    const t=teacherById(r.teacher_id);
+    const ok=await showConfirm("Segna RDA come pagata", `${t?t.nome:''} · ${monthLabel((r.mese||'').slice(0,7))} · ${eur2(r.importo_totale)}${r.rif_rda?' · Codice '+r.rif_rda:''}`, "Segna come pagata");
+    if(!ok) return;
     r.stato='pagata'; save(); renderChiusura(); cloudUpsertRda(r);
   });
 }
@@ -1606,7 +1633,7 @@ function updateTeacherInfo(){
 let editGroupId=null; // id di gruppo dell'attività macro in modifica (null = nuova)
 let aRows=[]; // date della macro-attività aperta nella modale: {rowId:id-esistente|null, data, ore}
 let aRdaMode='fine_periodo'; // 'fine_periodo' | 'per_mese' — vale per l'intera macro-attività (tutte le righe del gruppo)
-function newDateRow(data,ore,rowId,sede,orario){ return {rowId:rowId||null, data:data||todayISO(), ore:(ore==null?'':ore), sede:sede||'scuola', orario:orario||''}; }
+function newDateRow(data,ore,rowId,sede,orario,orarioFine){ return {rowId:rowId||null, data:data||todayISO(), ore:(ore==null?'':ore), sede:sede||'scuola', orario:orario||'', orarioFine:orarioFine||''}; }
 // il campo compare solo con più date (con una sola non ha senso: c'è un solo mese possibile)
 function renderRdaModeField(){
   const field=document.getElementById("aRdaModeField");
@@ -1618,6 +1645,15 @@ function renderRdaModeField(){
 }
 // una riga per data (Data/Ore/Importo, rimuovibile se ce n'è più di una) + riga Totale con
 // l'eventuale bonus Workshop; l'importo orario è unico per tutta la macro-attività (campo aRate)
+// fasce orarie a step di 30 minuti (07:00-22:00), usate per Dalle/Alle delle sessioni Workshop in Campus
+function timeSlotOptions(selected){
+  let h="";
+  for(let m=7*60;m<=22*60;m+=30){
+    const v=`${String(Math.floor(m/60)).padStart(2,'0')}:${String(m%60).padStart(2,'0')}`;
+    h+=`<option value="${v}" ${v===selected?'selected':''}>${v}</option>`;
+  }
+  return h;
+}
 function renderDateRows(){
   const wrap=document.getElementById("aDateRows");
   const isWs = document.getElementById("aTipo").value==='Workshop';
@@ -1630,7 +1666,8 @@ function renderDateRows(){
           <button type="button" class="chip" data-sede="scuola">A scuola</button>
           <button type="button" class="chip" data-sede="campus">In Campus</button>
         </div></div>
-        <div class="field dr-orario-field" style="${r.sede==='campus'?'':'visibility:hidden'}"><label>Orario evento <span class="req">*</span></label><input type="time" class="dr-orario"></div>`:""}
+        <div class="field dr-orario-field" style="${r.sede==='campus'?'':'visibility:hidden'}"><label>Dalle <span class="req">*</span></label><select class="dr-orario"><option value="">—</option>${timeSlotOptions(r.orario)}</select></div>
+        <div class="field dr-orario-field" style="${r.sede==='campus'?'':'visibility:hidden'}"><label>Alle <span class="req">*</span></label><select class="dr-orario-fine"><option value="">—</option>${timeSlotOptions(r.orarioFine)}</select></div>`:""}
       ${aRows.length>1?`<button type="button" class="rowbtn dr-del" title="Rimuovi data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`:""}
     </div>`).join("");
   wrap.querySelectorAll(".date-row").forEach((row,i)=>{
@@ -1647,15 +1684,16 @@ function renderDateRows(){
     };
     oEl.oninput=()=>{ aRows[i].ore=oEl.value; refreshDateTotals(); };
     if(delBtn) delBtn.onclick=()=>{ aRows.splice(i,1); renderDateRows(); };
-    const sedeChips=row.querySelectorAll(".dr-sede .chip"), orarioField=row.querySelector(".dr-orario-field"), orarioEl=row.querySelector(".dr-orario");
+    const sedeChips=row.querySelectorAll(".dr-sede .chip"), orarioEl=row.querySelector(".dr-orario"), orarioFineEl=row.querySelector(".dr-orario-fine");
     if(sedeChips.length){
       sedeChips.forEach(c=>{ c.classList.toggle('on',c.dataset.sede===aRows[i].sede); c.onclick=()=>{
         aRows[i].sede=c.dataset.sede;
-        if(aRows[i].sede!=='campus') aRows[i].orario='';
+        if(aRows[i].sede!=='campus'){ aRows[i].orario=''; aRows[i].orarioFine=''; }
         renderDateRows();
       }; });
     }
-    if(orarioEl){ orarioEl.value=aRows[i].orario; orarioEl.onchange=()=>{ aRows[i].orario=orarioEl.value; }; }
+    if(orarioEl) orarioEl.onchange=()=>{ aRows[i].orario=orarioEl.value; };
+    if(orarioFineEl) orarioFineEl.onchange=()=>{ aRows[i].orarioFine=orarioFineEl.value; };
   });
   refreshDateTotals();
   renderRdaModeField();
@@ -1703,7 +1741,7 @@ function openActivity(id){
   document.getElementById("aRate").value = a&&a.tariffa_oraria!=null ? a.tariffa_oraria : (t?Number(t.tariffa_oraria)||0:0);
   const groupRows = editGroupId ? STATE.activities.filter(x=>(x.gruppo_id||x.id)===editGroupId) : [];
   aRows = groupRows.length
-    ? groupRows.slice().sort((x,y)=>String(x.data||'').localeCompare(String(y.data||''))).map(x=>newDateRow(x.data,x.ore,x.id,x.sede_sessione,x.ora_evento))
+    ? groupRows.slice().sort((x,y)=>String(x.data||'').localeCompare(String(y.data||''))).map(x=>newDateRow(x.data,x.ore,x.id,x.sede_sessione,x.ora_evento,x.ora_evento_fine))
     : [newDateRow(todayISO(),'')];
   aRdaMode = (groupRows[0] && groupRows[0].rda_mode) || 'fine_periodo';
   renderDateRows();
@@ -1718,7 +1756,10 @@ function saveActivity(){
     if(!r.data){ toast("Inserisci tutte le date"); return; }
     const ore=parseFloat(r.ore);
     if(isNaN(ore)||ore<=0){ toast("Inserisci le ore per ogni data"); return; }
-    if(isWs && r.sede==='campus' && !r.orario){ toast("Inserisci l'orario evento per le date In Campus"); return; }
+    if(isWs && r.sede==='campus'){
+      if(!r.orario || !r.orarioFine){ toast("Inserisci Dalle e Alle per le date In Campus"); return; }
+      if(r.orarioFine<=r.orario){ toast("L'orario Alle deve essere successivo a Dalle"); return; }
+    }
   }
   const rate=parseFloat(document.getElementById("aRate").value);
   if(isNaN(rate)||rate<0){ toast("Inserisci l'importo orario"); return; }
@@ -1741,7 +1782,8 @@ function saveActivity(){
     const ore=parseFloat(r.ore);
     const sede_sessione = isWs ? r.sede : null;
     const ora_evento = (isWs && r.sede==='campus') ? r.orario : null;
-    const base={ teacher_id:teacherId, school_id:schoolId, luogo, area, tipo, nome, data:r.data, ore, note, rda_mode:aRdaMode, sede_sessione, ora_evento };
+    const ora_evento_fine = (isWs && r.sede==='campus') ? r.orarioFine : null;
+    const base={ teacher_id:teacherId, school_id:schoolId, luogo, area, tipo, nome, data:r.data, ore, note, rda_mode:aRdaMode, sede_sessione, ora_evento, ora_evento_fine };
     if(r.rowId){
       const existing=STATE.activities.find(x=>x.id===r.rowId);
       if(existing){
@@ -1933,7 +1975,7 @@ function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clear
 function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toast("Errore salvataggio cloud ("+ctx+"): "+(error&&error.message?error.message:'riprova')+" — dato solo in locale",'err'); }
 function interfaceRow(i){ return {id:i.id,nome:i.nome,email:i.email||null,aree:i.aree||[],attivo:i.attivo!==false}; }
 function teacherRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,interface_id:t.interface_id||null,ruolo:t.ruolo||null,regime_fiscale:t.regime_fiscale||null,tariffa_oraria:Number(t.tariffa_oraria)||0,attivo:t.attivo!==false,last_solicited_at:t.last_solicited_at||null}; }
-function activityRow(a){ return {id:a.id,teacher_id:a.teacher_id,school_id:a.school_id||null,luogo:a.luogo||null,area:a.area||null,nome:a.nome||null,tipo:a.tipo,data:a.data,ore:Number(a.ore)||0,tariffa_oraria:a.tariffa_oraria==null?null:Number(a.tariffa_oraria),importo:a.importo==null?null:Number(a.importo),stato:a.stato||'programmata',rda_id:a.rda_id||null,note:a.note||null,gruppo_id:a.gruppo_id||null,bonus_ore:a.bonus_ore==null?null:Number(a.bonus_ore),bonus_importo:a.bonus_importo==null?null:Number(a.bonus_importo),cal_added_at:a.cal_added_at||null,rda_mode:a.rda_mode||'fine_periodo',sede_sessione:a.sede_sessione||null,ora_evento:a.ora_evento||null}; }
+function activityRow(a){ return {id:a.id,teacher_id:a.teacher_id,school_id:a.school_id||null,luogo:a.luogo||null,area:a.area||null,nome:a.nome||null,tipo:a.tipo,data:a.data,ore:Number(a.ore)||0,tariffa_oraria:a.tariffa_oraria==null?null:Number(a.tariffa_oraria),importo:a.importo==null?null:Number(a.importo),stato:a.stato||'programmata',rda_id:a.rda_id||null,note:a.note||null,gruppo_id:a.gruppo_id||null,bonus_ore:a.bonus_ore==null?null:Number(a.bonus_ore),bonus_importo:a.bonus_importo==null?null:Number(a.bonus_importo),cal_added_at:a.cal_added_at||null,rda_mode:a.rda_mode||'fine_periodo',sede_sessione:a.sede_sessione||null,ora_evento:a.ora_evento||null,ora_evento_fine:a.ora_evento_fine||null}; }
 function rdaRow(r){ return {id:r.id,teacher_id:r.teacher_id,mese:r.mese,stato:r.stato||'bozza',rif_rda:r.rif_rda||null,rif_rda_data:r.rif_rda_data||null,importo_totale:Number(r.importo_totale)||0,note:r.note||null}; }
 
 async function cloudInit(){ const cfg=cloudCfg(); if(!cfg||!window.supabase){ cloudSetDot('off'); return; } try{ sb=window.supabase.createClient(cfg.url,cfg.anonKey); const {data}=await sb.auth.getSession(); cloudSession=data.session||null; if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else cloudSetDot('off'); }catch(e){ console.error(e); cloudSetDot('err'); } }
@@ -1948,7 +1990,7 @@ async function cloudPullAll(silent){
     const {data:rd,error:e3}=await sb.from('bdg_teacher_rda').select('*'); if(e3) throw e3;
     STATE.interfaces=(ifc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",aree:x.aree||[],attivo:x.attivo!==false}));
     STATE.teachers=(tc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",interface_id:x.interface_id||null,ruolo:x.ruolo||"",regime_fiscale:x.regime_fiscale||"",tariffa_oraria:Number(x.tariffa_oraria)||50,attivo:x.attivo!==false,last_solicited_at:x.last_solicited_at||null}));
-    STATE.activities=(ac||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,school_id:x.school_id||null,luogo:x.luogo||null,area:x.area||null,nome:x.nome||"",tipo:x.tipo,data:x.data,ore:Number(x.ore)||0,tariffa_oraria:x.tariffa_oraria==null?null:Number(x.tariffa_oraria),importo:x.importo==null?null:Number(x.importo),stato:x.stato||'programmata',rda_id:x.rda_id||null,note:x.note||"",gruppo_id:x.gruppo_id||null,bonus_ore:x.bonus_ore==null?null:Number(x.bonus_ore),bonus_importo:x.bonus_importo==null?null:Number(x.bonus_importo),cal_added_at:x.cal_added_at||null,rda_mode:x.rda_mode||'fine_periodo',sede_sessione:x.sede_sessione||null,ora_evento:x.ora_evento||null}));
+    STATE.activities=(ac||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,school_id:x.school_id||null,luogo:x.luogo||null,area:x.area||null,nome:x.nome||"",tipo:x.tipo,data:x.data,ore:Number(x.ore)||0,tariffa_oraria:x.tariffa_oraria==null?null:Number(x.tariffa_oraria),importo:x.importo==null?null:Number(x.importo),stato:x.stato||'programmata',rda_id:x.rda_id||null,note:x.note||"",gruppo_id:x.gruppo_id||null,bonus_ore:x.bonus_ore==null?null:Number(x.bonus_ore),bonus_importo:x.bonus_importo==null?null:Number(x.bonus_importo),cal_added_at:x.cal_added_at||null,rda_mode:x.rda_mode||'fine_periodo',sede_sessione:x.sede_sessione||null,ora_evento:x.ora_evento||null,ora_evento_fine:x.ora_evento_fine||null}));
     STATE.rdas=(rd||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,mese:x.mese,stato:x.stato||'bozza',rif_rda:x.rif_rda||"",rif_rda_data:x.rif_rda_data||null,importo_totale:Number(x.importo_totale)||0,note:x.note||""}));
     await cloudFetchRoles();
     await fetchSchoolNames([...new Set(STATE.activities.map(a=>a.school_id).filter(Boolean))]);
@@ -2020,7 +2062,28 @@ function renderCloudModal(){
 
 /* ============================ WIRING + BOOT ============================ */
 function toast(m,type){ const t=document.getElementById("toast"); t.textContent=m; t.className="on"+(type==='err'?' err':''); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),type==='err'?6000:2200); }
-document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on")); document.getElementById("panel-"+b.dataset.tab).classList.add("on"); if(b.dataset.tab==='chiusura') renderChiusura(); if(b.dataset.tab==='scuole') renderSchoolsTable(); });
+// conferma "curata" al posto del confirm() nativo del browser — stesso design system delle altre modali
+function showConfirm(title,msg,okLabel){
+  return new Promise(resolve=>{
+    const overlay=document.getElementById("confirmOverlay");
+    const okBtn=document.getElementById("confirmOk"), cancelBtn=document.getElementById("confirmCancel");
+    document.getElementById("confirmTitle").textContent=title;
+    document.getElementById("confirmMsg").textContent=msg;
+    okBtn.textContent=okLabel||"Conferma";
+    overlay.classList.add("on");
+    const cleanup=val=>{ overlay.classList.remove("on"); okBtn.onclick=null; cancelBtn.onclick=null; resolve(val); };
+    okBtn.onclick=()=>cleanup(true);
+    cancelBtn.onclick=()=>cleanup(false);
+  });
+}
+function switchTab(tab){
+  document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.toggle("on",x.dataset.tab===tab));
+  document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
+  document.getElementById("panel-"+tab).classList.add("on");
+  if(tab==='chiusura') renderChiusura();
+  if(tab==='scuole') renderSchoolsTable();
+}
+document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
 document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); };
 document.getElementById("riepFySel").onchange=e=>{ STATE.riepFy=+e.target.value; STATE.riepMonths=[]; save(); renderRiepMonthChips(); renderRiepilogo(); };
 document.getElementById("riepFiltersToggle").onclick=()=>{
@@ -2036,6 +2099,7 @@ document.getElementById("rdaHistTeacher").onchange=renderRdaHistory;
 document.getElementById("rdaHistStato").onchange=renderRdaHistory;
 document.getElementById("rdaHistMonth").onchange=renderRdaHistory;
 document.getElementById("btnNewAct").onclick=()=>openActivity(null);
+document.getElementById("btnNewActRiep").onclick=()=>{ switchTab('attivita'); openActivity(null); };
 document.getElementById("btnCalAdd").onclick=openCalModal;
 document.getElementById("calClose").onclick=()=>document.getElementById("calOverlay").classList.remove("on");
 document.getElementById("calDone").onclick=()=>document.getElementById("calOverlay").classList.remove("on");
@@ -2115,7 +2179,7 @@ document.getElementById("btnAddUser").onclick=()=>{
 document.getElementById("ntClose").onclick=closeNewTeacherModal;
 document.getElementById("ntCancel").onclick=closeNewTeacherModal;
 document.getElementById("ntSave").onclick=saveNewTeacherQuick;
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ ["actOverlay","newTeacherOverlay","calOverlay","cloudOverlay","adminOverlay"].forEach(id=>document.getElementById(id).classList.remove("on")); closeAc(); } });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ ["actOverlay","newTeacherOverlay","calOverlay","cloudOverlay","adminOverlay","confirmOverlay"].forEach(id=>document.getElementById(id).classList.remove("on")); closeAc(); } });
 
 fillSelects();
 gate();
