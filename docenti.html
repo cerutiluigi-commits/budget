@@ -186,7 +186,7 @@ tfoot td.l{text-align:left}
 .node-children-inner{overflow:hidden}
 .node.current-month{border-left:3px solid var(--accent)}
 .node.current-month>.node-row{background:var(--accent-soft)}
-.riep-filters-toggle{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer}
+.riep-filters-toggle{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;margin-bottom:16px}
 .riep-filters-toggle:hover{border-color:var(--ink-mute);color:var(--ink)}
 .riep-filters-toggle .twisty{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:transform .16s ease}
 .riep-filters-toggle .twisty svg{width:11px;height:11px}
@@ -697,7 +697,11 @@ function baseIdentity(){
   if(email){
     const role=roleForEmail(email);
     if(role==='admin'){
-      if(STATE.localIdentity && STATE.localIdentity!=='admin'){ const i=interfaceById(STATE.localIdentity); if(i) return {role:'docente',interfaceId:i.id,preview:false,email,name:i.nome,viewAs:true}; }
+      // un vecchio "Entra come" locale (STATE.localIdentity, schermata di login offline/demo) non deve
+      // mai sovrascrivere un ruolo admin reale confermato dal cloud — bug reale: un localIdentity rimasto
+      // in localStorage da una sessione precedente bloccava l'admin sulla vista di un'interfaccia, senza
+      // alcun modo per uscirne (a differenza di "Anteprima ruolo"/STATE.previewAs, che ha già il suo
+      // bottone "Torna ad Admin" e resta l'unico modo corretto per un admin di vedere la vista di un altro).
       return {role:'admin',interfaceId:null,preview:false,email,name:null};
     }
     if(role==='docente'){
