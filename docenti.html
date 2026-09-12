@@ -72,6 +72,10 @@ header{background:var(--ink);color:var(--paper);display:flex;align-items:center;
 .hgroup label{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#9DA39C}
 .hgroup select,.hgroup input{background:transparent;border:0;color:#F4F3EF;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;outline:none}
 .hgroup select option{color:#1B1D1C}
+/* "Vista" filtrata su un singolo docente: colora il controllo così l'admin non se ne dimentica */
+.hgroup.view-active{background:var(--accent);border-color:var(--accent)}
+.hgroup.view-active label{color:rgba(255,255,255,.8)}
+.hgroup.view-active select{color:#fff;font-weight:700}
 .hbtn{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#F4F3EF;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer}
 .hbtn:hover{background:rgba(255,255,255,.14)}
 .hbtn svg{width:15px;height:15px}
@@ -794,12 +798,19 @@ function populateLogin(){
   if(cloudReady()){ cs.style.display="block"; cs.innerHTML=`Connesso al cloud come <b>${esc(cloudUser()||"")}</b> — "Entra come" filtra i dati condivisi. <button class="btn ghost small" id="loginDisc" style="margin-top:8px">Disconnetti dal cloud</button>`; const d=document.getElementById("loginDisc"); if(d) d.onclick=async()=>{ forceLogin=true; await cloudLogout(); populateLogin(); }; }
   else { cs.style.display="block"; cs.innerHTML=`<span class="login-hint" style="margin:0">Accesso rapido <b>locale</b> di prova: mostra i dati di questo dispositivo. Per i dati condivisi usa "Accedi con account cloud".</span>`; }
 }
+// evidenzia in modo non invasivo il controllo "Vista" quando l'admin sta filtrando su un singolo
+// docente (facile dimenticarsene e leggere dati parziali come se fossero di tutti)
+function updateViewIndicator(){
+  const vg=document.getElementById('viewSel')?.closest('.hgroup');
+  if(vg) vg.classList.toggle('view-active', !!STATE.view && STATE.view!=='ALL');
+}
 function applyRole(){
   CURRENT=effectiveIdentity();
   const isAdmin=CURRENT.role==='admin', teach=CURRENT.role==='docente';
   const q=s=>document.querySelector(s);
   const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display=isAdmin?'':'none';
   const vg=document.getElementById('viewSel').closest('.hgroup'); if(vg) vg.style.display=isAdmin?'':'none';
+  updateViewIndicator();
   const active=document.querySelector('nav.tabs button.on');
   let anyVisible=false, firstBtn=null, activeHidden=false;
   document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>{
@@ -2322,7 +2333,7 @@ function switchTab(tab){
   if(tab==='scuole') renderSchoolsTable();
 }
 document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
-document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); };
+document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); updateViewIndicator(); };
 document.getElementById("riepFySel").onchange=e=>{ STATE.riepFy=+e.target.value; STATE.riepMonths=[]; save(); renderRiepMonthChips(); renderRiepilogo(); };
 document.getElementById("riepFiltersToggle").onclick=()=>{
   riepFiltersToggled=true;
