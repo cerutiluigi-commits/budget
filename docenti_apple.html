@@ -3,53 +3,58 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
-<title>Docenti · NABA</title>
+<title>Docenti · NABA (Apple)</title>
+<script>try{ const t=localStorage.getItem('naba_theme_docenti'); if(t) document.documentElement.dataset.theme=t; }catch(e){}</script>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='32' y2='32'%3E%3Cstop offset='0' stop-color='%232B93FF'/%3E%3Cstop offset='1' stop-color='%230058B0'/%3E%3C/linearGradient%3E%3C/defs%3E%3Crect width='32' height='32' rx='9' fill='url(%23g)'/%3E%3Ccircle cx='16' cy='16' r='6' fill='white'/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet">
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js"></script>
 <style>
 :root{
-  --paper:#F5F3EC; --surface:#FFFFFF; --surface-2:#FBFAF6;
-  --ink:#1B1D19; --ink-soft:#5F6459; --ink-mute:#93968A;
-  --line:#E4E1D5; --line-strong:#D2CEBD;
-  --accent:#2E6B54; --accent-soft:#E3EFE8; --accent-ink:#1F4E3D;
-  --speso:#2E3532; --allocato:#C1892E; --residuo:#2E6B54; --over:#B5462F; --over-soft:#F7E4DD;
-  --warn:#B5791E; --warn-soft:#FBF0DD;
-  --info-soft:#EDEBFF; --info-ink:#5B4B9A;
-  --surface-mute:#EFEEE8;
-  --shadow-sm:0 1px 2px rgba(27,29,25,.05), 0 1px 1px rgba(27,29,25,.04);
-  --shadow-md:0 4px 16px rgba(27,29,25,.07), 0 1px 2px rgba(27,29,25,.05);
-  --shadow-lg:0 16px 44px rgba(27,29,25,.16), 0 4px 12px rgba(27,29,25,.06);
-  --radius:12px; --radius-lg:16px;
+  --paper:#F5F5F7; --surface:#FFFFFF; --surface-2:#F5F5F7;
+  --ink:#1D1D1F; --ink-soft:#6E6E73; --ink-mute:#A1A1A6;
+  --line:#E5E5EA; --line-strong:#D2D2D7;
+  --accent:#0071E3; --accent-soft:#E8F1FD; --accent-ink:#0058B0;
+  --speso:#1D1D1F; --allocato:#FF9F0A; --residuo:#0071E3; --over:#FF3B30; --over-soft:#FFEBEA;
+  --warn:#FF9F0A; --warn-soft:#FFF3E0;
+  --info-soft:#EEF1FF; --info-ink:#3D5AFE;
+  --surface-mute:#F0F0F2;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.04), 0 1px 1px rgba(0,0,0,.03);
+  --shadow-md:0 6px 20px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.05);
+  --shadow-lg:0 20px 60px rgba(0,0,0,.16), 0 6px 18px rgba(0,0,0,.06);
+  --radius:14px; --radius-lg:20px;
+  --sidebar-bg:#F5F5F7; --sidebar-ink:#1D1D1F; --sidebar-line:#E5E5EA; --sidebar-hover:rgba(0,0,0,.04);
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --paper:#171815; --surface:#1F211C; --surface-2:#242620;
-    --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#787C6E;
-    --line:#33352C; --line-strong:#40422F;
-    --accent:#5AAE8C; --accent-soft:#213329; --accent-ink:#9AD8BB;
-    --speso:#C9C6BB; --allocato:#D9A659; --residuo:#5AAE8C; --over:#E17E64; --over-soft:#332019;
-    --warn:#E0A94E; --warn-soft:#2E2717;
-    --info-soft:#242138; --info-ink:#B3A8E8;
-    --surface-mute:#2A2C25;
-    --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 4px 16px rgba(0,0,0,.35); --shadow-lg:0 20px 50px rgba(0,0,0,.5);
+    --paper:#000000; --surface:#1C1C1E; --surface-2:#2C2C2E;
+    --ink:#F5F5F7; --ink-soft:#AEAEB2; --ink-mute:#8E8E93;
+    --line:#38383A; --line-strong:#48484A;
+    --accent:#0A84FF; --accent-soft:#0F2540; --accent-ink:#6DB4FF;
+    --speso:#F5F5F7; --allocato:#FF9F0A; --residuo:#0A84FF; --over:#FF453A; --over-soft:#3A1917;
+    --warn:#FF9F0A; --warn-soft:#3A2A0F;
+    --info-soft:#161B3A; --info-ink:#7C8CFF;
+    --surface-mute:#2C2C2E;
+    --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 6px 20px rgba(0,0,0,.45); --shadow-lg:0 24px 60px rgba(0,0,0,.6);
+    --sidebar-bg:#1C1C1E; --sidebar-ink:#F5F5F7; --sidebar-line:#38383A; --sidebar-hover:rgba(255,255,255,.06);
   }
 }
 :root[data-theme="dark"]{
-  --paper:#171815; --surface:#1F211C; --surface-2:#242620;
-  --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#787C6E;
-  --line:#33352C; --line-strong:#40422F;
-  --accent:#5AAE8C; --accent-soft:#213329; --accent-ink:#9AD8BB;
-  --speso:#C9C6BB; --allocato:#D9A659; --residuo:#5AAE8C; --over:#E17E64; --over-soft:#332019;
-  --warn:#E0A94E; --warn-soft:#2E2717;
-  --info-soft:#242138; --info-ink:#B3A8E8;
-  --surface-mute:#2A2C25;
-  --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 4px 16px rgba(0,0,0,.35); --shadow-lg:0 20px 50px rgba(0,0,0,.5);
+  --paper:#000000; --surface:#1C1C1E; --surface-2:#2C2C2E;
+  --ink:#F5F5F7; --ink-soft:#AEAEB2; --ink-mute:#8E8E93;
+  --line:#38383A; --line-strong:#48484A;
+  --accent:#0A84FF; --accent-soft:#0F2540; --accent-ink:#6DB4FF;
+  --speso:#F5F5F7; --allocato:#FF9F0A; --residuo:#0A84FF; --over:#FF453A; --over-soft:#3A1917;
+  --warn:#FF9F0A; --warn-soft:#3A2A0F;
+  --info-soft:#161B3A; --info-ink:#7C8CFF;
+  --surface-mute:#2C2C2E;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 6px 20px rgba(0,0,0,.45); --shadow-lg:0 24px 60px rgba(0,0,0,.6);
+  --sidebar-bg:#1C1C1E; --sidebar-ink:#F5F5F7; --sidebar-line:#38383A; --sidebar-hover:rgba(255,255,255,.06);
 }
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+body{background:var(--paper);color:var(--ink);font-family:-apple-system,BlinkMacSystemFont,'SF Pro Text','Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
 .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute);font-weight:600}
 .mono{font-family:'JetBrains Mono',monospace}
 h2.sec{font-size:16px;font-weight:700;letter-spacing:-.01em;margin:0 0 2px}
@@ -60,34 +65,51 @@ h2.sec{font-size:16px;font-weight:700;letter-spacing:-.01em;margin:0 0 2px}
 /* header + tab bar: un unico blocco sticky, così la barra tab si aggancia sempre subito sotto
    l'header reale (che può cambiare altezza con flex-wrap) invece di un offset fisso indovinato,
    che altrimenti lascia scoprire un varco dove il contenuto sotto sfila male dietro */
-.topbar{position:sticky;top:0;z-index:30;background:var(--paper)}
-header{background:var(--ink);color:var(--paper);display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:14px 22px;box-shadow:var(--shadow-md)}
-.brand{display:flex;align-items:center;gap:10px;margin-right:auto}
-.brand .mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(155deg,var(--accent),var(--accent-ink));flex:0 0 auto}
-.brand .t{font-weight:800;font-size:16px;display:flex;align-items:center;gap:9px;letter-spacing:-.01em}
-.brand .s{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#9DA39C}
+/* guscio app: sidebar fissa + colonna principale scorrevole (stile macOS/Impostazioni iOS) */
+.app-shell{display:flex;min-height:100vh;align-items:stretch}
+.sidebar{flex:0 0 264px;max-width:264px;background:var(--sidebar-bg);border-right:1px solid var(--sidebar-line);display:flex;flex-direction:column;position:sticky;top:0;height:100vh;overflow-y:auto;padding:22px 16px 16px}
+.main-col{flex:1;min-width:0}
+.topbar{display:none} /* nel layout a sidebar non serve più una topbar separata */
+header{display:none}
+.brand{display:flex;align-items:center;gap:10px;margin:0 6px 22px}
+.brand .mark{width:30px;height:30px;border-radius:9px;background:linear-gradient(155deg,var(--accent),var(--accent-ink));flex:0 0 auto}
+.brand .t{font-weight:700;font-size:16px;display:flex;align-items:center;gap:9px;letter-spacing:-.01em;color:var(--sidebar-ink)}
+.brand .s{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute)}
 .brand .dot{display:none}
-.hctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.hgroup{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:6px 10px}
-.hgroup label{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#9DA39C}
-.hgroup select,.hgroup input{background:transparent;border:0;color:#F4F3EF;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;outline:none}
+.hctl{display:flex;flex-direction:column;gap:8px;margin-top:auto;padding-top:16px;border-top:1px solid var(--sidebar-line)}
+.hgroup{display:flex;flex-direction:column;align-items:stretch;gap:2px;background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:8px 10px;margin:0 6px 14px}
+.hgroup label{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute)}
+.hgroup select,.hgroup input{background:transparent;border:0;color:var(--ink);font-family:inherit;font-size:13px;font-weight:600;outline:none}
 .hgroup select option{color:#1B1D1C}
-.hbtn{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#F4F3EF;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer}
-.hbtn:hover{background:rgba(255,255,255,.14)}
+.hbtn{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--surface);border:1px solid var(--line);color:var(--ink);border-radius:10px;padding:9px 12px;font-size:13px;font-weight:600;cursor:pointer;width:100%}
+.hbtn:hover{background:var(--sidebar-hover)}
 .hbtn svg{width:15px;height:15px}
+.layout-switch{display:flex;align-items:center;justify-content:center;gap:7px;background:none;border:1px dashed var(--line-strong);color:var(--ink-soft);border-radius:10px;padding:9px 12px;font-size:12.5px;font-weight:600;cursor:pointer;width:100%;text-decoration:none;margin:0 6px 10px}
+.layout-switch:hover{border-color:var(--accent);color:var(--accent-ink)}
+.layout-switch svg{width:14px;height:14px}
 .cloud-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
-.cloud-dot.off{background:#9A9E97}.cloud-dot.on{background:#5FBF8F;box-shadow:0 0 0 3px rgba(95,191,143,.25)}
+.cloud-dot.off{background:#9A9E97}.cloud-dot.on{background:#32D74B;box-shadow:0 0 0 3px rgba(50,215,75,.2)}
 .cloud-dot.sync{background:var(--allocato);animation:pulse 1s infinite}.cloud-dot.err{background:var(--over)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.cloud-dot.sync{animation:none}}
 
-/* tabs */
-nav.tabs{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;display:flex;gap:4px;padding:5px;margin:20px auto;max-width:1180px;width:calc(100% - 40px);overflow-x:auto}
-nav.tabs button{background:none;border:0;border-radius:8px;padding:9px 16px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
-nav.tabs button.on{color:var(--ink);background:var(--surface);box-shadow:var(--shadow-sm)}
-nav.tabs button:not(.on):hover{color:var(--ink)}
+/* tabs -> voci di menu verticali nella sidebar */
+nav.tabs{background:none;border:0;display:flex;flex-direction:column;gap:2px;padding:0;margin:0 0 8px;width:auto;max-width:none;overflow-x:visible}
+nav.tabs button{background:none;border:0;border-radius:10px;padding:10px 12px;font-family:inherit;font-size:14px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap;text-align:left}
+nav.tabs button.on{color:var(--accent-ink);background:var(--accent-soft);box-shadow:none}
+nav.tabs button:not(.on):hover{color:var(--sidebar-ink);background:var(--sidebar-hover)}
 
-main{max-width:1180px;margin:0 auto;padding:20px 20px 80px}
+main{max-width:1180px;margin:0;padding:28px 32px 80px}
+@media(max-width:900px){
+  .app-shell{flex-direction:column}
+  .sidebar{position:static;height:auto;width:auto;max-width:none;flex-direction:row;flex-wrap:wrap;align-items:center;border-right:0;border-bottom:1px solid var(--sidebar-line)}
+  .brand{margin:0 10px 0 0}
+  .hctl{flex-direction:row;margin:0 0 0 auto;padding:0;border-top:0;flex-wrap:wrap}
+  .hgroup{margin:0}
+  .hbtn,.layout-switch{width:auto}
+  nav.tabs{flex-direction:row;overflow-x:auto;width:100%;order:3;margin-top:10px}
+  main{padding:20px 16px 70px}
+}
 .panel{display:none}.panel.on{display:block}
 
 .card{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm)}
@@ -358,28 +380,28 @@ tfoot td.l{text-align:left}
   </div>
 </div>
 
-<div class="topbar">
-  <header>
-    <div class="brand">
-      <span class="t"><span class="dot"></span>Docenti</span>
-      <span class="s">NABA · Attività retribuite</span>
-    </div>
-    <div class="hctl">
-      <div class="hgroup"><label>Vista</label><select id="viewSel"></select></div>
-      <button class="hbtn" id="btnCloud"><span id="cloudDot" class="cloud-dot off"></span><span id="cloudLbl">Cloud</span></button>
-      <button class="hbtn" id="btnAdmin" title="Pannello amministrazione" style="display:none">Admin</button>
-      <button class="hbtn" id="btnLogout" title="Cambia utente / esci">Esci</button>
-      <a class="hbtn" href="docenti_apple.html" title="Prova il layout alternativo (sidebar, stile Apple)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M8 21H3v-5M21 3l-7 7M3 21l7-7"/></svg>Layout Apple</a>
-    </div>
-  </header>
+<div class="app-shell">
+<aside class="sidebar">
+  <div class="brand">
+    <span class="mark"></span>
+    <div><span class="t">Docenti</span><br><span class="s">NABA · Attività retribuite</span></div>
+  </div>
   <nav class="tabs" id="tabs">
     <button data-tab="riepilogo" class="on">Riepilogo</button>
     <button data-tab="attivita">Attività</button>
-  <button data-tab="scuole">Scuole</button>
-  <button data-tab="chiusura">Chiusura mensile</button>
+    <button data-tab="scuole">Scuole</button>
+    <button data-tab="chiusura">Chiusura mensile</button>
   </nav>
-</div>
-
+  <a class="layout-switch" href="docenti.html"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M16 3h5v5M8 21H3v-5M21 3l-7 7M3 21l7-7"/></svg>Layout classico</a>
+  <button type="button" class="layout-switch" id="btnThemeToggle"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3a6 6 0 009 9 9 9 0 11-9-9z"/></svg>Tema chiaro/scuro</button>
+  <div class="hctl">
+    <div class="hgroup"><label>Vista</label><select id="viewSel"></select></div>
+    <button class="hbtn" id="btnCloud"><span id="cloudDot" class="cloud-dot off"></span><span id="cloudLbl">Cloud</span></button>
+    <button class="hbtn" id="btnAdmin" title="Pannello amministrazione" style="display:none">Admin</button>
+    <button class="hbtn" id="btnLogout" title="Cambia utente / esci">Esci</button>
+  </div>
+</aside>
+<div class="main-col">
 <div id="roleBanner" class="role-banner" style="display:none"></div>
 <div id="dueBanner" class="role-banner warn" style="display:none"></div>
 
@@ -470,6 +492,8 @@ tfoot td.l{text-align:left}
     <div class="card scroll"><table id="rdaHistTable"></table></div>
   </section>
 </main>
+</div><!-- /main-col -->
+</div><!-- /app-shell -->
 
 <!-- ACTIVITY MODAL -->
 <div class="overlay" id="actOverlay">
@@ -2306,6 +2330,13 @@ document.getElementById("previewAs").addEventListener("change",e=>{ STATE.previe
 document.getElementById("demoBtn").onclick=()=>{ STATE.localIdentity=document.getElementById("demoSel").value; forceLogin=false; save(); gate(); };
 document.getElementById("toCloudLogin").onclick=()=>{ document.getElementById("loginScreen").style.display="none"; renderCloudModal(); document.getElementById("cloudOverlay").classList.add("on"); };
 document.getElementById("btnLogout").onclick=()=>{ STATE.localIdentity=null; STATE.previewAs=null; forceLogin=true; save(); gate(); };
+function toggleTheme(){
+  const cur=document.documentElement.dataset.theme;
+  const next = cur==='dark' ? 'light' : (cur==='light' ? '' : (matchMedia('(prefers-color-scheme: dark)').matches ? 'light' : 'dark'));
+  if(next){ document.documentElement.dataset.theme=next; try{ localStorage.setItem('naba_theme_docenti', next); }catch(e){} }
+  else { delete document.documentElement.dataset.theme; try{ localStorage.removeItem('naba_theme_docenti'); }catch(e){} }
+}
+document.getElementById("btnThemeToggle").onclick=toggleTheme;
 document.getElementById("btnCloud").onclick=()=>{ renderCloudModal(); document.getElementById("cloudOverlay").classList.add("on"); };
 document.getElementById("cloudClose").onclick=()=>document.getElementById("cloudOverlay").classList.remove("on");
 document.getElementById("cloudOverlay").onclick=e=>{ if(e.target.id==="cloudOverlay") e.currentTarget.classList.remove("on"); };
