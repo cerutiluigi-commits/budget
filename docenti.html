@@ -163,12 +163,23 @@ tfoot td.l{text-align:left}
 .chip.reset{border-style:dashed;border-color:var(--over);color:var(--over)}
 .chip.reset:hover{background:var(--over-soft)}
 /* bacheca Chiusura mensile (vista alternativa a colonne) */
+.kanban-toolbar{display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px}
+.kb-scroll{border:1px solid var(--line-strong);background:var(--surface);color:var(--ink-soft);width:28px;height:28px;border-radius:8px;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;flex:none}
+.kb-scroll svg{width:15px;height:15px}
+.kb-scroll:hover{border-color:var(--ink);color:var(--ink)}
 .kanban-board{display:flex;gap:14px;overflow-x:auto;padding-bottom:10px;align-items:flex-start}
-.kanban-col{flex:0 0 250px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;max-height:70vh}
+.kanban-col{flex:0 0 250px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);display:flex;flex-direction:column;max-height:70vh;transition:flex-basis .15s}
+.kanban-col.collapsed{flex:0 0 166px;min-width:0}
+.kanban-col.collapsed .kanban-body{display:none}
+.kanban-col.collapsed .kanban-col-head{gap:6px;padding:12px 10px}
+.kanban-col.collapsed .kanban-col-head .t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 .kanban-col-head{display:flex;align-items:center;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.kanban-col.collapsed .kanban-col-head{border-bottom:0}
 .kanban-col-head .sw{width:9px;height:9px;border-radius:50%;flex:none}
 .kanban-col-head .t{font-weight:700;font-size:12.5px;flex:1;line-height:1.25}
-.kanban-col-head .n{background:var(--paper);color:var(--ink-mute);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px}
+.kanban-col-head .n{background:var(--paper);color:var(--ink-mute);font-size:11px;font-weight:700;padding:2px 8px;border-radius:20px;flex:none}
+.kb-toggle{border:1px solid var(--line-strong);background:var(--paper);color:var(--ink-mute);width:20px;height:20px;border-radius:6px;font-size:14px;line-height:1;cursor:pointer;flex:none;display:flex;align-items:center;justify-content:center;padding:0}
+.kb-toggle:hover{border-color:var(--ink);color:var(--ink)}
 .kanban-body{padding:10px;overflow-y:auto;display:flex;flex-direction:column;gap:10px;flex:1;min-height:80px}
 .kanban-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:12.5px;display:flex;flex-direction:column;gap:8px}
 .kanban-card .who{font-weight:700;font-size:13px;color:var(--ink)}
@@ -1594,6 +1605,9 @@ function renderChiusura(){
 /* Chiusura mensile può mostrarsi come elenco (default, storico) o come bacheca a colonne
    (stessi dati, stessi pulsanti/azioni — nessun drag&drop): preferenza solo locale, non sincronizzata. */
 let chiusuraView=(function(){ try{ return localStorage.getItem('naba_chiusura_view')||'list'; }catch(e){ return 'list'; } })();
+// colonne della bacheca chiuse di default (mostrano solo il conteggio): si esplodono una alla volta
+// col "+", così le 6 stanno affiancate in orizzontale senza scroll nel caso comune
+let kanbanExpanded=new Set();
 function renderChiusuraViews(){ if(chiusuraView==='kanban') renderChiusuraKanban(); else renderChiusuraList(); }
 function setChiusuraView(v){
   chiusuraView=v; try{ localStorage.setItem('naba_chiusura_view',v); }catch(e){}
@@ -1649,10 +1663,15 @@ function renderChiusuraKanban(){
     {key:'emessa',label:'RDA emesse',color:'var(--residuo)',empty:'Nessuna RDA emessa',hint:'Codice RDA inserito, in attesa di pagamento'},
     {key:'pagata',label:'RDA pagate',color:'var(--accent)',empty:'Nessuna RDA pagata',hint:'Ciclo chiuso: l\'importo è passato da Allocato a Speso nel tool Budget'}
   ];
-  box.innerHTML=`<div class="kanban-board">${colDefs.map(c=>{
+  box.innerHTML=`<div class="kanban-toolbar">
+      <button type="button" class="kb-scroll" id="kbScrollLeft" title="Scorri le colonne a sinistra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M15 18l-6-6 6-6"/></svg></button>
+      <button type="button" class="kb-scroll" id="kbScrollRight" title="Scorri le colonne a destra"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg></button>
+    </div>
+    <div class="kanban-board" id="kanbanBoard">${colDefs.map(c=>{
     const items=cols[c.key];
-    return `<div class="kanban-col">
-      <div class="kanban-col-head" title="${esc(c.hint)}"><span class="sw" style="background:${c.color}"></span><span class="t">${c.label}</span><span class="n">${items.length}</span></div>
+    const expanded=kanbanExpanded.has(c.key);
+    return `<div class="kanban-col${expanded?'':' collapsed'}">
+      <div class="kanban-col-head" title="${esc(c.label)} — ${esc(c.hint)}"><span class="sw" style="background:${c.color}"></span><span class="t">${c.label}</span><span class="n">${items.length}</span><button type="button" class="kb-toggle" data-key="${c.key}" title="${expanded?'Comprimi colonna':'Espandi colonna'}">${expanded?'−':'+'}</button></div>
       <div class="kanban-body">${items.length ? items.map(it=>kanbanCardHtml(c.key,it)).join("") : `<div class="kanban-empty">${c.empty}</div>`}</div>
     </div>`;
   }).join("")}</div>`;
@@ -1697,6 +1716,14 @@ function kanbanCardHtml(key,it){
 }
 function wireKanbanCards(){
   const box=document.getElementById("chiusuraKanban");
+  box.querySelectorAll(".kb-toggle").forEach(b=>b.onclick=()=>{
+    const k=b.dataset.key;
+    if(kanbanExpanded.has(k)) kanbanExpanded.delete(k); else kanbanExpanded.add(k);
+    renderChiusuraKanban();
+  });
+  const board=document.getElementById("kanbanBoard");
+  document.getElementById("kbScrollLeft")?.addEventListener("click",()=>board.scrollBy({left:-260,behavior:"smooth"}));
+  document.getElementById("kbScrollRight")?.addEventListener("click",()=>board.scrollBy({left:260,behavior:"smooth"}));
   box.querySelectorAll(".kb-sollecita").forEach(b=>b.onclick=()=>sollecitaDocente(b.dataset.id));
   box.querySelectorAll(".kb-gen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher, document.getElementById("chMonth").value));
   box.querySelectorAll(".rda-regen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month));
