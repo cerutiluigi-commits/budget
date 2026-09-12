@@ -1233,7 +1233,7 @@ function renderPreviewAs(){
   const pv=document.getElementById("previewAs"); if(!pv) return;
   pv.innerHTML=`<option value="">— Admin (vista completa) —</option>`+STATE.interfaces.map(i=>`<option value="${i.id}" ${STATE.previewAs===i.id?'selected':''}>${esc(i.nome)} · ${esc((i.aree||[]).join(', '))}</option>`).join("");
 }
-function renderAll(){ renderActivities(); renderRiepilogo(); renderChiusura(); save(); }
+function renderAll(){ renderActivities(); renderRiepilogo(); renderChiusura(); renderSchoolsTable(); save(); }
 
 /* ============================ SCUOLE (ricerca live, mai caricate per intero) ============================ */
 let _schoolSearchT=null;
@@ -1267,7 +1267,7 @@ async function fetchSchoolNames(ids){
 // è già popolata per tutti gli school_id realmente usati (fetchSchoolNames() alla pull iniziale)
 function schoolsWithActivity(){
   const byId={};
-  STATE.activities.forEach(a=>{
+  visibleActivities().forEach(a=>{
     if(!a.school_id || a.stato==='annullata') return;
     const s=byId[a.school_id]||(byId[a.school_id]={id:a.school_id,programmata:0,svolta:0});
     s[a.stato]=(s[a.stato]||0)+1;
@@ -1318,7 +1318,7 @@ function renderSchoolDetail(){
   const el=document.getElementById("schoolDetail");
   if(!el) return;
   if(!SCUOLA_SELECTED){ el.style.display="none"; el.innerHTML=""; return; }
-  const acts=STATE.activities.filter(a=>a.school_id===SCUOLA_SELECTED);
+  const acts=visibleActivities().filter(a=>a.school_id===SCUOLA_SELECTED);
   if(!acts.length){ SCUOLA_SELECTED=null; el.style.display="none"; el.innerHTML=""; return; }
   const s=SCHOOL_CACHE[SCUOLA_SELECTED]||{};
   const rowsHtml=acts.slice().sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).map(a=>activityRowHtml(a)).join('');
