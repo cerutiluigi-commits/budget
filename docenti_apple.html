@@ -1488,15 +1488,23 @@ function groupCompetenzaMonth(gruppoId){
   const maxData=rows.reduce((m,a)=>(a.data||'')>m?(a.data||''):m,'');
   return maxData.slice(0,7);
 }
+// un'RDA "bloccata" (stato diverso da bozza, cioè con Codice RDA già inserito) non riceve più nessuna
+// attività, nemmeno un nuovo giro della stessa tipologia — una volta inserita è definitiva (Luigi,
+// 2026-09-16). Se un'attività è ancora agganciata a una bozza resta idonea (fa parte del giro tuttora
+// aperto, "Ricalcola totale"/rigenerazione deve continuare a vederla).
+function rdaLocked(r){ return !!r && r.stato!=='bozza'; }
 function isEligibleForRda(a,month){
   if(a.stato!=='svolta') return false;
+  if(a.rda_id && rdaLocked(rdaById(a.rda_id))) return false;
   const gid=a.gruppo_id||a.id;
   if((a.rda_mode||'fine_periodo')==='per_mese') return (a.data||'').slice(0,7)===month;
   if(!groupClosed(gid)) return false;
   return groupCompetenzaMonth(gid)===month;
 }
-function activitiesForRda(teacherId, month){
-  return STATE.activities.filter(a=>a.teacher_id===teacherId && isEligibleForRda(a,month));
+// una RDA per docente/mese/tipologia (Workshop, Open Day, Webinar, ...): tipi diversi non condividono
+// mai la stessa RDA, anche nello stesso mese per lo stesso docente (Luigi, 2026-09-16)
+function activitiesForRda(teacherId, month, tipo){
+  return STATE.activities.filter(a=>a.teacher_id===teacherId && a.tipo===tipo && isEligibleForRda(a,month));
 }
 function distinctMonthsWithSvolta(){
   const s=new Set(); STATE.activities.forEach(a=>{ if(a.stato==='svolta'){ const m=(a.data||'').slice(0,7); if(m) s.add(m); } });
@@ -1549,12 +1557,12 @@ function sollecitaDocente(teacherId){
 function renderChOverview(){
   const kpis=document.getElementById("chKpis");
   const pronte=new Set();
-  STATE.activities.forEach(a=>{ if(a.stato==='svolta' && !a.rda_id){ pronte.add(a.teacher_id+'|'+(a.data||'').slice(0,7)); } });
+  STATE.activities.forEach(a=>{ if(a.stato==='svolta' && !a.rda_id){ pronte.add(a.teacher_id+'|'+(a.data||'').slice(0,7)+'|'+a.tipo); } });
   const bozza=STATE.rdas.filter(r=>r.stato==='bozza').length;
   const emesse=STATE.rdas.filter(r=>r.stato==='emessa').length;
   const pending=teachersPendingConfirmation();
   kpis.innerHTML=`
-    <div class="kpi"><div class="l"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Pronte per RDA</span></div><div class="v">${pronte.size}</div><div class="sub">gruppi docente/mese non ancora aggregati</div></div>
+    <div class="kpi"><div class="l"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Pronte per RDA</span></div><div class="v">${pronte.size}</div><div class="sub">gruppi docente/mese/tipologia non ancora aggregati</div></div>
     <div class="kpi"><div class="l"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">RDA da emettere</span></div><div class="v">${bozza}</div><div class="sub">proposte dal tool, in attesa di SAP</div></div>
     <div class="kpi"><div class="l"><span class="sw" style="background:var(--residuo)"></span><span class="eyebrow">RDA emesse</span></div><div class="v">${emesse}</div><div class="sub">in SAP, in attesa di pagamento</div></div>
     <div class="kpi"><div class="l"><span class="sw" style="background:var(--over)"></span><span class="eyebrow">Docenti da sollecitare</span></div><div class="v">${pending.length}</div><div class="sub">con attività "programmata" da confermare</div></div>`;
@@ -1571,104 +1579,143 @@ function renderChOverview(){
     </div>`;
   box.querySelectorAll(".ch-sollecita").forEach(b=>b.onclick=()=>sollecitaDocente(b.dataset.id));
 }
-function chListPriority(tid,month){
-  const r=STATE.rdas.find(x=>x.teacher_id===tid && (x.mese||'').slice(0,7)===month);
-  if(!r) return 0; // RDA ancora da generare
-  if(r.stato==='pagata') return 3; // ciclo chiuso
-  if(r.rif_rda) return 2; // emessa, in attesa di pagamento
-  return 1; // bozza, in attesa del Codice RDA
+// priorità di un'unità (docente+tipologia) nell'elenco: chi ha ancora lavoro da fare in cima, chi è
+// già a posto (pagata, niente altro in corso) in fondo
+function chUnitPriority(u){
+  if(u.rdas.some(r=>r.stato==='bozza')) return 1; // bozza aperta, in attesa del Codice RDA
+  if(u.acts.length) return 0; // pronta per generare una nuova RDA, nessuna bozza ancora aperta
+  if(u.rdas.some(r=>r.stato==='emessa')) return 2; // inserita, in attesa di pagamento
+  return 3; // tutto pagato / niente da fare
+}
+// una card per ogni RDA (o proposta non ancora generata): r=null -> "Genera RDA"; r.stato='bozza' ->
+// editabile (Inserisci); r.stato='emessa' -> bloccata, resta solo "RDA Pagato"; r.stato='pagata' ->
+// terminale, sola lettura.
+function rdaCardHtml({t, tipo, tipoLabel, giroLabel, r, acts, pending, mult, teacherId, month}){
+  const base=acts.reduce((s,a)=>s+activityAmount(a),0);
+  const tot=base*mult;
+  const amount = r ? r.importo_totale : tot;
+  const stato = r ? r.stato : null;
+  let actions;
+  if(stato==='bozza'){
+    actions = `<input type="text" class="rda-rif" data-id="${r.id}" placeholder="Codice RDA (numero SAP)" value="${esc(r.rif_rda||'')}" style="flex:1;min-width:140px;border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px">
+      <button class="btn small rda-inserisci" data-id="${r.id}"${r.rif_rda&&r.rif_rda.trim()?'':' disabled'} title="Salva il Codice RDA: la RDA passa allo stato 'inserita', bloccata per sempre — nessuna nuova attività potrà più entrarci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Inserisci</button>
+      <button class="btn ghost small rda-regen" data-teacher="${teacherId}" data-month="${month}" data-tipo="${esc(tipo||'')}" title="Ricalcola l'importo dalle attività attuali del gruppo (utile se sono cambiate ore, tariffa o attività dopo la prima generazione) — non tocca Codice RDA o stato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Ricalcola totale</button>`;
+  } else if(stato==='emessa'){
+    actions = `<span class="hint" style="flex:1">Codice RDA: <b>${esc(r.rif_rda||'—')}</b> — bloccata, nessuna nuova attività può entrarci</span>
+      <button class="btn small rda-pagato" data-id="${r.id}" title="Segna l'RDA come pagata: chiude il ciclo, l'importo passa da Allocato a Speso nel tool Budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>RDA Pagato</button>`;
+  } else if(stato==='pagata'){
+    actions = `<span class="hint" style="flex:1">Codice RDA: <b>${esc(r.rif_rda||'—')}</b></span>`;
+  } else {
+    actions = `<button class="btn small rda-gen" data-teacher="${teacherId}" data-month="${month}" data-tipo="${esc(tipo||'')}" ${acts.length?'':'disabled'} title="Crea la proposta di RDA per questo docente/mese/tipologia dalle attività svolte idonee, da inserire poi in SAP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Genera RDA</button>
+      ${(!acts.length && pending.length) ? `<span class="hint">Attività non idonee qui: gruppo multi-data non chiuso, o di competenza di un altro mese.</span>` : ''}`;
+  }
+  return `<div class="rda-card">
+    <div class="rda-h">
+      <div><div class="who">${esc(t.nome)} · ${esc(tipoLabel)}${giroLabel}</div><div class="meta">${acts.length} attività svolta${pending.length?` · ${pending.length} in attesa di chiusura gruppo`:''} · ${eur2(t.tariffa_oraria)}/h${mult>1?` · <span style="color:var(--warn)">+4% cassa</span>`:''}</div></div>
+      ${r?`<span class="badge ${rdaStatusInfo(r).cls}">${rdaStatusInfo(r).label}</span>`:''}
+      <span class="tot">${eur2(amount)}</span>
+    </div>
+    <div class="rda-body">
+      ${acts.map(a=>`<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px">
+        <span style="min-width:90px;color:var(--ink-mute)">${fmtD(a.data)}</span>
+        <span style="flex:1">${esc(a.nome || (a.tipo+' · '+activityLocation(a)))}</span>
+        ${paymentBadge(a)}
+        <span class="mono" style="font-weight:600">${eur2(activityAmount(a))}</span>
+      </div>`).join("")}
+      ${pending.map(a=>{
+        const gid=a.gruppo_id||a.id;
+        const note = groupClosed(gid) ? `Competenza: ${monthLabel(groupCompetenzaMonth(gid))}` : `In attesa: gruppo non ancora chiuso`;
+        return `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px;opacity:.55" title="RDA solo a fine periodo">
+          <span style="min-width:90px;color:var(--ink-mute)">${fmtD(a.data)}</span>
+          <span style="flex:1">${esc(a.nome || (a.tipo+' · '+activityLocation(a)))}</span>
+          <span class="hint" style="font-style:italic">${esc(note)}</span>
+          <span class="mono" style="font-weight:600">${eur2(activityAmount(a))}</span>
+        </div>`;
+      }).join("")}
+      ${(mult>1 && base>0)?`<div style="display:flex;justify-content:flex-end;gap:10px;padding:8px 0 0;font-size:12.5px;color:var(--warn)">
+        <span>Importo prestazioni: ${eur2(base)} · + 4% cassa previdenziale: ${eur2(tot-base)} → <b>${eur2(tot)}</b> effettivi da versare</span>
+      </div>`:''}
+      <div class="rda-actions-row" style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">${actions}</div>
+    </div>
+  </div>`;
 }
 function renderChiusuraList(){
   const box=document.getElementById("chiusuraList");
   const month=document.getElementById("chMonth").value;
   const teacherFilter=document.getElementById("chTeacherFilter").value;
   if(!month){ box.innerHTML=`<div class="card pad"><div class="empty">Nessuna attività "svolta" registrata finora.</div></div>`; return; }
-  const teacherIds=new Set();
-  STATE.activities.forEach(a=>{ if(a.stato==='svolta' && (a.data||'').slice(0,7)===month) teacherIds.add(a.teacher_id); });
-  STATE.rdas.forEach(r=>{ if((r.mese||'').slice(0,7)===month) teacherIds.add(r.teacher_id); });
-  let ids=[...teacherIds]; if(teacherFilter!=='ALL') ids=ids.filter(id=>id===teacherFilter);
-  if(!ids.length){ box.innerHTML=`<div class="card pad"><div class="empty">Nessuna attività per ${monthLabel(month)}${teacherFilter!=='ALL'?' per questo docente':''}.</div></div>`; return; }
+  let teacherIds=[...new Set(STATE.teachers.map(t=>t.id))];
+  if(teacherFilter!=='ALL') teacherIds=teacherIds.filter(id=>id===teacherFilter);
+  // un'unità = un docente + una tipologia: con "una RDA per tipologia, bloccata una volta inserita"
+  // (Luigi, 2026-09-16) un docente può avere più unità — quindi più RDA — nello stesso mese
+  const units=[];
+  teacherIds.forEach(tid=>{
+    TIPI.forEach(tipo=>{
+      const rdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && r.tipo===tipo);
+      const acts=activitiesForRda(tid,month,tipo);
+      const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.tipo===tipo && a.stato==='svolta' && (a.data||'').slice(0,7)===month);
+      const pending=svolteThisMonth.filter(a=>!acts.includes(a) && !(a.rda_id && rdaLocked(rdaById(a.rda_id))));
+      if(!rdas.length && !acts.length && !pending.length) return;
+      units.push({tid,tipo,rdas,acts,pending});
+    });
+    // RDA storiche da prima di questa modifica (2026-09-16), senza tipologia: restano visibili così
+    // come sono, mai fuse con le nuove RDA per tipologia
+    const legacyRdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && !r.tipo);
+    if(legacyRdas.length) units.push({tid,tipo:null,rdas:legacyRdas,acts:[],pending:[]});
+  });
+  if(!units.length){ box.innerHTML=`<div class="card pad"><div class="empty">Nessuna attività per ${monthLabel(month)}${teacherFilter!=='ALL'?' per questo docente':''}.</div></div>`; return; }
+  units.sort((a,b)=>chUnitPriority(a)-chUnitPriority(b) || teacherById(a.tid).nome.localeCompare(teacherById(b.tid).nome) || String(a.tipo).localeCompare(String(b.tipo)));
+
   let h="";
-  // chi ha ancora lavoro da fare (RDA non ancora generata, o generata ma non chiusa) in cima; chi è già
-  // a posto (pagata) in fondo — prima era solo alfabetico, quindi mescolava le due cose senza criterio
-  ids.sort((a,b)=>chListPriority(a,month)-chListPriority(b,month) || teacherById(a).nome.localeCompare(teacherById(b).nome)).forEach(tid=>{
-    const t=teacherById(tid);
-    // "acts" può includere date di mesi diversi da quello in esame: un gruppo "fine periodo" chiuso
-    // porta TUTTE le sue date nel mese di competenza (l'ultima), non solo quella con data in questo mese
-    const acts=activitiesForRda(tid,month);
-    // righe con data in QUESTO mese ma non idonee qui (gruppo aperto, o competenza altrove) — mostrate
-    // come informazione grigia, non contano per l'importo/generazione RDA di questo mese
-    const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.stato==='svolta' && (a.data||'').slice(0,7)===month);
-    const pending=svolteThisMonth.filter(a=>!acts.includes(a));
-    const base=acts.reduce((s,a)=>s+activityAmount(a),0);
+  units.forEach(u=>{
+    const t=teacherById(u.tid);
     const mult=cassaMultiplier(t);
-    const tot=base*mult;
-    const existing=STATE.rdas.find(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month);
-    h+=`<div class="rda-card">
-      <div class="rda-h">
-        <div><div class="who">${esc(t.nome)}</div><div class="meta">${acts.length} attività svolta${pending.length?` · ${pending.length} in attesa di chiusura gruppo`:''} · ${eur2(t.tariffa_oraria)}/h${mult>1?` · <span style="color:var(--warn)">+4% cassa</span>`:''}</div></div>
-        ${existing?`<span class="badge ${rdaStatusInfo(existing).cls}">${rdaStatusInfo(existing).label}</span>`:''}
-        <span class="tot">${eur2(existing?existing.importo_totale:tot)}</span>
-      </div>
-      <div class="rda-body">
-        ${acts.map(a=>`<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px">
-          <span style="min-width:90px;color:var(--ink-mute)">${fmtD(a.data)}</span>
-          <span style="flex:1">${esc(a.nome || (a.tipo+' · '+activityLocation(a)))}</span>
-          ${paymentBadge(a)}
-          <span class="mono" style="font-weight:600">${eur2(activityAmount(a))}</span>
-        </div>`).join("")}
-        ${pending.map(a=>{
-          const gid=a.gruppo_id||a.id;
-          const note = groupClosed(gid) ? `Competenza: ${monthLabel(groupCompetenzaMonth(gid))}` : `In attesa: gruppo non ancora chiuso`;
-          return `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px;opacity:.55" title="RDA solo a fine periodo">
-            <span style="min-width:90px;color:var(--ink-mute)">${fmtD(a.data)}</span>
-            <span style="flex:1">${esc(a.nome || (a.tipo+' · '+activityLocation(a)))}</span>
-            <span class="hint" style="font-style:italic">${esc(note)}</span>
-            <span class="mono" style="font-weight:600">${eur2(activityAmount(a))}</span>
-          </div>`;
-        }).join("")}
-        ${mult>1?`<div style="display:flex;justify-content:flex-end;gap:10px;padding:8px 0 0;font-size:12.5px;color:var(--warn)">
-          <span>Importo prestazioni: ${eur2(base)} · + 4% cassa previdenziale: ${eur2(tot-base)} → <b>${eur2(tot)}</b> effettivi da versare</span>
-        </div>`:''}
-        <div class="rda-actions-row" style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
-          ${existing?`
-            ${existing.stato!=='pagata'
-              ? `<input type="text" class="rda-rif" data-id="${existing.id}" placeholder="Codice RDA (numero SAP)" value="${esc(existing.rif_rda||'')}" style="flex:1;min-width:140px;border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px">`
-              : `<span class="hint" style="flex:1">Codice RDA: <b>${esc(existing.rif_rda||'—')}</b></span>`}
-            ${existing.stato!=='pagata' ? `<button class="btn small rda-pagato" data-id="${existing.id}" title="Segna l'RDA come pagata: chiude il ciclo, l'importo passa da Allocato a Speso nel tool Budget"${existing.rif_rda?'':' style="display:none"'}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Segna come pagato</button>` : ''}
-            <button class="btn ghost small rda-regen" data-teacher="${tid}" data-month="${month}" title="Ricalcola l'importo dalle attività attuali del gruppo (utile se sono cambiate ore, tariffa o attività dopo la prima generazione) — non tocca Codice RDA o stato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Ricalcola totale</button>
-          `:`<button class="btn small rda-gen" data-teacher="${tid}" data-month="${month}" ${acts.length?'':'disabled'} title="Crea la proposta di RDA per questo docente/mese dalle attività svolte idonee, da inserire poi in SAP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Genera RDA</button>
-          ${(!acts.length && pending.length) ? `<span class="hint">Attività non idonee qui: gruppo multi-data non chiuso, o di competenza di un altro mese.</span>` : ''}`}
-        </div>
-      </div>
-    </div>`;
+    const tipoLabel=u.tipo===null?'Storico (senza tipologia)':u.tipo;
+    const locked=u.rdas.filter(r=>r.stato!=='bozza').sort((x,y)=>String(x.rif_rda_data||'').localeCompare(String(y.rif_rda_data||'')));
+    const openRda=u.rdas.find(r=>r.stato==='bozza')||null;
+    const giri=locked.length+(openRda?1:0);
+    locked.forEach((r,i)=>{
+      const rActs=STATE.activities.filter(a=>a.rda_id===r.id);
+      h+=rdaCardHtml({t,tipo:u.tipo,tipoLabel,giroLabel: giri>1?` · giro ${i+1}/${giri}`:'', r, acts:rActs, pending:[], mult, teacherId:u.tid, month});
+    });
+    if(openRda){
+      h+=rdaCardHtml({t,tipo:u.tipo,tipoLabel,giroLabel: giri>1?` · giro ${giri}/${giri}`:'', r:openRda, acts:u.acts, pending:u.pending, mult, teacherId:u.tid, month});
+    } else if(u.acts.length || u.pending.length){
+      h+=rdaCardHtml({t,tipo:u.tipo,tipoLabel,giroLabel:'', r:null, acts:u.acts, pending:u.pending, mult, teacherId:u.tid, month});
+    }
   });
   box.innerHTML=h;
-  box.querySelectorAll(".rda-gen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month));
-  box.querySelectorAll(".rda-regen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month));
-  // il Codice RDA fa avanzare/retrocedere da solo lo stato bozza<->emessa (niente più selezione manuale);
-  // "pagata" si tocca solo col tasto dedicato, mai da qui
-  // "Segna come pagato" compare/scompare già mentre si digita (oninput, tocca solo il DOM: un
-  // renderChiusura() completo ad ogni carattere farebbe perdere il focus sul campo) — il salvataggio
-  // vero resta sul blur (onchange), come prima
+  box.querySelectorAll(".rda-gen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month,b.dataset.tipo));
+  box.querySelectorAll(".rda-regen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month,b.dataset.tipo));
+  // flusso esplicito a due tasti (su richiesta di Luigi, 2026-09-16): digitare il Codice RDA non salva
+  // più da solo al blur — bisogna cliccare "Inserisci" (o Invio), che porta la RDA a "inserita" (emessa,
+  // bloccata per sempre) e SOLO da lì compare "RDA Pagato". Meno ambiguo del vecchio onchange-al-volo,
+  // e nessun rischio di salvare un codice per un blur accidentale.
   box.querySelectorAll(".rda-rif").forEach(i=>{
+    const commit=()=>{
+      const btn=i.closest('.rda-actions-row')?.querySelector('.rda-inserisci');
+      if(btn && !btn.disabled) btn.click();
+    };
     i.oninput=()=>{
-      const row=i.closest('.rda-actions-row'); const btn=row?row.querySelector('.rda-pagato'):null;
-      if(btn) btn.style.display = i.value.trim() ? '' : 'none';
+      const btn=i.closest('.rda-actions-row')?.querySelector('.rda-inserisci');
+      if(btn) btn.disabled = !i.value.trim();
     };
-    i.onchange=()=>{
-      const r=rdaById(i.dataset.id); if(!r) return;
-      const val=i.value.trim();
-      r.rif_rda=val;
-      if(val && !r.rif_rda_data) r.rif_rda_data=todayISO(); // timbrata solo la prima volta che il codice viene inserito
-      if(r.stato!=='pagata') r.stato = val ? 'emessa' : 'bozza';
-      save(); renderChiusura(); cloudUpsertRda(r); syncBudgetMovement(r);
-    };
+    i.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); } };
+  });
+  box.querySelectorAll(".rda-inserisci").forEach(b=>b.onclick=()=>{
+    const r=rdaById(b.dataset.id); if(!r) return;
+    const input=b.closest('.rda-actions-row')?.querySelector('.rda-rif');
+    const val=(input?input.value:'').trim();
+    if(!val) return;
+    r.rif_rda=val;
+    if(!r.rif_rda_data) r.rif_rda_data=todayISO();
+    r.stato='emessa';
+    save(); renderChiusura(); cloudUpsertRda(r); syncBudgetMovement(r);
   });
   box.querySelectorAll(".rda-pagato").forEach(b=>b.onclick=async()=>{
     const r=rdaById(b.dataset.id); if(!r) return;
     const t=teacherById(r.teacher_id);
-    const ok=await showConfirm("Segna RDA come pagata", `${t?t.nome:''} · ${monthLabel((r.mese||'').slice(0,7))} · ${eur2(r.importo_totale)}${r.rif_rda?' · Codice '+r.rif_rda:''}`, "Segna come pagata");
+    const ok=await showConfirm("Segna RDA come pagata", `${t?t.nome:''}${r.tipo?' · '+r.tipo:''} · ${monthLabel((r.mese||'').slice(0,7))} · ${eur2(r.importo_totale)}${r.rif_rda?' · Codice '+r.rif_rda:''}`, "Segna come pagata");
     if(!ok) return;
     r.stato='pagata'; renderAll(); cloudUpsertRda(r);
   });
@@ -1689,11 +1736,12 @@ function renderRdaHistory(){
   if(statoF!=='ALL') rows=rows.filter(r=>r.stato===statoF);
   if(monthF!=='ALL') rows=rows.filter(r=>(r.mese||'').slice(0,7)===monthF);
   rows.sort((a,b)=>String(b.mese||'').localeCompare(String(a.mese||'')));
-  let h=`<thead><tr><th class="l">Mese</th><th class="l">Docente</th><th class="l">Stato</th><th>Importo</th><th class="l">Rif. RDA</th></tr></thead><tbody>`;
-  if(!rows.length) h+=`<tr><td colspan="5"><div class="empty">Nessuna RDA per i filtri selezionati.</div></td></tr>`;
+  let h=`<thead><tr><th class="l">Mese</th><th class="l">Docente</th><th class="l">Tipologia</th><th class="l">Stato</th><th>Importo</th><th class="l">Rif. RDA</th></tr></thead><tbody>`;
+  if(!rows.length) h+=`<tr><td colspan="6"><div class="empty">Nessuna RDA per i filtri selezionati.</div></td></tr>`;
   rows.forEach(r=>{ h+=`<tr>
     <td class="l">${monthLabel((r.mese||'').slice(0,7))}</td>
     <td class="l">${esc(teacherById(r.teacher_id).nome)}</td>
+    <td class="l">${esc(r.tipo)||'<span class="hint">storico</span>'}</td>
     <td class="l"><span class="badge ${rdaStatusInfo(r).cls}">${rdaStatusInfo(r).label}</span></td>
     <td><b>${eur2(r.importo_totale)}</b></td>
     <td class="l">${esc(r.rif_rda)||'—'}</td>
@@ -1762,24 +1810,37 @@ function renderChiusuraKanban(){
       const imp=daConfermare.reduce((s,a)=>s+activityAmount(a),0);
       cols.confermare.push({teacher:t,count:daConfermare.length,imp});
     }
-    const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.stato==='svolta' && (a.data||'').slice(0,7)===month);
-    const acts=activitiesForRda(tid,month);
-    const pending=svolteThisMonth.filter(a=>!acts.includes(a));
-    if(pending.length){
-      const imp=pending.reduce((s,a)=>s+activityAmount(a),0);
-      const gruppoAperto=pending.some(a=>!groupClosed(a.gruppo_id||a.id));
-      cols.gruppo.push({teacher:t,count:pending.length,imp,note: gruppoAperto?'Gruppo multi-data non ancora chiuso':'Di competenza di un altro mese'});
-    }
-    const existing=STATE.rdas.find(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month);
-    if(acts.length || existing){
-      const base=acts.reduce((s,a)=>s+activityAmount(a),0);
-      const tot=base*cassaMultiplier(t);
-      const entry={teacher:t,count:acts.length,imp: existing?existing.importo_totale:tot,rda:existing};
-      if(!existing){ if(acts.length) cols.pronte.push(entry); }
-      else if(existing.stato==='pagata') cols.pagata.push(entry);
-      else if(existing.stato==='emessa') cols.emessa.push(entry);
+    // dalla colonna "Pronte per RDA" in giù, un'unità è docente+tipologia (2026-09-16): tipi diversi
+    // non condividono mai la stessa RDA, quindi un docente può avere più card nello stesso mese
+    TIPI.forEach(tipo=>{
+      const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.tipo===tipo && a.stato==='svolta' && (a.data||'').slice(0,7)===month);
+      const acts=activitiesForRda(tid,month,tipo);
+      const pending=svolteThisMonth.filter(a=>!acts.includes(a) && !(a.rda_id && rdaLocked(rdaById(a.rda_id))));
+      if(pending.length){
+        const imp=pending.reduce((s,a)=>s+activityAmount(a),0);
+        const gruppoAperto=pending.some(a=>!groupClosed(a.gruppo_id||a.id));
+        cols.gruppo.push({teacher:t,tipo,count:pending.length,imp,note: gruppoAperto?'Gruppo multi-data non ancora chiuso':'Di competenza di un altro mese'});
+      }
+      const rdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && r.tipo===tipo);
+      rdas.filter(r=>r.stato!=='bozza').forEach(r=>{
+        const entry={teacher:t,tipo,count:STATE.activities.filter(a=>a.rda_id===r.id).length,imp:r.importo_totale,rda:r};
+        (r.stato==='pagata'?cols.pagata:cols.emessa).push(entry);
+      });
+      const openRda=rdas.find(r=>r.stato==='bozza')||null;
+      if(openRda){
+        cols.bozza.push({teacher:t,tipo,count:acts.length,imp:openRda.importo_totale,rda:openRda});
+      } else if(acts.length){
+        const base=acts.reduce((s,a)=>s+activityAmount(a),0);
+        cols.pronte.push({teacher:t,tipo,count:acts.length,imp:base*cassaMultiplier(t)});
+      }
+    });
+    // RDA storiche da prima di questa modifica, senza tipologia: restano visibili così come sono
+    STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && !r.tipo).forEach(r=>{
+      const entry={teacher:t,tipo:null,count:STATE.activities.filter(a=>a.rda_id===r.id).length,imp:r.importo_totale,rda:r};
+      if(r.stato==='pagata') cols.pagata.push(entry);
+      else if(r.stato==='emessa') cols.emessa.push(entry);
       else cols.bozza.push(entry);
-    }
+    });
   });
 
   const colDefs=[
@@ -1811,37 +1872,42 @@ function renderChiusuraKanban(){
 }
 function kanbanCardHtml(key,it){
   const t=it.teacher, month=document.getElementById("chMonth").value;
+  // dalla colonna "Pronte" in giù ogni card è un'unità docente+tipologia (2026-09-16): il nome da solo
+  // non basta più a distinguerle, quindi la tipologia compare accanto (tranne in "Da confermare", che
+  // non è ancora legata a nessuna RDA)
+  const who = it.tipo!==undefined ? `${esc(t.nome)} · ${esc(it.tipo===null?'Storico':it.tipo)}` : esc(t.nome);
   if(key==='confermare') return `<div class="kanban-card">
     <div class="who">${esc(t.nome)}</div>
     <div class="meta">${it.count} attività · ${eur2(it.imp)} stimato</div>
     <button type="button" class="btn ghost small kb-sollecita" data-id="${t.id}" title="Invia un promemoria all'interfaccia orientamento per confermare queste attività"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 4h16a2 2 0 012 2v12a2 2 0 01-2 2H4a2 2 0 01-2-2V6a2 2 0 012-2z"/><path d="M22 6l-10 7L2 6"/></svg>Sollecita</button>
   </div>`;
   if(key==='gruppo') return `<div class="kanban-card">
-    <div class="who">${esc(t.nome)}</div>
+    <div class="who">${who}</div>
     <div class="meta">${it.count} attività svolta · ${eur2(it.imp)}</div>
     <div class="hint" style="font-style:italic">${esc(it.note)}</div>
   </div>`;
   if(key==='pronte') return `<div class="kanban-card">
-    <div class="who">${esc(t.nome)}</div>
+    <div class="who">${who}</div>
     <div class="meta">${it.count} attività svolta</div>
     <div class="amt">${eur2(it.imp)}</div>
-    <button type="button" class="btn small kb-gen" data-teacher="${t.id}" title="Crea la proposta di RDA per questo docente/mese dalle attività svolte idonee, da inserire poi in SAP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Genera RDA</button>
+    <button type="button" class="btn small kb-gen" data-teacher="${t.id}" data-tipo="${esc(it.tipo||'')}" title="Crea la proposta di RDA per questo docente/mese/tipologia dalle attività svolte idonee, da inserire poi in SAP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Genera RDA</button>
   </div>`;
   const r=it.rda;
   if(key==='bozza') return `<div class="kanban-card">
-    <div class="who">${esc(t.nome)}</div>
+    <div class="who">${who}</div>
     <div class="amt">${eur2(it.imp)}</div>
     <input type="text" class="rda-rif" data-id="${r.id}" placeholder="Codice RDA (numero SAP)" value="${esc(r.rif_rda||'')}">
-    <button type="button" class="btn ghost small rda-regen" data-teacher="${t.id}" data-month="${month}" title="Ricalcola l'importo dalle attività attuali del gruppo — non tocca Codice RDA o stato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Ricalcola totale</button>
+    <button type="button" class="btn small rda-inserisci" data-id="${r.id}"${r.rif_rda&&r.rif_rda.trim()?'':' disabled'} title="Salva il Codice RDA: la RDA passa allo stato 'inserita', bloccata per sempre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Inserisci</button>
+    <button type="button" class="btn ghost small rda-regen" data-teacher="${t.id}" data-month="${month}" data-tipo="${esc(it.tipo||'')}" title="Ricalcola l'importo dalle attività attuali del gruppo — non tocca Codice RDA o stato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Ricalcola totale</button>
   </div>`;
   if(key==='emessa') return `<div class="kanban-card">
-    <div class="who">${esc(t.nome)}</div>
+    <div class="who">${who}</div>
     <div class="amt">${eur2(it.imp)}</div>
     <div class="hint">Codice RDA: <b>${esc(r.rif_rda||'—')}</b></div>
-    <button type="button" class="btn small rda-pagato" data-id="${r.id}" title="Segna l'RDA come pagata: chiude il ciclo, l'importo passa da Allocato a Speso nel tool Budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Segna come pagato</button>
+    <button type="button" class="btn small rda-pagato" data-id="${r.id}" title="Segna l'RDA come pagata: chiude il ciclo, l'importo passa da Allocato a Speso nel tool Budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>RDA Pagato</button>
   </div>`;
   return `<div class="kanban-card" style="opacity:.65">
-    <div class="who">${esc(t.nome)}</div>
+    <div class="who">${who}</div>
     <div class="amt">${eur2(it.imp)}</div>
     <div class="hint">Codice RDA: <b>${esc(r.rif_rda||'—')}</b></div>
   </div>`;
@@ -1858,44 +1924,56 @@ function wireKanbanCards(){
   document.getElementById("kbScrollLeft")?.addEventListener("click",()=>board.scrollBy({left:-260,behavior:"smooth"}));
   document.getElementById("kbScrollRight")?.addEventListener("click",()=>board.scrollBy({left:260,behavior:"smooth"}));
   box.querySelectorAll(".kb-sollecita").forEach(b=>b.onclick=()=>sollecitaDocente(b.dataset.id));
-  box.querySelectorAll(".kb-gen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher, document.getElementById("chMonth").value));
-  box.querySelectorAll(".rda-regen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month));
-  box.querySelectorAll(".rda-rif").forEach(i=>i.onchange=()=>{
-    const r=rdaById(i.dataset.id); if(!r) return;
-    const val=i.value.trim();
+  box.querySelectorAll(".kb-gen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher, document.getElementById("chMonth").value, b.dataset.tipo));
+  box.querySelectorAll(".rda-regen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month,b.dataset.tipo));
+  // stesso flusso esplicito a due tasti della vista Elenco (2026-09-16): il codice si conferma con
+  // "Inserisci" (o Invio), non più al blur — sposta la card da sola nella colonna "RDA emesse"
+  box.querySelectorAll(".rda-rif").forEach(i=>{
+    const commit=()=>{ const btn=i.closest('.kanban-card')?.querySelector('.rda-inserisci'); if(btn && !btn.disabled) btn.click(); };
+    i.oninput=()=>{ const btn=i.closest('.kanban-card')?.querySelector('.rda-inserisci'); if(btn) btn.disabled=!i.value.trim(); };
+    i.onkeydown=(e)=>{ if(e.key==='Enter'){ e.preventDefault(); commit(); } };
+  });
+  box.querySelectorAll(".rda-inserisci").forEach(b=>b.onclick=()=>{
+    const r=rdaById(b.dataset.id); if(!r) return;
+    const input=b.closest('.kanban-card')?.querySelector('.rda-rif');
+    const val=(input?input.value:'').trim();
+    if(!val) return;
     r.rif_rda=val;
-    if(val && !r.rif_rda_data) r.rif_rda_data=todayISO();
-    if(r.stato!=='pagata') r.stato = val ? 'emessa' : 'bozza';
+    if(!r.rif_rda_data) r.rif_rda_data=todayISO();
+    r.stato='emessa';
     save(); renderChiusura(); cloudUpsertRda(r); syncBudgetMovement(r);
   });
   box.querySelectorAll(".rda-pagato").forEach(b=>b.onclick=async()=>{
     const r=rdaById(b.dataset.id); if(!r) return;
     const t=teacherById(r.teacher_id);
-    const ok=await showConfirm("Segna RDA come pagata", `${t?t.nome:''} · ${monthLabel((r.mese||'').slice(0,7))} · ${eur2(r.importo_totale)}${r.rif_rda?' · Codice '+r.rif_rda:''}`, "Segna come pagata");
+    const ok=await showConfirm("Segna RDA come pagata", `${t?t.nome:''}${r.tipo?' · '+r.tipo:''} · ${monthLabel((r.mese||'').slice(0,7))} · ${eur2(r.importo_totale)}${r.rif_rda?' · Codice '+r.rif_rda:''}`, "Segna come pagata");
     if(!ok) return;
     r.stato='pagata'; renderAll(); cloudUpsertRda(r);
   });
 }
-async function generateRda(teacherId, month){
-  const acts=activitiesForRda(teacherId,month);
+async function generateRda(teacherId, month, tipo){
+  const acts=activitiesForRda(teacherId,month,tipo);
   const tot=acts.reduce((s,a)=>s+activityAmount(a),0)*cassaMultiplier(teacherById(teacherId));
-  let r=STATE.rdas.find(x=>x.teacher_id===teacherId && (x.mese||'').slice(0,7)===month);
+  // solo la bozza ancora aperta per questo docente/mese/tipologia va riusata — una già inserita
+  // (emessa/pagata) è bloccata per sempre, "Genera RDA"/"Ricalcola totale" ne creano sempre una nuova
+  // (Luigi, 2026-09-16)
+  let r=STATE.rdas.find(x=>x.teacher_id===teacherId && (x.mese||'').slice(0,7)===month && x.tipo===tipo && x.stato==='bozza');
   // riallinea con il server prima di decidere l'id locale: la cache STATE.rdas può essere stale
   // (altro dispositivo/tab, o pull non ancora arrivata) — creare un id nuovo quando esiste già una
-  // riga server con lo stesso (teacher_id,mese) violava lo unique constraint -> 409 a cascata anche
-  // sulle attività (rda_id puntava a un id mai salvato), e "Pagato" restava propagato solo su quelle
-  // il cui upsert non era caduto nel 409.
+  // bozza aperta server-side per lo stesso (teacher_id,mese,tipo) violava il vincolo -> 409 a cascata
+  // anche sulle attività (rda_id puntava a un id mai salvato), e "Pagato" restava propagato solo su
+  // quelle il cui upsert non era caduto nel 409.
   if(cloudReady()){
     try{
-      const {data,error}=await sb.from('bdg_teacher_rda').select('*').eq('teacher_id',teacherId).eq('mese',month+'-01').maybeSingle();
+      const {data,error}=await sb.from('bdg_teacher_rda').select('*').eq('teacher_id',teacherId).eq('mese',month+'-01').eq('tipo',tipo).eq('stato','bozza').maybeSingle();
       if(error) throw error;
       if(data){
         r = STATE.rdas.find(x=>x.id===data.id);
-        if(!r){ r={id:data.id,teacher_id:data.teacher_id,mese:data.mese,stato:data.stato||'bozza',rif_rda:data.rif_rda||'',rif_rda_data:data.rif_rda_data||null,importo_totale:Number(data.importo_totale)||0,note:data.note||''}; STATE.rdas.push(r); }
+        if(!r){ r={id:data.id,teacher_id:data.teacher_id,mese:data.mese,tipo:data.tipo,stato:data.stato||'bozza',rif_rda:data.rif_rda||'',rif_rda_data:data.rif_rda_data||null,importo_totale:Number(data.importo_totale)||0,note:data.note||''}; STATE.rdas.push(r); }
       }
     }catch(e){ cloudErr('RDA',e); return; }
   }
-  if(!r){ r={id:uuid(),teacher_id:teacherId,mese:month+'-01',stato:'bozza',rif_rda:'',importo_totale:tot,note:''}; STATE.rdas.push(r); }
+  if(!r){ r={id:uuid(),teacher_id:teacherId,mese:month+'-01',tipo,stato:'bozza',rif_rda:'',importo_totale:tot,note:''}; STATE.rdas.push(r); }
   else r.importo_totale=tot;
   save(); renderChiusura();
   const {error}=await cloudUpsertRda(r);
@@ -2312,7 +2390,7 @@ function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toas
 function interfaceRow(i){ return {id:i.id,nome:i.nome,email:i.email||null,aree:i.aree||[],attivo:i.attivo!==false}; }
 function teacherRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,interface_id:t.interface_id||null,ruolo:t.ruolo||null,regime_fiscale:t.regime_fiscale||null,tariffa_oraria:Number(t.tariffa_oraria)||0,attivo:t.attivo!==false,last_solicited_at:t.last_solicited_at||null}; }
 function activityRow(a){ return {id:a.id,teacher_id:a.teacher_id,school_id:a.school_id||null,luogo:a.luogo||null,area:a.area||null,nome:a.nome||null,tipo:a.tipo,data:a.data,ore:Number(a.ore)||0,tariffa_oraria:a.tariffa_oraria==null?null:Number(a.tariffa_oraria),importo:a.importo==null?null:Number(a.importo),stato:a.stato||'programmata',rda_id:a.rda_id||null,note:a.note||null,gruppo_id:a.gruppo_id||null,bonus_ore:a.bonus_ore==null?null:Number(a.bonus_ore),bonus_importo:a.bonus_importo==null?null:Number(a.bonus_importo),cal_added_at:a.cal_added_at||null,rda_mode:a.rda_mode||'fine_periodo',sede_sessione:a.sede_sessione||null,ora_evento:a.ora_evento||null,ora_evento_fine:a.ora_evento_fine||null}; }
-function rdaRow(r){ return {id:r.id,teacher_id:r.teacher_id,mese:r.mese,stato:r.stato||'bozza',rif_rda:r.rif_rda||null,rif_rda_data:r.rif_rda_data||null,importo_totale:Number(r.importo_totale)||0,note:r.note||null}; }
+function rdaRow(r){ return {id:r.id,teacher_id:r.teacher_id,mese:r.mese,tipo:r.tipo||null,stato:r.stato||'bozza',rif_rda:r.rif_rda||null,rif_rda_data:r.rif_rda_data||null,importo_totale:Number(r.importo_totale)||0,note:r.note||null}; }
 
 async function cloudInit(){ const cfg=cloudCfg(); if(!cfg||!window.supabase){ cloudSetDot('off'); return; } try{ sb=window.supabase.createClient(cfg.url,cfg.anonKey); const {data}=await sb.auth.getSession(); cloudSession=data.session||null; if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else cloudSetDot('off'); }catch(e){ console.error(e); cloudSetDot('err'); } }
 async function cloudLogin(email,pw){ if(!sb){ toast("Configura prima il progetto"); return; } if(!email||!pw){ toast("Inserisci email e password"); return; } const {data,error}=await sb.auth.signInWithPassword({email,password:pw}); if(error){ toast("Accesso fallito: "+error.message); cloudSetDot('err'); return; } cloudSession=data.session; forceLogin=false; cloudSetDot('on'); toast("Connesso"); renderCloudModal(); await cloudPullAll(false); }
@@ -2327,7 +2405,7 @@ async function cloudPullAll(silent){
     STATE.interfaces=(ifc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",aree:x.aree||[],attivo:x.attivo!==false}));
     STATE.teachers=(tc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",interface_id:x.interface_id||null,ruolo:x.ruolo||"",regime_fiscale:x.regime_fiscale||"",tariffa_oraria:Number(x.tariffa_oraria)||50,attivo:x.attivo!==false,last_solicited_at:x.last_solicited_at||null}));
     STATE.activities=(ac||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,school_id:x.school_id||null,luogo:x.luogo||null,area:x.area||null,nome:x.nome||"",tipo:x.tipo,data:x.data,ore:Number(x.ore)||0,tariffa_oraria:x.tariffa_oraria==null?null:Number(x.tariffa_oraria),importo:x.importo==null?null:Number(x.importo),stato:x.stato||'programmata',rda_id:x.rda_id||null,note:x.note||"",gruppo_id:x.gruppo_id||null,bonus_ore:x.bonus_ore==null?null:Number(x.bonus_ore),bonus_importo:x.bonus_importo==null?null:Number(x.bonus_importo),cal_added_at:x.cal_added_at||null,rda_mode:x.rda_mode||'fine_periodo',sede_sessione:x.sede_sessione||null,ora_evento:x.ora_evento||null,ora_evento_fine:x.ora_evento_fine||null}));
-    STATE.rdas=(rd||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,mese:x.mese,stato:x.stato||'bozza',rif_rda:x.rif_rda||"",rif_rda_data:x.rif_rda_data||null,importo_totale:Number(x.importo_totale)||0,note:x.note||""}));
+    STATE.rdas=(rd||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,mese:x.mese,tipo:x.tipo||null,stato:x.stato||'bozza',rif_rda:x.rif_rda||"",rif_rda_data:x.rif_rda_data||null,importo_totale:Number(x.importo_totale)||0,note:x.note||""}));
     await cloudFetchRoles();
     await fetchSchoolNames([...new Set(STATE.activities.map(a=>a.school_id).filter(Boolean))]);
     save(); fillSelects(); renderAll(); gate(); cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud"); cloudRealtimeSubscribe();
@@ -2373,7 +2451,7 @@ async function syncBudgetMovement(r){
         comp_da:dates[0]||r.mese,
         comp_a:dates[dates.length-1]||r.mese,
         fornitore:t?t.nome:null,
-        oggetto:(t?t.nome:'')+' · '+monthLabel((r.mese||'').slice(0,7)),
+        oggetto:(t?t.nome:'')+(r.tipo?' · '+r.tipo:'')+' · '+monthLabel((r.mese||'').slice(0,7)),
         tipo_pagamento:'RDA',
         source_rda_id:r.id,
         deleted_at:null, deleted_by:null
