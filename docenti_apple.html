@@ -1562,6 +1562,13 @@ function renderChOverview(){
     </div>`;
   box.querySelectorAll(".ch-sollecita").forEach(b=>b.onclick=()=>sollecitaDocente(b.dataset.id));
 }
+function chListPriority(tid,month){
+  const r=STATE.rdas.find(x=>x.teacher_id===tid && (x.mese||'').slice(0,7)===month);
+  if(!r) return 0; // RDA ancora da generare
+  if(r.stato==='pagata') return 3; // ciclo chiuso
+  if(r.rif_rda) return 2; // emessa, in attesa di pagamento
+  return 1; // bozza, in attesa del Codice RDA
+}
 function renderChiusuraList(){
   const box=document.getElementById("chiusuraList");
   const month=document.getElementById("chMonth").value;
@@ -1573,7 +1580,9 @@ function renderChiusuraList(){
   let ids=[...teacherIds]; if(teacherFilter!=='ALL') ids=ids.filter(id=>id===teacherFilter);
   if(!ids.length){ box.innerHTML=`<div class="card pad"><div class="empty">Nessuna attività per ${monthLabel(month)}${teacherFilter!=='ALL'?' per questo docente':''}.</div></div>`; return; }
   let h="";
-  ids.sort((a,b)=>teacherById(a).nome.localeCompare(teacherById(b).nome)).forEach(tid=>{
+  // chi ha ancora lavoro da fare (RDA non ancora generata, o generata ma non chiusa) in cima; chi è già
+  // a posto (pagata) in fondo — prima era solo alfabetico, quindi mescolava le due cose senza criterio
+  ids.sort((a,b)=>chListPriority(a,month)-chListPriority(b,month) || teacherById(a).nome.localeCompare(teacherById(b).nome)).forEach(tid=>{
     const t=teacherById(tid);
     // "acts" può includere date di mesi diversi da quello in esame: un gruppo "fine periodo" chiuso
     // porta TUTTE le sue date nel mese di competenza (l'ultima), non solo quella con data in questo mese
@@ -1612,12 +1621,12 @@ function renderChiusuraList(){
         ${mult>1?`<div style="display:flex;justify-content:flex-end;gap:10px;padding:8px 0 0;font-size:12.5px;color:var(--warn)">
           <span>Importo prestazioni: ${eur2(base)} · + 4% cassa previdenziale: ${eur2(tot-base)} → <b>${eur2(tot)}</b> effettivi da versare</span>
         </div>`:''}
-        <div style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
+        <div class="rda-actions-row" style="display:flex;gap:10px;align-items:center;margin-top:12px;flex-wrap:wrap">
           ${existing?`
             ${existing.stato!=='pagata'
               ? `<input type="text" class="rda-rif" data-id="${existing.id}" placeholder="Codice RDA (numero SAP)" value="${esc(existing.rif_rda||'')}" style="flex:1;min-width:140px;border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px">`
               : `<span class="hint" style="flex:1">Codice RDA: <b>${esc(existing.rif_rda||'—')}</b></span>`}
-            ${(existing.stato!=='pagata' && existing.rif_rda) ? `<button class="btn small rda-pagato" data-id="${existing.id}" title="Segna l'RDA come pagata: chiude il ciclo, l'importo passa da Allocato a Speso nel tool Budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Segna come pagato</button>` : ''}
+            ${existing.stato!=='pagata' ? `<button class="btn small rda-pagato" data-id="${existing.id}" title="Segna l'RDA come pagata: chiude il ciclo, l'importo passa da Allocato a Speso nel tool Budget"${existing.rif_rda?'':' style="display:none"'}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Segna come pagato</button>` : ''}
             <button class="btn ghost small rda-regen" data-teacher="${tid}" data-month="${month}" title="Ricalcola l'importo dalle attività attuali del gruppo (utile se sono cambiate ore, tariffa o attività dopo la prima generazione) — non tocca Codice RDA o stato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Ricalcola totale</button>
           `:`<button class="btn small rda-gen" data-teacher="${tid}" data-month="${month}" ${acts.length?'':'disabled'} title="Crea la proposta di RDA per questo docente/mese dalle attività svolte idonee, da inserire poi in SAP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Genera RDA</button>
           ${(!acts.length && pending.length) ? `<span class="hint">Attività non idonee qui: gruppo multi-data non chiuso, o di competenza di un altro mese.</span>` : ''}`}
@@ -1630,13 +1639,22 @@ function renderChiusuraList(){
   box.querySelectorAll(".rda-regen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month));
   // il Codice RDA fa avanzare/retrocedere da solo lo stato bozza<->emessa (niente più selezione manuale);
   // "pagata" si tocca solo col tasto dedicato, mai da qui
-  box.querySelectorAll(".rda-rif").forEach(i=>i.onchange=()=>{
-    const r=rdaById(i.dataset.id); if(!r) return;
-    const val=i.value.trim();
-    r.rif_rda=val;
-    if(val && !r.rif_rda_data) r.rif_rda_data=todayISO(); // timbrata solo la prima volta che il codice viene inserito
-    if(r.stato!=='pagata') r.stato = val ? 'emessa' : 'bozza';
-    save(); renderChiusura(); cloudUpsertRda(r); syncBudgetMovement(r);
+  // "Segna come pagato" compare/scompare già mentre si digita (oninput, tocca solo il DOM: un
+  // renderChiusura() completo ad ogni carattere farebbe perdere il focus sul campo) — il salvataggio
+  // vero resta sul blur (onchange), come prima
+  box.querySelectorAll(".rda-rif").forEach(i=>{
+    i.oninput=()=>{
+      const row=i.closest('.rda-actions-row'); const btn=row?row.querySelector('.rda-pagato'):null;
+      if(btn) btn.style.display = i.value.trim() ? '' : 'none';
+    };
+    i.onchange=()=>{
+      const r=rdaById(i.dataset.id); if(!r) return;
+      const val=i.value.trim();
+      r.rif_rda=val;
+      if(val && !r.rif_rda_data) r.rif_rda_data=todayISO(); // timbrata solo la prima volta che il codice viene inserito
+      if(r.stato!=='pagata') r.stato = val ? 'emessa' : 'bozza';
+      save(); renderChiusura(); cloudUpsertRda(r); syncBudgetMovement(r);
+    };
   });
   box.querySelectorAll(".rda-pagato").forEach(b=>b.onclick=async()=>{
     const r=rdaById(b.dataset.id); if(!r) return;

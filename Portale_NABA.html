@@ -360,12 +360,33 @@ function routeAfterAuth(){
   if(screen==='login') showScreen('landing');
   updateLanding();
 }
+let _landingLastSnapshot=null, _landingRetries=0;
+// frameTabState() sa dire solo se le tab dell'app incorporata esistono già nel DOM, non se il
+// controllo ruolo che le nasconde è già stato eseguito: appena il frame carica, per una frazione di
+// secondo tutte le tab risultano "visible" (non ancora nascoste), quindi una card a cui l'utente non
+// ha accesso può comparire per un istante. Bug reale segnalato da Sofia (schermata "Cosa vuoi aprire?"
+// con Gestione Budget visibile per un attimo con un ruolo "docente"). Nessun rischio di sicurezza —
+// l'app di destinazione blocca comunque correttamente l'accesso — ma non deve nemmeno comparire.
+// Fix qui, senza toccare le 3 app incorporate: accettiamo una lettura "risolta" solo se resta identica
+// su due controlli consecutivi (~180ms), altrimenti la trattiamo come ancora in corso e riproviamo.
 function updateLanding(){
   const bState=frameTabState(frameBudget), sState=frameTabState(frameSpese), dState=frameTabState(frameDocenti);
   const pending = bState==='pending' || sState==='pending' || dState==='pending';
-  document.getElementById('landingLoading').style.display = pending ? 'block' : 'none';
-  document.getElementById('landingGrid').style.display = pending ? 'none' : 'grid';
-  if(pending) return;
+  if(pending){
+    _landingLastSnapshot=null; _landingRetries=0;
+    document.getElementById('landingLoading').style.display='block';
+    document.getElementById('landingGrid').style.display='none';
+    return;
+  }
+  const snapshot=bState+'|'+sState+'|'+dState;
+  if(snapshot!==_landingLastSnapshot && _landingRetries<10){
+    _landingLastSnapshot=snapshot; _landingRetries++;
+    document.getElementById('landingLoading').style.display='block';
+    document.getElementById('landingGrid').style.display='none';
+    setTimeout(updateLanding,180);
+    return;
+  }
+  _landingLastSnapshot=snapshot; _landingRetries=0;
   const role=frameRole(), isAdmin=role==='admin';
   const hasBudget=bState==='visible', hasSpese=sState==='visible', hasDocenti=dState==='visible';
   document.getElementById('landingSub').textContent = cloudUser() ? ('Connesso come '+cloudUser()) : '';
