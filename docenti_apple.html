@@ -1516,12 +1516,21 @@ function fillSelectPreserving(el, optionsHtml, fallback){
 function teacherOptionsHtml(includeAll){
   return (includeAll?`<option value="ALL">Tutti i docenti</option>`:'')+STATE.teachers.slice().sort((a,b)=>a.nome.localeCompare(b.nome)).map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join("");
 }
-// attività "programmata" nel mese corrente o già passate: da confermare senza ulteriore attesa (stessa
-// definizione usata dal banner del docente in renderDueBanner()).
+// attività "programmata" da segnalare in "Da sollecitare": mese passato -> sempre (chiusura ormai
+// scaduta); mese corrente -> solo se la data prevista è già trascorsa E siamo dal 20 del mese in poi
+// (prima si segnalava fin dal giorno 1, anche per attività previste tra settimane — Sofia, 2026-09-16).
+// Il banner che vede direttamente il docente/interfaccia (renderDueBanner()) ha una logica propria e
+// resta invariato: qui la regola serve solo a non sommergere l'admin di solleciti prematuri.
 function teachersPendingConfirmation(){
-  const cur=todayMonth();
+  const cur=todayMonth(), today=todayISO(), dayOfMonth=Number(today.slice(8,10));
   const byT={};
-  STATE.activities.forEach(a=>{ if(a.stato==='programmata' && (a.data||'').slice(0,7)<=cur){ byT[a.teacher_id]=(byT[a.teacher_id]||0)+1; } });
+  STATE.activities.forEach(a=>{
+    if(a.stato!=='programmata') return;
+    const m=(a.data||'').slice(0,7);
+    if(!m) return;
+    const due = m<cur || (m===cur && a.data<today && dayOfMonth>=20);
+    if(due) byT[a.teacher_id]=(byT[a.teacher_id]||0)+1;
+  });
   return Object.keys(byT).map(tid=>({teacherId:tid, count:byT[tid]})).sort((a,b)=>teacherById(a.teacherId).nome.localeCompare(teacherById(b.teacherId).nome));
 }
 // il sollecito va all'interfaccia orientamento del docente (chi inserisce davvero le attività per lui),
