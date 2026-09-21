@@ -502,6 +502,7 @@ tfoot td.l{text-align:left}
         <div class="hgroup" style="margin-left:auto;background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Docente</label><select id="rdaHistTeacher" style="color:var(--ink)"></select></div>
         <div class="hgroup" style="background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Stato</label><select id="rdaHistStato" style="color:var(--ink)"><option value="ALL">Tutti</option><option value="bozza">RDA in inserimento</option><option value="emessa">RDA inserita</option><option value="pagata">RDA Pagato</option></select></div>
         <div class="hgroup" style="background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Mese</label><select id="rdaHistMonth" style="color:var(--ink)"></select></div>
+        <div class="hgroup" style="background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Codice RDA</label><input type="text" id="rdaHistSearch" placeholder="Cerca…" style="color:var(--ink);min-width:110px"></div>
       </div>
       <div class="card scroll"><table id="rdaHistTable"></table></div>
     </div>
@@ -987,10 +988,20 @@ function paymentBadge(a){
 }
 function activityRowHtml(a){
   const cls = a.stato==="annullata"?'act-row annull':'act-row';
-  const quick = a.stato==='programmata' ? `<span class="act-actions">
+  let quick='';
+  if(a.stato==='programmata'){
+    quick = `<span class="act-actions">
       <button class="rowbtn act-done" data-id="${a.id}" title="Segna come svolta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></button>
       <button class="rowbtn act-cancel" data-id="${a.id}" title="Annulla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-    </span>` : '';
+    </span>`;
+  } else if(a.stato==='svolta' && CURRENT.role==='admin'){
+    // solo admin, solo su richiesta esplicita: rimette un'attività già confermata dal docente in
+    // "programmata" (es. confermata per errore) — bloccato se già parte di un'RDA inserita/pagata,
+    // vedi revertToProgrammata()
+    quick = `<span class="act-actions">
+      <button class="rowbtn act-revert" data-id="${a.id}" title="Rimetti in programmata (solo admin)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg></button>
+    </span>`;
+  }
   // il nome del docente è la cosa che serve identificare più in fretta scorrendo l'elenco (specie
   // con Vista "Tutti i docenti" o un'interfaccia che gestisce più docenti): in evidenza sopra,
   // tipo/luogo/corso come sottotitolo — non più in coda a una stringa unica, tutti sullo stesso piano
@@ -1023,6 +1034,25 @@ function wireActivityRows(list){
   list.querySelectorAll(".act-row[data-id]").forEach(r=>r.onclick=e=>{ if(e.target.closest(".rowbtn")) return; openActivity(r.dataset.id); });
   list.querySelectorAll(".act-done").forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickSetStato(b.dataset.id,'svolta'); });
   list.querySelectorAll(".act-cancel").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(confirm("Annullare questa attività?")) quickSetStato(b.dataset.id,'annullata'); });
+  list.querySelectorAll(".act-revert").forEach(b=>b.onclick=e=>{ e.stopPropagation(); revertToProgrammata(b.dataset.id); });
+}
+// solo admin: rimette un'attività "svolta" in "programmata" — bloccato se è già parte di un'RDA
+// inserita/pagata (Codice RDA già in SAP), altrimenti si potrebbe invalidare in silenzio un importo
+// già comunicato; se era ancora in una bozza (non bloccata) il collegamento viene rimosso, tornerà
+// eleggibile al prossimo "Genera RDA"/"Ricalcola totale" se riconfermata in futuro.
+async function revertToProgrammata(id){
+  const a=STATE.activities.find(x=>x.id===id); if(!a) return;
+  const r=a.rda_id?rdaById(a.rda_id):null;
+  if(rdaLocked(r)){
+    toast(`Non puoi rimetterla in programmata: fa già parte di un'RDA già ${r.stato==='pagata'?'pagata':'inserita'} (Codice ${r.rif_rda||'—'}). Gestisci prima l'RDA in Chiusura mensile.`,'err');
+    return;
+  }
+  const ok=await showConfirm("Rimetti in programmata", `${teacherById(a.teacher_id).nome} · ${fmtD(a.data)} · ${a.tipo}${r?' — era in una bozza RDA non ancora inserita: il collegamento verrà rimosso':''}`, "Rimetti in programmata");
+  if(!ok) return;
+  a.stato='programmata';
+  a.rda_id=null;
+  save(); renderAll(); cloudUpsertActivity(a);
+  toast("Attività rimessa in programmata");
 }
 function quickSetStato(id,stato){
   const a=STATE.activities.find(x=>x.id===id); if(!a) return;
@@ -1684,26 +1714,50 @@ function rdaStatusInfo(r){
   if(r.rif_rda) return {label:'RDA inserita', cls:'alloc'};
   return {label:'RDA in inserimento', cls:'trace'};
 }
+// riga espansa nello Storico RDA (id di STATE.rdas, una sola alla volta) — solo locale, non persistito
+let rdaHistExpanded=null;
 function renderRdaHistory(){
   const teacherF=document.getElementById("rdaHistTeacher").value;
   const statoF=document.getElementById("rdaHistStato").value;
   const monthF=document.getElementById("rdaHistMonth").value;
+  const searchF=document.getElementById("rdaHistSearch").value.trim().toLowerCase();
   let rows=STATE.rdas.slice();
   if(teacherF!=='ALL') rows=rows.filter(r=>r.teacher_id===teacherF);
   if(statoF!=='ALL') rows=rows.filter(r=>r.stato===statoF);
   if(monthF!=='ALL') rows=rows.filter(r=>(r.mese||'').slice(0,7)===monthF);
+  if(searchF) rows=rows.filter(r=>(r.rif_rda||'').toLowerCase().includes(searchF));
   rows.sort((a,b)=>String(b.mese||'').localeCompare(String(a.mese||'')));
-  let h=`<thead><tr><th class="l">Mese</th><th class="l">Docente</th><th class="l">Tipologia</th><th class="l">Stato</th><th>Importo</th><th class="l">Rif. RDA</th></tr></thead><tbody>`;
-  if(!rows.length) h+=`<tr><td colspan="6"><div class="empty">Nessuna RDA per i filtri selezionati.</div></td></tr>`;
-  rows.forEach(r=>{ h+=`<tr>
+  let h=`<thead><tr><th></th><th class="l">Mese</th><th class="l">Docente</th><th class="l">Tipologia</th><th class="l">Stato</th><th>Importo</th><th class="l">Rif. RDA</th></tr></thead><tbody>`;
+  if(!rows.length) h+=`<tr><td colspan="7"><div class="empty">Nessuna RDA per i filtri selezionati.</div></td></tr>`;
+  rows.forEach(r=>{
+    const open=rdaHistExpanded===r.id;
+    h+=`<tr class="rda-hist-row" data-id="${r.id}" style="cursor:pointer">
+    <td><span class="twisty${open?' open':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg></span></td>
     <td class="l">${monthLabel((r.mese||'').slice(0,7))}</td>
     <td class="l">${esc(teacherById(r.teacher_id).nome)}</td>
     <td class="l">${esc(r.tipo)||'<span class="hint">storico</span>'}</td>
     <td class="l"><span class="badge ${rdaStatusInfo(r).cls}">${rdaStatusInfo(r).label}</span></td>
     <td><b>${eur2(r.importo_totale)}</b></td>
     <td class="l">${esc(r.rif_rda)||'—'}</td>
-  </tr>`; });
+  </tr>`;
+    if(open){
+      const acts=STATE.activities.filter(a=>a.rda_id===r.id).sort((a,b)=>String(a.data||'').localeCompare(String(b.data||'')));
+      h+=`<tr class="rda-hist-detail"><td></td><td colspan="6" style="padding:0">
+        <div style="padding:4px 14px 10px">
+          ${acts.length ? acts.map(a=>`<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px">
+            <span style="min-width:90px;color:var(--ink-mute)">${fmtD(a.data)}</span>
+            <span style="flex:1">${esc(teacherById(a.teacher_id).nome)} · ${esc(a.nome || (a.tipo+' · '+activityLocation(a)))}</span>
+            <span class="mono" style="font-weight:600">${eur2(activityAmount(a))}</span>
+          </div>`).join("") : `<div class="empty" style="padding:6px 0">Nessuna attività collegata.</div>`}
+        </div>
+      </td></tr>`;
+    }
+  });
   h+=`</tbody>`; document.getElementById("rdaHistTable").innerHTML=h;
+  document.querySelectorAll("#rdaHistTable .rda-hist-row").forEach(tr=>tr.onclick=()=>{
+    rdaHistExpanded = rdaHistExpanded===tr.dataset.id ? null : tr.dataset.id;
+    renderRdaHistory();
+  });
 }
 function renderChiusura(){
   if(CURRENT.role!=='admin'){ document.getElementById("chiusuraList").innerHTML=''; document.getElementById("chiusuraKanban").innerHTML=''; document.getElementById("chKpis").innerHTML=''; document.getElementById("chReminders").innerHTML=''; document.getElementById("rdaHistTable").innerHTML=''; return; }
@@ -2466,6 +2520,7 @@ setChSection(chSection);
 document.getElementById("rdaHistTeacher").onchange=renderRdaHistory;
 document.getElementById("rdaHistStato").onchange=renderRdaHistory;
 document.getElementById("rdaHistMonth").onchange=renderRdaHistory;
+document.getElementById("rdaHistSearch").oninput=renderRdaHistory;
 document.getElementById("btnNewAct").onclick=()=>openActivity(null);
 document.getElementById("btnNewActRiep").onclick=()=>{ switchTab('attivita'); openActivity(null); };
 document.getElementById("btnCalAdd").onclick=openCalModal;
