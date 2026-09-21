@@ -388,6 +388,7 @@ function updateLanding(){
     return;
   }
   _landingLastSnapshot=snapshot; _landingRetries=0;
+  document.getElementById('landingLoading').style.display='none'; // risolto: la card giusta rimpiazza il messaggio, non ci convivono
   const role=frameRole(), isAdmin=role==='admin';
   const hasBudget=bState==='visible', hasSpese=sState==='visible', hasDocenti=dState==='visible';
   document.getElementById('landingSub').textContent = cloudUser() ? ('Connesso come '+cloudUser()) : '';
