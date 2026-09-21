@@ -582,7 +582,7 @@ tfoot td.l{text-align:left}
         <p class="hint" style="margin-top:6px" id="aRdaModeHint"></p>
       </div>
       <div class="grid2">
-        <div class="field full"><label>Note</label><textarea id="aNote" rows="2"></textarea></div>
+        <div class="field full"><label>Note <span class="req">*</span></label><textarea id="aNote" rows="2" placeholder="Inserire eventuali spese di trasferta, location esterna, richieste particolari...altro"></textarea></div>
         <div class="field full"><div class="mapinfo" id="aMap"></div></div>
       </div>
     </div>
@@ -2123,12 +2123,13 @@ function renderDateRows(){
       <div class="field"><label>Data <span class="req">*</span></label><input type="date" class="dr-data"></div>
       <div class="field"><label>Ore <span class="req">*</span></label><input type="number" step="0.5" min="0" class="dr-ore"></div>
       <div class="field"><label>Importo</label><input type="text" class="dr-imp" disabled></div>
-      ${isWs?`<div class="field"><label>Sede</label><div class="chips dr-sede" style="display:flex;gap:6px">
-          <button type="button" class="chip" data-sede="scuola" title="Sessione tenuta presso la scuola già selezionata sopra">A scuola</button>
-          <button type="button" class="chip" data-sede="campus" title="Sessione in sede NABA: richiede l'orario Dalle/Alle, usato anche nel link Outlook">In Campus</button>
-        </div></div>
-        <div class="field dr-orario-field" style="${r.sede==='campus'?'':'visibility:hidden'}"><label>Dalle <span class="req">*</span></label><select class="dr-orario"><option value="">—</option>${timeSlotOptions(r.orario)}</select></div>
-        <div class="field dr-orario-field" style="${r.sede==='campus'?'':'visibility:hidden'}"><label>Alle <span class="req">*</span></label><select class="dr-orario-fine"><option value="">—</option>${timeSlotOptions(r.orarioFine)}</select></div>`:""}
+      ${isWs?`<div class="field"><label>Sede</label><select class="dr-sede">
+          <option value="scuola">A scuola</option>
+          <option value="campus">In Campus</option>
+          <option value="esterna">Esterna</option>
+        </select></div>
+        <div class="field"><label>Dalle <span class="req">*</span></label><select class="dr-orario"><option value="">—</option>${timeSlotOptions(r.orario)}</select></div>
+        <div class="field"><label>Alle <span class="req">*</span></label><select class="dr-orario-fine"><option value="">—</option>${timeSlotOptions(r.orarioFine)}</select></div>`:""}
       ${aRows.length>1?`<button type="button" class="rowbtn dr-del" title="Rimuovi data"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`:""}
     </div>`).join("");
   wrap.querySelectorAll(".date-row").forEach((row,i)=>{
@@ -2145,14 +2146,10 @@ function renderDateRows(){
     };
     oEl.oninput=()=>{ aRows[i].ore=oEl.value; refreshDateTotals(); };
     if(delBtn) delBtn.onclick=()=>{ aRows.splice(i,1); renderDateRows(); };
-    const sedeChips=row.querySelectorAll(".dr-sede .chip"), orarioEl=row.querySelector(".dr-orario"), orarioFineEl=row.querySelector(".dr-orario-fine");
-    if(sedeChips.length){
-      sedeChips.forEach(c=>{ c.classList.toggle('on',c.dataset.sede===aRows[i].sede); c.onclick=()=>{
-        aRows[i].sede=c.dataset.sede;
-        if(aRows[i].sede!=='campus'){ aRows[i].orario=''; aRows[i].orarioFine=''; }
-        renderDateRows();
-      }; });
-    }
+    const sedeSel=row.querySelector(".dr-sede"), orarioEl=row.querySelector(".dr-orario"), orarioFineEl=row.querySelector(".dr-orario-fine");
+    // Dalle/Alle valgono ormai per tutte e tre le sedi (Luigi, 2026-09-21) — a differenza di prima,
+    // cambiare sede non azzera più l'orario già inserito
+    if(sedeSel){ sedeSel.value=aRows[i].sede; sedeSel.onchange=()=>{ aRows[i].sede=sedeSel.value; }; }
     if(orarioEl) orarioEl.onchange=()=>{
       aRows[i].orario=orarioEl.value;
       // Alle si propone sempre alla mezz'ora successiva a Dalle, finché non lo si cambia a mano
@@ -2224,19 +2221,20 @@ function saveActivity(){
     if(!r.data){ toast("Inserisci tutte le date"); return; }
     const ore=parseFloat(r.ore);
     if(isNaN(ore)||ore<=0){ toast("Inserisci le ore per ogni data"); return; }
-    if(isWs && r.sede==='campus'){
-      if(!r.orario || !r.orarioFine){ toast("Inserisci Dalle e Alle per le date In Campus"); return; }
+    if(isWs){
+      if(!r.orario || !r.orarioFine){ toast("Inserisci Dalle e Alle per ogni data"); return; }
       if(r.orarioFine<=r.orario){ toast("L'orario Alle deve essere successivo a Dalle"); return; }
     }
   }
   const rate=parseFloat(document.getElementById("aRate").value);
   if(isNaN(rate)||rate<0){ toast("Inserisci l'importo orario"); return; }
+  const note = document.getElementById("aNote").value.trim();
+  if(!note){ toast("Il campo Note è obbligatorio"); return; }
   const teacherId=document.getElementById("aTeacher").value;
   const area=document.getElementById("aArea").value||null;
   const tipo=document.getElementById("aTipo").value;
   const schoolId = tipo==='Workshop' ? (document.getElementById("aScuolaId").value||null) : null;
   const luogo = (tipo==='Open Day'||tipo==='Test'||tipo==='NabaIncontra'||tipo==='NabaExperience') ? (document.getElementById("aLuogoSelect").value||null) : null;
-  const note = document.getElementById("aNote").value.trim();
   const t=teacherById(teacherId);
   const scuolaNome = schoolId ? (SCHOOL_CACHE[schoolId]?SCHOOL_CACHE[schoolId].nome:schoolId) : null;
   const nome = [tipo, luogo||scuolaNome, area, t.nome].filter(Boolean).join(' · ');
@@ -2249,8 +2247,8 @@ function saveActivity(){
   aRows.forEach(r=>{
     const ore=parseFloat(r.ore);
     const sede_sessione = isWs ? r.sede : null;
-    const ora_evento = (isWs && r.sede==='campus') ? r.orario : null;
-    const ora_evento_fine = (isWs && r.sede==='campus') ? r.orarioFine : null;
+    const ora_evento = isWs ? r.orario : null;
+    const ora_evento_fine = isWs ? r.orarioFine : null;
     const base={ teacher_id:teacherId, school_id:schoolId, luogo, area, tipo, nome, data:r.data, ore, note, rda_mode:aRdaMode, sede_sessione, ora_evento, ora_evento_fine };
     if(r.rowId){
       const existing=STATE.activities.find(x=>x.id===r.rowId);
