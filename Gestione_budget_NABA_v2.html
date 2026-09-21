@@ -1932,12 +1932,33 @@ function tabVisible(tool,tabKey,role){
   if(cfg && Object.prototype.hasOwnProperty.call(cfg,role)) return !!cfg[role];
   return role==='admin';
 }
+// true una volta che sb.auth.getSession() ha risposto (con o senza sessione). Bug reale (Luigi,
+// 2026-09-21): un utente con ruolo diverso da admin vedeva per alcuni secondi TUTTI i pulsanti
+// (incluso Admin) al primo caricamento, che poi sparivano correttamente da soli. Causa: currentRole()
+// cadeva su 'admin' ogni volta che cloudReady() era false — condizione vera sia per "nessun cloud
+// configurato" (il fallback locale voluto, invariato) sia per "sessione cloud in corso di verifica"
+// (il caso reale, network: getSession() richiede tempo prima che risolva). Il primo renderAll()
+// sincrono a fine pagina (riga ~2279) girava quindi SEMPRE con ruolo admin finché il vero controllo
+// non finiva. Ora, se il cloud è configurato, si resta in stato "in verifica" (fail-closed, niente
+// mostrato) finché getSession() non ha risposto davvero — mai più un accesso pieno temporaneo.
+let cloudChecked=false;
 function currentRole(){
+  if(cloudCfg() && !cloudChecked) return null; // sessione cloud ancora in verifica: non decidere ancora
   if(!cloudReady()) return 'admin';
   return roleForEmail(cloudUser()) || 'none';
 }
 function applyRole(){
-  const role=currentRole(), isAdmin=role==='admin';
+  const role=currentRole();
+  const kpis=document.getElementById('kpis'), main=document.querySelector('main'), nav=document.getElementById('tabs'), na=document.getElementById('noAccessScreen');
+  if(role===null){
+    // in verifica: fail-closed, nessun contenuto finché non sappiamo il ruolo reale — niente banner
+    // d'errore (non è un "niente accesso", è un "non ancora deciso")
+    const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display='none';
+    if(kpis) kpis.style.display='none'; if(main) main.style.display='none'; if(nav) nav.style.display='none';
+    if(na) na.style.display='none';
+    return;
+  }
+  const isAdmin=role==='admin';
   const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display=isAdmin?'':'none';
   let anyVisible=false;
   document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>{
@@ -1945,7 +1966,6 @@ function applyRole(){
     b.style.display=vis?'':'none';
     if(vis) anyVisible=true;
   });
-  const kpis=document.getElementById('kpis'), main=document.querySelector('main'), nav=document.getElementById('tabs'), na=document.getElementById('noAccessScreen');
   if(!anyVisible){
     if(kpis) kpis.style.display='none'; if(main) main.style.display='none'; if(nav) nav.style.display='none';
     if(na){ na.style.display='block'; const rn=na.querySelector('.role-name'); if(rn) rn.textContent=role; }
@@ -2013,13 +2033,16 @@ function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toas
 
 async function cloudInit(){
   const cfg=cloudCfg();
-  if(!cfg||!window.supabase){ cloudSetDot('off'); return; }
+  if(!cfg||!window.supabase){ cloudSetDot('off'); cloudChecked=true; applyRole(); return; }
   try{
     sb=window.supabase.createClient(cfg.url, cfg.anonKey);
     const {data}=await sb.auth.getSession();
     cloudSession=data.session||null;
-    if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else cloudSetDot('off');
-  }catch(e){ console.error(e); cloudSetDot('err'); }
+    cloudChecked=true;
+    // sessione trovata -> cloudPullAll() chiama renderAll()/applyRole() da sé a fine caricamento dati;
+    // nessuna sessione -> applyRole() qui, altrimenti la UI resterebbe bloccata sullo stato "in verifica"
+    if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else { cloudSetDot('off'); applyRole(); }
+  }catch(e){ console.error(e); cloudSetDot('err'); cloudChecked=true; applyRole(); }
 }
 async function cloudLogin(email,pw){
   if(!sb){ toast("Configura prima il progetto"); return; }
@@ -2067,7 +2090,7 @@ async function cloudPullAll(silent){
     save(); initFY(); document.getElementById("refDate").value=STATE.refDate; renderCalChips(); renderAll();
     cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud");
     cloudRealtimeSubscribe();
-  }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore sync: "+(e.message||e)); }
+  }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore sync: "+(e.message||e)); applyRole(); }
 }
 /* stime travel (Spese EC) dalla vista v_budget_allocations — sola lettura, non fatale se assente */
 async function cloudFetchTravelEstimates(){
