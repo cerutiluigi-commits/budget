@@ -433,12 +433,12 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
 </header>
 
 <nav class="tabs" id="tabs">
-  <button data-tab="riepilogo" class="on">Riepilogo</button>
-  <button data-tab="calendario">Calendario</button>
-  <button data-tab="movimenti">Movimenti</button>
-  <button data-tab="budget">Budget annuale</button>
-  <button data-tab="finance">Finance</button>
-  <button data-tab="registro">Registro</button>
+  <button data-tab="riepilogo" class="on" style="display:none">Riepilogo</button>
+  <button data-tab="calendario" style="display:none">Calendario</button>
+  <button data-tab="movimenti" style="display:none">Movimenti</button>
+  <button data-tab="budget" style="display:none">Budget annuale</button>
+  <button data-tab="finance" style="display:none">Finance</button>
+  <button data-tab="registro" style="display:none">Registro</button>
 </nav>
 
 <div class="kpis" id="kpis"></div>
@@ -1952,7 +1952,13 @@ function applyRole(){
   const kpis=document.getElementById('kpis'), main=document.querySelector('main'), nav=document.getElementById('tabs'), na=document.getElementById('noAccessScreen');
   if(role===null){
     // in verifica: fail-closed, nessun contenuto finché non sappiamo il ruolo reale — niente banner
-    // d'errore (non è un "niente accesso", è un "non ancora deciso")
+    // d'errore (non è un "niente accesso", è un "non ancora deciso"). I pulsanti delle tab non vanno
+    // nascosti qui: partono già nascosti di default da CSS (vedi `nav.tabs button[data-tab]`) proprio
+    // per coprire questa finestra — il Portale (frameTabState() in Portale_NABA.html) controlla lo
+    // style.display di ciascun <button data-tab>, non quello del genitore #tabs, quindi nasconderli
+    // solo qui via JS (come faceva prima) lasciava una finestra in cui il Portale poteva comunque
+    // mostrare per un attimo la card "Gestione Budget" nella schermata "Cosa vuoi aprire?" (bug reale
+    // segnalato da Luigi, 2026-09-21).
     const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display='none';
     if(kpis) kpis.style.display='none'; if(main) main.style.display='none'; if(nav) nav.style.display='none';
     if(na) na.style.display='none';
