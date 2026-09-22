@@ -168,6 +168,11 @@ tfoot td.l{text-align:left}
 .chip:hover{border-color:var(--ink)}
 .chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .chip.reset{border-style:dashed;border-color:var(--over);color:var(--over)}
+/* 3 flag fiscali indipendenti del docente (Cassa 4% / IVA 22% / Ritenuta d'acconto) — sostituiscono
+   il vecchio select "Contributi" a scelta unica, vedi FLAG_FISCALI */
+.fiscal-flags{display:flex;flex-wrap:wrap;gap:2px 12px}
+.fiscal-flags label{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--ink-soft);white-space:nowrap;cursor:pointer}
+.fiscal-flags input{margin:0}
 .chip.reset:hover{background:var(--over-soft)}
 /* bacheca Chiusura mensile (vista alternativa a colonne) */
 .kanban-toolbar{display:flex;justify-content:flex-end;gap:6px;margin-bottom:8px}
@@ -291,6 +296,30 @@ tfoot td.l{text-align:left}
 .role-banner.err{background:var(--over-soft);color:var(--over)}
 .role-banner.warn{background:var(--warn-soft);color:var(--warn)}
 .role-banner b{font-weight:700}
+
+/* SpiegaMi: hint dei campi dietro un toggle "aiuto", avviso contestuale sopra Note, popover "?" */
+[data-doc]{display:none}
+#actOverlay.help-mode [data-doc]{display:block}
+#actOverlay.help-mode .ws-only.show[data-doc]{display:block}
+#aHelpToggle.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+.help-ic{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent-ink);background:var(--surface);font-weight:700;font-size:10.5px;line-height:1;cursor:pointer;margin-left:6px;vertical-align:middle;transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .15s}
+.help-ic:hover{transform:scale(1.14);box-shadow:0 0 0 4px var(--accent-soft)}
+.helppop{position:absolute;z-index:40;width:260px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:13px;top:26px;left:0;
+  opacity:0;transform:scale(.94) translateY(-6px);transform-origin:top left;pointer-events:none;
+  transition:opacity .2s cubic-bezier(.16,1,.3,1),transform .22s cubic-bezier(.16,1,.3,1)}
+.helppop.open{opacity:1;transform:scale(1) translateY(0);pointer-events:auto}
+.helppop b{display:block;font-size:12.5px;margin-bottom:6px}
+.helppop p{font-size:12px;line-height:1.5;color:var(--ink-mute);margin:0 0 8px}
+.helppop .ex{font-size:11.5px;font-style:italic;color:var(--ink-mute);border-left:2px solid var(--accent);padding-left:8px;margin-bottom:8px}
+.helppop .pf{display:flex;justify-content:flex-end}
+.sede-warn{display:flex;align-items:flex-start;gap:7px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:12.5px;font-weight:600;line-height:1.4;
+  max-height:0;opacity:0;overflow:hidden;border:0 solid var(--warn);
+  transition:max-height .22s cubic-bezier(.16,1,.3,1),opacity .18s,padding .22s,margin .22s,border-width .18s}
+.sede-warn.show{max-height:140px;opacity:1;padding:10px 12px;margin-bottom:10px;border-width:1px}
+.sample-banner{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn);border-radius:10px;padding:10px 14px;font-size:12.5px;font-weight:600;margin-bottom:14px}
+@keyframes filledFlash{0%{background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent)}100%{background:transparent;box-shadow:0 0 0 2px transparent}}
+.filled-flash{animation:filledFlash 1.3s ease}
+@media (prefers-reduced-motion:reduce){.help-ic,.helppop,.sede-warn,.filled-flash{transition:none!important;animation:none!important}}
 #loginScreen{position:fixed;inset:0;z-index:200;background:var(--paper);display:none;align-items:center;justify-content:center;padding:20px}
 .login-card{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:30px 28px;box-shadow:var(--shadow-lg)}
 .login-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px}
@@ -512,22 +541,25 @@ tfoot td.l{text-align:left}
 <!-- ACTIVITY MODAL -->
 <div class="overlay" id="actOverlay">
   <div class="modal">
-    <div class="mhead"><h3 id="actTitle">Nuova attività</h3><button class="iconx" id="actClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mhead"><h3 id="actTitle">Nuova attività</h3><div style="display:flex;gap:8px;align-items:center"><button type="button" class="btn ghost small" id="aFillSample">✨ Esempio</button><button type="button" class="btn ghost small" id="aHelpToggle">? Aiuto</button><button class="iconx" id="actClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div></div>
     <div class="mbody">
+      <div class="sample-banner" id="aSampleBanner" style="display:none"><span>Stai vedendo un ESEMPIO — questi dati non sono reali. Modifica un campo con i tuoi dati oppure premi "Svuota esempio".</span><button type="button" class="btn ghost small" id="aSampleClear">Svuota esempio</button></div>
       <div class="grid2">
         <div class="field" id="aTeacherField"><label>Docente <span class="req">*</span></label><select id="aTeacher"></select><div class="hint" id="aTeacherInfo" style="margin-top:5px"></div></div>
-        <div class="field"><label>Tipologia <span class="req">*</span></label><select id="aTipo"></select></div>
+        <div class="field"><label>Tipologia <span class="req">*</span></label><select id="aTipo"></select><div class="hint" id="aTipoHint" data-doc="1" style="margin-top:5px"></div></div>
         <div class="field full" id="aLuogoField">
           <label id="aLuogoLabel">Scuola</label>
           <input type="text" id="aScuolaSearch" placeholder="Cerca scuola… (le parole possono essere in qualsiasi ordine)" autocomplete="off">
           <input type="hidden" id="aScuolaId">
           <div class="ac-list" id="aScuolaAc"></div>
           <select id="aLuogoSelect" style="display:none"></select>
+          <div class="hint" id="aLuogoHint" data-doc="1" style="margin-top:5px"></div>
         </div>
-        <div class="field"><label>Corso <span class="req">*</span></label><select id="aArea"></select></div>
+        <div class="field"><label>Corso <span class="req">*</span></label><select id="aArea"></select><div class="hint" data-doc="1" style="margin-top:5px">Vedi solo i corsi collegati alla tua interfaccia/area. Se manca quello che ti serve, contatta l'amministratore.</div></div>
         <div class="field"><label>Importo orario <span class="req">*</span></label><input type="number" id="aRate" step="0.5" min="0"></div>
       </div>
       <div class="date-rows" id="aDateRows"></div>
+      <div class="hint ws-only" id="aOrarioHint" data-doc="1" style="margin:-4px 0 8px">Per i Workshop, indica sempre Dalle e Alle (step di 30 minuti) qualunque sia la Sede: serve a calcolare il compenso.</div>
       <button type="button" class="btn ghost small" id="aAddDate">+ aggiungi data</button>
       <div class="date-total" id="aDateTotal"></div>
       <div class="field full" id="aRdaModeField" style="display:none">
@@ -539,7 +571,17 @@ tfoot td.l{text-align:left}
         <p class="hint" style="margin-top:6px" id="aRdaModeHint"></p>
       </div>
       <div class="grid2">
-        <div class="field full"><label>Note <span class="req">*</span></label><textarea id="aNote" rows="2" placeholder="Inserire eventuali spese di trasferta, location esterna, richieste particolari...altro"></textarea></div>
+        <div class="field full">
+          <div class="sede-warn" id="aSedeWarn"><span>⚠</span><span>Sede diversa da scuola o Campus (es. museo, azienda, evento pubblico): specifica luogo ed eventuali spese di trasferta nel campo Note.</span></div>
+          <label>Note <span class="req">*</span> <button type="button" class="help-ic" id="aNoteHelpIc" aria-label="Aiuto: Note">?</button></label>
+          <textarea id="aNote" rows="2" placeholder="Inserire eventuali spese di trasferta, location esterna, richieste particolari...altro"></textarea>
+          <div class="helppop" id="aNotePop">
+            <b>A cosa serve il campo Note?</b>
+            <p>Usa questo spazio per tutto ciò che non rientra negli altri campi: spese di trasferta, indirizzo della sede esterna, richieste particolari del docente o della scuola.</p>
+            <div class="ex">Esempio: "Trasferta in auto propria, 45 km da Milano; richiesta aula con proiettore."</div>
+            <div class="pf"><button type="button" class="btn ghost small" id="aNotePopClose">Chiudi</button></div>
+          </div>
+        </div>
         <div class="field full"><div class="mapinfo" id="aMap"></div></div>
       </div>
     </div>
@@ -561,7 +603,7 @@ tfoot td.l{text-align:left}
       <div class="field"><label>Email</label><input type="email" id="ntEmail" placeholder="mario.rossi@..."></div>
       <div class="grid2">
         <div class="field"><label>Ruolo</label><select id="ntRuolo"></select></div>
-        <div class="field"><label>Contributi</label><select id="ntContributi"></select></div>
+        <div class="field"><label>Contributi</label><div id="ntContributi"></div></div>
       </div>
       <div class="field"><label>Tariffa oraria (€/h) <span class="req">*</span></label><input type="number" id="ntRate" step="0.5" min="0" value="50"></div>
     </div>
@@ -660,7 +702,7 @@ tfoot td.l{text-align:left}
           <input type="email" id="newTeacherEmail" placeholder="email@..." style="flex:1;min-width:160px">
           <select id="newTeacherIface" style="min-width:170px"></select>
           <select id="newTeacherRuolo" style="min-width:130px"></select>
-          <select id="newTeacherContributi" style="min-width:140px"></select>
+          <div id="newTeacherContributi" style="min-width:200px;display:flex;align-items:center"></div>
           <input type="number" id="newTeacherRate" placeholder="€/h" value="50" style="width:80px">
           <button class="btn ghost small" id="btnAddTeacher">+ Aggiungi</button>
         </div>
@@ -696,7 +738,16 @@ const TIPI=["Workshop","Open Day","NabaIncontra","NabaExperience","Webinar","Tes
 // da Docenti.xlsx: [VOCI / RUOLI] e [CASSA/RITENUTA D'ACCONTO] (rinominati "Ruoli" e "Contributi" in UI).
 // "Contributi" serve a calcolare l'importo effettivamente da versare al docente (cassa 4% vs ritenuta).
 const RUOLI=["Docente","Collaboratore","Tutor"];
-const CONTRIBUTI=["SI CASSA 4%","NIENTE","RITENUTA"];
+// 3 flag indipendenti e non esclusivi (un docente può averne più di uno insieme, es. cassa+iva) —
+// sostituiscono il vecchio campo singolo "Contributi" a scelta unica (Luigi + team, 2026-09-22): la
+// posizione fiscale dipende dal singolo docente, non da un'unica etichetta prefissata. Effetti:
+// "Cassa 4%" incide sull'importo RDA (cassaMultiplier), "IVA 22%" incide solo lato Gestione Budget
+// (mai in RDA — vedi bdg_v_budget_docenti_allocations/syncBudgetMovement), "Ritenuta d'acconto" per
+// ora è solo informativo/di categorizzazione, nessun calcolo applicato.
+const FLAG_FISCALI=[["flag_cassa4","Cassa 4%"],["flag_iva22","IVA 22%"],["flag_ritenuta","Ritenuta d'acconto"]];
+function fiscalFlagsHtml(cls,id,t){
+  return `<div class="fiscal-flags">${FLAG_FISCALI.map(([key,label])=>`<label><input type="checkbox" class="${cls}" data-id="${id||''}" data-flag="${key}"${t&&t[key]?' checked':''}> ${esc(label)}</label>`).join('')}</div>`;
+}
 // select con opzioni fisse ma che non perde un valore esistente fuori lista (dati storici/importati)
 function fixedSelectHtml(cls,id,options,current){
   const cur=current||"";
@@ -867,10 +918,9 @@ function activityOre(a){ return (Number(a.ore)||0) + (Number(a.bonus_ore)||0); }
 // regola bonus Workshop: +1 ora ogni scaglione di 5 ore sul totale ore dell'attività macro
 // (1-5→+1, 6-10→+2, 11-15→+3, 16-20→+4, ...)
 function workshopBonusOre(oreTotali){ return oreTotali>0 ? Math.ceil(oreTotali/5) : 0; }
-// "Contributi" (bdg_teachers.regime_fiscale): con cassa 4% l'importo effettivamente da versare al
-// docente è maggiorato del 4% (rivalsa). Ritenuta d'acconto non ancora implementata (in attesa di
-// indicazioni sulla regola esatta) — per ora lascia l'importo invariato come "NIENTE".
-function cassaMultiplier(t){ return t && t.regime_fiscale==='SI CASSA 4%' ? 1.04 : 1; }
+// flag "Cassa 4%" (bdg_teachers.flag_cassa4): con cassa l'importo RDA è maggiorato del 4% (rivalsa).
+// "IVA 22%"/"Ritenuta d'acconto" non toccano questo calcolo — vedi FLAG_FISCALI più sopra.
+function cassaMultiplier(t){ return t && t.flag_cassa4 ? 1.04 : 1; }
 /* ---- anno fiscale (luglio→giugno) e mesi, per il filtro del Riepilogo ---- */
 function fyOfMonth(ym){ const [y,m]=ym.split('-').map(Number); return m>=7?y:y-1; }
 function fyMonthList(fyStart){
@@ -1992,22 +2042,41 @@ async function generateRda(teacherId, month, tipo){
 let editActId=null;
 // Workshop -> ricerca scuola da anagrafica CRM. Open Day/Test/NabaIncontra/NabaExperience -> sede
 // fissa (non è una scuola CRM, campo "luogo" separato). Webinar/Altro -> nessun luogo richiesto.
+// SpiegaMi: testi degli hint dietro al toggle "? Aiuto" nella testata della modale — vedi anche
+// il campo Note (avviso Sede=Esterna, sempre visibile) e il popover "?" su Note, che NON dipendono da questo toggle
+const TIPO_HINTS={
+  "":"Seleziona la tipologia: definisce quali campi dovrai compilare qui sotto.",
+  "Workshop":"Unica tipologia con Scuola (cercata dall'anagrafica CRM) e con Sede/orario per ogni data: può avere più date nella stessa scheda.",
+  "Open Day":"Richiede una Sede tra quelle NABA (o Online), non una scuola esterna.",
+  "NabaIncontra":"Richiede una Sede tra quelle NABA (o Online), non una scuola esterna.",
+  "NabaExperience":"Richiede una Sede tra quelle NABA (o Online), non una scuola esterna.",
+  "Webinar":"Non richiede una sede: è online. Indica eventuali dettagli della piattaforma in Note.",
+  "Test":"Richiede una Sede tra quelle NABA (o Online), non una scuola esterna.",
+  "Altro":"Nessun campo Scuola/Sede richiesto."
+};
+function updateTipoHint(){
+  document.getElementById("aTipoHint").textContent = TIPO_HINTS[document.getElementById("aTipo").value] ?? TIPO_HINTS[""];
+}
 function updateLuogoField(){
   const tipo=document.getElementById("aTipo").value;
   const wrap=document.getElementById("aLuogoField");
   const searchEl=document.getElementById("aScuolaSearch");
   const selectEl=document.getElementById("aLuogoSelect");
+  const hintEl=document.getElementById("aLuogoHint");
   closeAc();
   if(tipo==='Workshop'){
     wrap.style.display=''; document.getElementById("aLuogoLabel").textContent='Scuola';
     searchEl.style.display=''; selectEl.style.display='none';
+    hintEl.textContent="Cerca la scuola nell'anagrafica CRM: le parole possono essere in qualsiasi ordine. Se non la trovi, contatta l'amministrazione prima di procedere.";
   } else if(tipo==='Open Day'||tipo==='Test'||tipo==='NabaIncontra'||tipo==='NabaExperience'){
     wrap.style.display=''; document.getElementById("aLuogoLabel").textContent='Sede';
     searchEl.style.display='none'; selectEl.style.display='';
     if(!selectEl.options.length) selectEl.innerHTML=`<option value="">— seleziona —</option>`+CAMPUS_OPTIONS.map(c=>`<option>${c}</option>`).join("");
+    hintEl.textContent="Scegli la sede NABA in cui si svolge l'attività.";
   } else {
     wrap.style.display='none';
   }
+  updateTipoHint();
 }
 // area disponibili per l'attività: quelle dell'interfaccia che sta compilando (se docente), altrimenti
 // quelle dell'interfaccia del docente selezionato (admin che inserisce per conto di qualcuno).
@@ -2033,7 +2102,8 @@ function updateTeacherInfo(){
   if(!t){ box.innerHTML=""; return; }
   const parts=[];
   if(t.ruolo && t.ruolo!=='Docente') parts.push(`Ruolo: <b>${esc(t.ruolo)}</b>`);
-  parts.push(`Contributi: <b>${esc(t.regime_fiscale||'—')}</b>`);
+  const flags=FLAG_FISCALI.filter(([key])=>t[key]).map(([,label])=>label);
+  parts.push(`Contributi: <b>${esc(flags.length?flags.join(', '):'—')}</b>`);
   box.innerHTML=parts.join(' · ');
 }
 let editGroupId=null; // id di gruppo dell'attività macro in modifica (null = nuova)
@@ -2099,7 +2169,7 @@ function renderDateRows(){
     const sedeSel=row.querySelector(".dr-sede"), orarioEl=row.querySelector(".dr-orario"), orarioFineEl=row.querySelector(".dr-orario-fine");
     // Dalle/Alle valgono ormai per tutte e tre le sedi (Luigi, 2026-09-21) — a differenza di prima,
     // cambiare sede non azzera più l'orario già inserito
-    if(sedeSel){ sedeSel.value=aRows[i].sede; sedeSel.onchange=()=>{ aRows[i].sede=sedeSel.value; }; }
+    if(sedeSel){ sedeSel.value=aRows[i].sede; sedeSel.onchange=()=>{ aRows[i].sede=sedeSel.value; updateSedeWarn(); }; }
     if(orarioEl) orarioEl.onchange=()=>{
       aRows[i].orario=orarioEl.value;
       // Alle si propone sempre alla mezz'ora successiva a Dalle, finché non lo si cambia a mano
@@ -2110,8 +2180,17 @@ function renderDateRows(){
     };
     if(orarioFineEl) orarioFineEl.onchange=()=>{ aRows[i].orarioFine=orarioFineEl.value; };
   });
+  document.getElementById("aOrarioHint").classList.toggle('show', isWs);
+  updateSedeWarn();
   refreshDateTotals();
   renderRdaModeField();
+}
+// mostra un avviso fisso sopra Note quando almeno una data del Workshop è "Esterna": è l'unico caso
+// in cui Note diventa azionabile (indicare luogo/spese), non solo documentazione generica dietro il toggle Aiuto
+function updateSedeWarn(){
+  const isWs = document.getElementById("aTipo").value==='Workshop';
+  const anyEsterna = isWs && aRows.some(r=>r.sede==='esterna');
+  document.getElementById("aSedeWarn").classList.toggle('show', anyEsterna);
 }
 function refreshDateTotals(){
   const rate=parseFloat(document.getElementById("aRate").value)||0;
@@ -2162,9 +2241,44 @@ function openActivity(id){
   renderDateRows();
   document.getElementById("aNote").value=a?a.note||"":"";
   document.getElementById("aDelete").style.display=id?"inline-flex":"none";
+  document.getElementById("actOverlay").classList.remove("help-mode");
+  const hb=document.getElementById("aHelpToggle"); hb.classList.remove("on"); hb.textContent="? Aiuto";
+  document.getElementById("aFillSample").style.display = id ? "none" : "";
+  setSampleMode(false);
   document.getElementById("actOverlay").classList.add("on");
 }
+// "Compila con dati di esempio": mostra un Workshop finto compilato bene, per far vedere cosa scrivere
+// prima di scriverlo davvero. Scrive solo nei campi del form (mai in Supabase): finché non si tocca un
+// campo con mano, il Salva resta bloccato, esattamente come un salvataggio manuale mancato per errore.
+let aSampleMode=false;
+function setSampleMode(on){
+  aSampleMode=on;
+  document.getElementById("aSampleBanner").style.display = on ? "flex" : "none";
+  const save=document.getElementById("aSave");
+  save.disabled=on;
+  save.style.opacity = on ? .5 : "";
+  save.style.cursor = on ? "not-allowed" : "";
+  save.title = on ? "Modifica almeno un campo con i tuoi dati prima di salvare" : "";
+}
+function flashFilled(el){ if(!el) return; el.classList.remove('filled-flash'); void el.offsetWidth; el.classList.add('filled-flash'); }
+function fillSampleActivity(){
+  if(editActId) return; // solo per una nuova attività, mai sopra dati reali già salvati
+  const tipoSel=document.getElementById("aTipo");
+  tipoSel.value='Workshop';
+  updateLuogoField();
+  document.getElementById("aScuolaSearch").value="Liceo Artistico Statale ESEMPIO — Milano";
+  document.getElementById("aScuolaId").value="";
+  updateAreaField();
+  const d=new Date(); d.setDate(d.getDate()+14);
+  aRows=[newDateRow(d.toISOString().slice(0,10),3,null,'campus','09:00','12:00')];
+  renderDateRows();
+  document.getElementById("aNote").value="[ESEMPIO] Workshop di prova, non salvare. Trasferta a Bergamo, rimborso benzina forfettario.";
+  ["aTipo","aScuolaSearch","aArea","aNote"].forEach(id=>flashFilled(document.getElementById(id)));
+  document.querySelectorAll("#aDateRows .date-row input,#aDateRows .date-row select").forEach(flashFilled);
+  setSampleMode(true);
+}
 function saveActivity(){
+  if(aSampleMode){ toast("Modifica un campo con dati reali prima di salvare"); return; }
   if(!aRows.length){ toast("Aggiungi almeno una data"); return; }
   const isWs = document.getElementById("aTipo").value==='Workshop';
   for(const r of aRows){
@@ -2248,7 +2362,7 @@ function openNewTeacherModal(){
   document.getElementById("ntEmail").value="";
   document.getElementById("ntRate").value="50";
   document.getElementById("ntRuolo").innerHTML=RUOLI.map(r=>`<option ${r==='Docente'?'selected':''}>${esc(r)}</option>`).join("");
-  document.getElementById("ntContributi").innerHTML=`<option value="">—</option>`+CONTRIBUTI.map(c=>`<option>${esc(c)}</option>`).join("");
+  document.getElementById("ntContributi").innerHTML=fiscalFlagsHtml('nt-fiscal',null,null);
   document.getElementById("newTeacherOverlay").classList.add("on");
 }
 function closeNewTeacherModal(){
@@ -2261,9 +2375,9 @@ function saveNewTeacherQuick(){
   const email=(document.getElementById("ntEmail").value||"").trim().toLowerCase();
   const rate=Number(document.getElementById("ntRate").value)||50;
   const ruolo=document.getElementById("ntRuolo").value||'Docente';
-  const regime_fiscale=document.getElementById("ntContributi").value||null;
+  const fiscalFlags={}; document.querySelectorAll("#ntContributi input[type=checkbox]").forEach(cb=>{ fiscalFlags[cb.dataset.flag]=cb.checked; });
   if(!nome){ toast("Inserisci nome e cognome"); return; }
-  const t={id:uuid(), nome, email, interface_id:CURRENT.interfaceId, ruolo, regime_fiscale, tariffa_oraria:rate, attivo:true};
+  const t={id:uuid(), nome, email, interface_id:CURRENT.interfaceId, ruolo, ...fiscalFlags, tariffa_oraria:rate, attivo:true};
   STATE.teachers.push(t); save(); fillSelects();
   document.getElementById("newTeacherOverlay").classList.remove("on");
   const sel=document.getElementById("aTeacher");
@@ -2285,7 +2399,7 @@ const TOOL_TABS={
 function openAdmin(){
   renderInterfacesTable(); renderTeachersTable(); renderUsersTable(); renderTabVisTable(); renderPreviewAs();
   const nr=document.getElementById("newTeacherRuolo"); if(nr) nr.innerHTML=RUOLI.map(r=>`<option ${r==='Docente'?'selected':''}>${esc(r)}</option>`).join("");
-  const nc=document.getElementById("newTeacherContributi"); if(nc) nc.innerHTML=`<option value="">—</option>`+CONTRIBUTI.map(c=>`<option>${esc(c)}</option>`).join("");
+  const nc=document.getElementById("newTeacherContributi"); if(nc) nc.innerHTML=fiscalFlagsHtml('newteacher-fiscal',null,null);
   document.querySelectorAll("#adminTabs button").forEach(b=>b.classList.remove("on"));
   document.querySelectorAll(".admin-sec").forEach(s=>s.classList.remove("on"));
   document.querySelector('#adminTabs button[data-sec="interfacce"]').classList.add("on");
@@ -2322,7 +2436,7 @@ function renderTeachersTable(){
     <td class="l"><input type="email" class="t-email" data-id="${t.id}" value="${esc(t.email||'')}" placeholder="email (contatto)" style="border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;width:100%"></td>
     <td class="l">${interfaceSelectHtml('t-iface',t.id,t.interface_id)}</td>
     <td class="l">${fixedSelectHtml('t-ruolo',t.id,RUOLI,t.ruolo)}</td>
-    <td class="l">${fixedSelectHtml('t-contributi',t.id,CONTRIBUTI,t.regime_fiscale)}</td>
+    <td class="l">${fiscalFlagsHtml('t-fiscal',t.id,t)}</td>
     <td><input type="number" class="t-rate" data-id="${t.id}" value="${t.tariffa_oraria}" style="width:70px;border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;text-align:right"></td>
     <td><input type="checkbox" class="t-attivo" data-id="${t.id}" ${t.attivo!==false?'checked':''}></td>
     <td><button class="rowbtn t-del" data-id="${t.id}" title="Rimuovi">✕</button></td>
@@ -2331,7 +2445,7 @@ function renderTeachersTable(){
   document.querySelectorAll(".t-email").forEach(i=>i.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===i.dataset.id); if(!t)return; t.email=i.value.trim(); save(); cloudUpsertTeacher(t); });
   document.querySelectorAll(".t-iface").forEach(s=>s.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===s.dataset.id); if(!t)return; t.interface_id=s.value||null; save(); renderAll(); cloudUpsertTeacher(t); });
   document.querySelectorAll(".t-ruolo").forEach(s=>s.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===s.dataset.id); if(!t)return; t.ruolo=s.value||null; save(); cloudUpsertTeacher(t); });
-  document.querySelectorAll(".t-contributi").forEach(s=>s.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===s.dataset.id); if(!t)return; t.regime_fiscale=s.value||null; save(); cloudUpsertTeacher(t); });
+  document.querySelectorAll(".t-fiscal").forEach(cb=>cb.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===cb.dataset.id); if(!t)return; t[cb.dataset.flag]=cb.checked; save(); renderAll(); cloudUpsertTeacher(t); });
   document.querySelectorAll(".t-rate").forEach(i=>i.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===i.dataset.id); if(!t)return; t.tariffa_oraria=Number(i.value)||0; save(); renderAll(); cloudUpsertTeacher(t); });
   document.querySelectorAll(".t-attivo").forEach(c=>c.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===c.dataset.id); if(!t)return; t.attivo=c.checked; save(); cloudUpsertTeacher(t); });
   document.querySelectorAll(".t-del").forEach(b=>b.onclick=()=>{ if(!confirm("Rimuovere il docente? (le attività collegate restano)"))return; STATE.teachers=STATE.teachers.filter(x=>x.id!==b.dataset.id); save(); fillSelects(); renderTeachersTable(); renderAll(); });
@@ -2390,7 +2504,7 @@ function cloudSetDot(s){ const d=document.getElementById("cloudDot"),l=document.
 function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clearTimeout(flashSynced._t); flashSynced._t=setTimeout(()=>{ if(cloudReady())cloudSetDot('on'); },600); }
 function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toast("Errore salvataggio cloud ("+ctx+"): "+(error&&error.message?error.message:'riprova')+" — dato solo in locale",'err'); }
 function interfaceRow(i){ return {id:i.id,nome:i.nome,email:i.email||null,aree:i.aree||[],attivo:i.attivo!==false}; }
-function teacherRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,interface_id:t.interface_id||null,ruolo:t.ruolo||null,regime_fiscale:t.regime_fiscale||null,tariffa_oraria:Number(t.tariffa_oraria)||0,attivo:t.attivo!==false,last_solicited_at:t.last_solicited_at||null}; }
+function teacherRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,interface_id:t.interface_id||null,ruolo:t.ruolo||null,flag_cassa4:!!t.flag_cassa4,flag_iva22:!!t.flag_iva22,flag_ritenuta:!!t.flag_ritenuta,tariffa_oraria:Number(t.tariffa_oraria)||0,attivo:t.attivo!==false,last_solicited_at:t.last_solicited_at||null}; }
 function activityRow(a){ return {id:a.id,teacher_id:a.teacher_id,school_id:a.school_id||null,luogo:a.luogo||null,area:a.area||null,nome:a.nome||null,tipo:a.tipo,data:a.data,ore:Number(a.ore)||0,tariffa_oraria:a.tariffa_oraria==null?null:Number(a.tariffa_oraria),importo:a.importo==null?null:Number(a.importo),stato:a.stato||'programmata',rda_id:a.rda_id||null,note:a.note||null,gruppo_id:a.gruppo_id||null,bonus_ore:a.bonus_ore==null?null:Number(a.bonus_ore),bonus_importo:a.bonus_importo==null?null:Number(a.bonus_importo),cal_added_at:a.cal_added_at||null,rda_mode:a.rda_mode||'fine_periodo',sede_sessione:a.sede_sessione||null,ora_evento:a.ora_evento||null,ora_evento_fine:a.ora_evento_fine||null}; }
 function rdaRow(r){ return {id:r.id,teacher_id:r.teacher_id,mese:r.mese,tipo:r.tipo||null,stato:r.stato||'bozza',rif_rda:r.rif_rda||null,rif_rda_data:r.rif_rda_data||null,importo_totale:Number(r.importo_totale)||0,note:r.note||null}; }
 
@@ -2405,7 +2519,7 @@ async function cloudPullAll(silent){
     const {data:ac,error:e2}=await sb.from('bdg_teacher_activities').select('*'); if(e2) throw e2;
     const {data:rd,error:e3}=await sb.from('bdg_teacher_rda').select('*'); if(e3) throw e3;
     STATE.interfaces=(ifc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",aree:x.aree||[],attivo:x.attivo!==false}));
-    STATE.teachers=(tc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",interface_id:x.interface_id||null,ruolo:x.ruolo||"",regime_fiscale:x.regime_fiscale||"",tariffa_oraria:Number(x.tariffa_oraria)||50,attivo:x.attivo!==false,last_solicited_at:x.last_solicited_at||null}));
+    STATE.teachers=(tc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",interface_id:x.interface_id||null,ruolo:x.ruolo||"",flag_cassa4:!!x.flag_cassa4,flag_iva22:!!x.flag_iva22,flag_ritenuta:!!x.flag_ritenuta,tariffa_oraria:Number(x.tariffa_oraria)||50,attivo:x.attivo!==false,last_solicited_at:x.last_solicited_at||null}));
     STATE.activities=(ac||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,school_id:x.school_id||null,luogo:x.luogo||null,area:x.area||null,nome:x.nome||"",tipo:x.tipo,data:x.data,ore:Number(x.ore)||0,tariffa_oraria:x.tariffa_oraria==null?null:Number(x.tariffa_oraria),importo:x.importo==null?null:Number(x.importo),stato:x.stato||'programmata',rda_id:x.rda_id||null,note:x.note||"",gruppo_id:x.gruppo_id||null,bonus_ore:x.bonus_ore==null?null:Number(x.bonus_ore),bonus_importo:x.bonus_importo==null?null:Number(x.bonus_importo),cal_added_at:x.cal_added_at||null,rda_mode:x.rda_mode||'fine_periodo',sede_sessione:x.sede_sessione||null,ora_evento:x.ora_evento||null,ora_evento_fine:x.ora_evento_fine||null}));
     STATE.rdas=(rd||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,mese:x.mese,tipo:x.tipo||null,stato:x.stato||'bozza',rif_rda:x.rif_rda||"",rif_rda_data:x.rif_rda_data||null,importo_totale:Number(x.importo_totale)||0,note:x.note||""}));
     await cloudFetchRoles();
@@ -2456,6 +2570,10 @@ async function syncBudgetMovement(r){
         oggetto:(t?t.nome:'')+(r.tipo?' · '+r.tipo:'')+' · '+monthLabel((r.mese||'').slice(0,7)),
         tipo_pagamento:'RDA',
         source_rda_id:r.id,
+        // l'RDA resta sempre compenso+cassa (mai IVA, vedi cassaMultiplier) — l'eventuale IVA del
+        // docente (flag_iva22) entra SOLO qui, nel movimento budget, come aliquota di riga che
+        // sostituisce quella di categoria (Luigi + team, 2026-09-22): vedi rowIvaFactor() in Gestione Budget.
+        iva_pct_override: t && t.flag_iva22 ? 22 : 0,
         deleted_at:null, deleted_by:null
       };
       const {error}=await sb.from('bdg_expenses').upsert(row,{onConflict:'source_rda_id'});
@@ -2529,6 +2647,20 @@ document.getElementById("aCancel").onclick=()=>document.getElementById("actOverl
 document.getElementById("aSave").onclick=saveActivity;
 document.getElementById("aDelete").onclick=deleteActivity;
 document.getElementById("aTipo").addEventListener("change",()=>{ updateLuogoField(); renderDateRows(); });
+document.getElementById("aHelpToggle").onclick=()=>{
+  const on=document.getElementById("actOverlay").classList.toggle("help-mode");
+  const hb=document.getElementById("aHelpToggle");
+  hb.classList.toggle("on",on);
+  hb.textContent = on ? "✓ Aiuto attivo" : "? Aiuto";
+};
+document.getElementById("aFillSample").onclick=fillSampleActivity;
+document.getElementById("aSampleClear").onclick=()=>openActivity(null);
+document.getElementById("aNoteHelpIc").onclick=e=>{ e.stopPropagation(); document.getElementById("aNotePop").classList.toggle("open"); };
+document.getElementById("aNotePopClose").onclick=()=>document.getElementById("aNotePop").classList.remove("open");
+document.addEventListener("click",()=>document.getElementById("aNotePop").classList.remove("open"));
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.getElementById("aNotePop").classList.remove("open"); });
+document.querySelector("#actOverlay .mbody").addEventListener("input",()=>{ if(aSampleMode) setSampleMode(false); });
+document.querySelector("#actOverlay .mbody").addEventListener("change",()=>{ if(aSampleMode) setSampleMode(false); });
 document.getElementById("aTeacher").addEventListener("change",()=>{
   const sel=document.getElementById("aTeacher");
   if(sel.value==='__new__'){ openNewTeacherModal(); return; }
@@ -2574,13 +2706,13 @@ document.getElementById("btnAddTeacher").onclick=()=>{
   const email=(document.getElementById("newTeacherEmail").value||"").trim().toLowerCase();
   const interface_id=document.getElementById("newTeacherIface").value||null;
   const ruolo=document.getElementById("newTeacherRuolo").value||'Docente';
-  const regime_fiscale=document.getElementById("newTeacherContributi").value||null;
+  const fiscalFlags={}; document.querySelectorAll("#newTeacherContributi input[type=checkbox]").forEach(cb=>{ fiscalFlags[cb.dataset.flag]=cb.checked; });
   const rate=Number(document.getElementById("newTeacherRate").value)||50;
   if(!nome){ toast("Inserisci il nome del docente"); return; }
-  const t={id:uuid(),nome,email,interface_id,ruolo,regime_fiscale,tariffa_oraria:rate,attivo:true};
+  const t={id:uuid(),nome,email,interface_id,ruolo,...fiscalFlags,tariffa_oraria:rate,attivo:true};
   STATE.teachers.push(t); save(); fillSelects(); renderTeachersTable(); renderAll();
   document.getElementById("newTeacherName").value=""; document.getElementById("newTeacherEmail").value=""; document.getElementById("newTeacherIface").value=""; document.getElementById("newTeacherRate").value="50";
-  document.getElementById("newTeacherRuolo").value="Docente"; document.getElementById("newTeacherContributi").value="";
+  document.getElementById("newTeacherRuolo").value="Docente"; document.getElementById("newTeacherContributi").innerHTML=fiscalFlagsHtml('newteacher-fiscal',null,null);
   cloudUpsertTeacher(t);
 };
 document.querySelectorAll("#adminTabs button").forEach(b=>b.onclick=()=>{

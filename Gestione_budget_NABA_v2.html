@@ -860,6 +860,10 @@ function load(){
 }
 /* fattore lordo (IVA inclusa) per categoria */
 function ivaFactor(cat){ const r=(STATE.ivaByCat && STATE.ivaByCat[cat]!=null)?STATE.ivaByCat[cat]:STATE.ivaRate; return 1+(Number(r)||0)/100; }
+// righe generate dal bridge Docenti (e/o le stime bdg_v_budget_docenti_allocations) portano una propria
+// aliquota IVA (ivaPctOverride, dal flag "IVA 22%" del docente) che SOSTITUISCE quella di categoria —
+// l'aliquota di categoria resta quella "vera" solo per le spese non-docenti (Luigi + team, 2026-09-22).
+function rowIvaFactor(r){ return r.ivaPctOverride!=null ? 1+Number(r.ivaPctOverride)/100 : ivaFactor(r.categoria); }
 function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(STATE)); }catch(e){} }
 
 /* dataset dell'anno fiscale attivo — creato al volo se assente */
@@ -928,7 +932,7 @@ function compute(){
   let gSpeso=0,gAlloc=0,gFuori=0,gStimaEC=0,gStimaDocenti=0;
   for(const e of EXP){
     const c=e.categoria; if(!c||!cats[c]) continue;
-    const f=ivaFactor(c);
+    const f=rowIvaFactor(e);
     const dist=distribute(e);
     for(const mkS in dist){
       const mk=+mkS, amt=dist[mkS]*f;   // valore IVA inclusa
@@ -944,7 +948,7 @@ function compute(){
     const c=r.categoria; if(!c||!cats[c]) continue;
     const my=ym(r.mese); if(!my) continue;
     const mk=my.key; if(mk<fs||mk>fe) continue;
-    const amt=(Number(r.importo)||0)*ivaFactor(c);
+    const amt=(Number(r.importo)||0)*rowIvaFactor(r);
     cats[c].allocato+=amt; cats[c].stimaEC+=amt; gAlloc+=amt; gStimaEC+=amt;
     if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaDocenti:0};
     cats[c].months[mk].allocato+=amt; cats[c].months[mk].stimaEC+=amt;
@@ -956,7 +960,7 @@ function compute(){
     const c=r.categoria; if(!c||!cats[c]) continue;
     const my=ym(r.mese); if(!my) continue;
     const mk=my.key; if(mk<fs||mk>fe) continue;
-    const amt=(Number(r.importo)||0)*ivaFactor(c);
+    const amt=(Number(r.importo)||0)*rowIvaFactor(r);
     cats[c].allocato+=amt; cats[c].stimaDocenti+=amt; gAlloc+=amt; gStimaDocenti+=amt;
     if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaDocenti:0};
     cats[c].months[mk].allocato+=amt; cats[c].months[mk].stimaDocenti+=amt;
@@ -1265,7 +1269,7 @@ function monthContributions(monthKey, onlyCat){
   cur().expenses.forEach(e=>{
     if(onlyCat && e.categoria!==onlyCat) return;
     const dist=distribute(e); if(dist[monthKey]==null) return;
-    const amt=dist[monthKey]*ivaFactor(e.categoria);
+    const amt=dist[monthKey]*rowIvaFactor(e);
     out.push({e, amt, futuro: monthKey>rk});
   });
   out.sort((a,b)=>b.amt-a.amt);
@@ -1346,7 +1350,7 @@ function renderMovimenti(){
   list.sort((a,b)=>String(b.dataOrdine||"").localeCompare(String(a.dataOrdine||"")));
 
   const totNet=list.reduce((s,e)=>s+(+e.importo||0),0);
-  const totGross=list.reduce((s,e)=>s+(+e.importo||0)*ivaFactor(e.categoria),0);
+  const totGross=list.reduce((s,e)=>s+(+e.importo||0)*rowIvaFactor(e),0);
   document.getElementById("mvCount").textContent=`${list.length} movimenti · ${eur(totNet)} netto · ${eur(totGross)} IVA incl.`;
 
   if(!list.length){
@@ -1363,7 +1367,7 @@ function renderMovimenti(){
     const comp = (e.compDa&&e.compA) ? `${fmtD(e.compDa)} → ${fmtD(e.compA)}`
       : e.dataConsegna ? `cons. ${fmtD(e.dataConsegna)}`
       : `one-shot`;
-    const net=+e.importo||0, gross=net*ivaFactor(e.categoria);
+    const net=+e.importo||0, gross=net*rowIvaFactor(e);
     html+=`<tr>
       <td class="l" data-label="Ordine"><div class="obj">${fmtD(e.dataOrdine)}</div><div class="meta">${e.numOrdine||'—'}</div></td>
       <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[e.categoria]||'#8A8F88',.13)};color:${CAT_COLOR[e.categoria]||'#6A6F6A'}">${e.categoria||''}</span>${e.sourceRdaId?` <span class="tag" style="background:var(--warn-soft);color:var(--warn)" title="Generata automaticamente da un'attività Docenti">Auto · Docenti</span>`:''}</td>
@@ -1392,7 +1396,7 @@ function renderMvEstimates(catF,q){
     if(catF!=="ALL" && r.categoria!==catF) return;
     const label=[r.tipo,r.luogo,r.docenteNome].filter(Boolean).join(" · ");
     if(q && !(label+" "+(r.categoria||"")).toLowerCase().includes(q)) return;
-    rows.push({categoria:r.categoria, data:r.data, label, sub:"Docenti", importo:r.importo});
+    rows.push({categoria:r.categoria, data:r.data, label, sub:"Docenti", importo:r.importo, ivaPctOverride:r.ivaPctOverride});
   });
   (STATE.travelEstimates||[]).forEach(r=>{
     const my=ym(r.mese); if(!my||my.key<fs||my.key>fe) return;
@@ -1407,7 +1411,7 @@ function renderMvEstimates(catF,q){
   let html=`<thead><tr>
     <th class="l">Data</th><th class="l">Categoria</th><th class="l">Descrizione</th><th>Netto</th><th>IVA incl.</th></tr></thead><tbody>`;
   for(const r of rows){
-    const net=+r.importo||0, gross=net*ivaFactor(r.categoria);
+    const net=+r.importo||0, gross=net*rowIvaFactor(r);
     html+=`<tr>
       <td class="l" data-label="Data"><div class="obj">${fmtD(r.data)}</div></td>
       <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[r.categoria]||'#8A8F88',.13)};color:${CAT_COLOR[r.categoria]||'#6A6F6A'}">${r.categoria||''}</span></td>
@@ -1665,6 +1669,7 @@ function readForm(){
 }
 function updatePreview(){
   const e=readForm();
+  if(editingId){ const orig=cur().expenses.find(x=>x.id===editingId); if(orig) e.ivaPctOverride=orig.ivaPctOverride; }
   const dist=distribute(e);
   const keys=Object.keys(dist).map(Number).sort((a,b)=>a-b);
   const box=document.getElementById("prevMonths");
@@ -1674,7 +1679,7 @@ function updatePreview(){
     document.getElementById("prevNote").textContent="";
     return;
   }
-  const f=ivaFactor(e.categoria);
+  const f=rowIvaFactor(e);
   box.innerHTML=keys.map(k=>{
     const {y,m}=keyYM(k); const out=(k<fs||k>fe);
     return `<div class="pm ${out?'out':''}"><div class="mn">${MESI[m-1]} '${String(y).slice(2)}</div><div class="mv">${eur(dist[k]*f)}</div></div>`;
@@ -1682,7 +1687,8 @@ function updatePreview(){
   const comp=competenceMonths(e);
   const ord=e.dataOrdine?(ym(e.dataOrdine)||{}).key:comp[0];
   const nPast=comp.filter(k=>k<ord).length;
-  let note=`${comp.length} ${comp.length===1?'mese':'mesi'} di competenza · quota ${eur((+e.importo)/comp.length*f)}/mese (IVA ${STATE.ivaByCat[e.categoria]!=null?STATE.ivaByCat[e.categoria]:STATE.ivaRate}% incl.)`;
+  const ivaPctShown = e.ivaPctOverride!=null ? e.ivaPctOverride : (STATE.ivaByCat[e.categoria]!=null?STATE.ivaByCat[e.categoria]:STATE.ivaRate);
+  let note=`${comp.length} ${comp.length===1?'mese':'mesi'} di competenza · quota ${eur((+e.importo)/comp.length*f)}/mese (IVA ${ivaPctShown}%${e.ivaPctOverride!=null?' docente':''} incl.)`;
   if(nPast>0) note+=` · ${nPast} ${nPast===1?'mese precedente attribuito':'mesi precedenti attribuiti'} al mese d'ordine`;
   document.getElementById("prevNote").textContent=note;
 }
@@ -1694,11 +1700,12 @@ function saveForm(){
   const DS=cur(); let saved;
   if(editingId){
     const i=DS.expenses.findIndex(x=>x.id===editingId);
-    // sourceRdaId non è nel form (readForm) e non va mai toccato da un salvataggio manuale — expToRow()
-    // lo omette apposta dal payload cloud; lo riportiamo qui solo per non perderlo nello STATE locale
-    // finché non arriva la prossima pull dal server (che lo confermerebbe comunque).
+    // sourceRdaId/ivaPctOverride non sono nel form (readForm) e non vanno mai toccati da un salvataggio
+    // manuale — expToRow() li omette apposta dal payload cloud; li riportiamo qui solo per non perderli
+    // nello STATE locale finché non arriva la prossima pull dal server (che li confermerebbe comunque).
     const prevSourceRdaId = DS.expenses[i] ? DS.expenses[i].sourceRdaId : null;
-    saved=Object.assign({id:editingId, sourceRdaId:prevSourceRdaId||null}, e);
+    const prevIvaPctOverride = DS.expenses[i] ? DS.expenses[i].ivaPctOverride : null;
+    saved=Object.assign({id:editingId, sourceRdaId:prevSourceRdaId||null, ivaPctOverride:prevIvaPctOverride!=null?prevIvaPctOverride:null}, e);
     DS.expenses[i]=saved;
     toast("Spesa aggiornata");
   } else {
@@ -2083,7 +2090,7 @@ async function cloudPullAll(silent){
     const ensure=y=>{ y=String(y); if(!years[y]) years[y]={budget:{}, expenses:[]}; CATEGORIES.forEach(c=>{ if(years[y].budget[c]==null) years[y].budget[c]=0; }); return years[y]; };
     (buds||[]).forEach(b=>{ ensure(b.fy_start).budget[b.categoria]=Number(b.budget_net)||0; });
     const active=(all||[]).filter(r=>!r.deleted_at), deleted=(all||[]).filter(r=>r.deleted_at);
-    active.forEach(r=>{ ensure(r.fy_start).expenses.push({ id:r.id, dataOrdine:r.data_ordine, numOrdine:r.num_ordine||"", categoria:r.categoria, catAltro:r.cat_altro||"", fornitore:r.fornitore||"", importo:Number(r.importo)||0, compDa:r.comp_da, compA:r.comp_a, dataConsegna:r.data_consegna, oggetto:r.oggetto||"", note:r.note||"", tipoPagamento:r.tipo_pagamento||"RDA", sourceRdaId:r.source_rda_id||null }); });
+    active.forEach(r=>{ ensure(r.fy_start).expenses.push({ id:r.id, dataOrdine:r.data_ordine, numOrdine:r.num_ordine||"", categoria:r.categoria, catAltro:r.cat_altro||"", fornitore:r.fornitore||"", importo:Number(r.importo)||0, compDa:r.comp_da, compA:r.comp_a, dataConsegna:r.data_consegna, oggetto:r.oggetto||"", note:r.note||"", tipoPagamento:r.tipo_pagamento||"RDA", sourceRdaId:r.source_rda_id||null, ivaPctOverride:r.iva_pct_override!=null?Number(r.iva_pct_override):null }); });
     if(Object.keys(years).length){ STATE.years=years; if(!STATE.years[String(STATE.fyStart)]){ STATE.fyStart=+Object.keys(STATE.years).sort().pop(); } }
     STATE.trash = deleted.map(r=>({ id:r.id, _fy:r.fy_start, deletedAt:r.deleted_at, dataOrdine:r.data_ordine, numOrdine:r.num_ordine||"", categoria:r.categoria, catAltro:r.cat_altro||"", fornitore:r.fornitore||"", importo:Number(r.importo)||0, compDa:r.comp_da, compA:r.comp_a, dataConsegna:r.data_consegna, oggetto:r.oggetto||"", note:r.note||"" }));
     sanitizeState(STATE);
@@ -2111,9 +2118,9 @@ async function cloudFetchTravelEstimates(){
 async function cloudFetchDocentiEstimates(){
   if(!cloudReady()) return;
   try{
-    const {data,error}=await sb.from('bdg_v_budget_docenti_allocations').select('categoria,mese,importo,docente_nome,tipo,data,luogo');
+    const {data,error}=await sb.from('bdg_v_budget_docenti_allocations').select('categoria,mese,importo,docente_nome,tipo,data,luogo,iva_pct');
     if(error) throw error;
-    STATE.docentiEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0,docenteNome:r.docente_nome||'',tipo:r.tipo||'',data:r.data||null,luogo:r.luogo||''}));
+    STATE.docentiEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0,docenteNome:r.docente_nome||'',tipo:r.tipo||'',data:r.data||null,luogo:r.luogo||'',ivaPctOverride:r.iva_pct!=null?Number(r.iva_pct):null}));
   }catch(e){ console.error('docenti estimates', e); }
 }
 /* ruoli/visibilità tab: tabelle condivise con Spese EC. Fetch protetta a parte
