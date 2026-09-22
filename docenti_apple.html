@@ -597,7 +597,13 @@ tfoot td.l{text-align:left}
     <div class="mbody">
       <div class="sample-banner" id="aSampleBanner" style="display:none"><span>Stai vedendo un ESEMPIO — questi dati non sono reali. Modifica un campo con i tuoi dati oppure premi "Svuota esempio".</span><button type="button" class="btn ghost small" id="aSampleClear">Svuota esempio</button></div>
       <div class="grid2">
-        <div class="field" id="aTeacherField"><label>Docente <span class="req">*</span></label><select id="aTeacher"></select><div class="hint" id="aTeacherInfo" style="margin-top:5px"></div></div>
+        <div class="field" id="aTeacherField"><label>Docente <span class="req">*</span> <button type="button" class="help-ic" id="aTeacherHelpIc" aria-label="Aiuto: Docente">?</button></label><select id="aTeacher"></select><div class="hint" id="aTeacherInfo" style="margin-top:5px"></div>
+          <div class="helppop" id="aTeacherPop">
+            <b>Ruolo e Contributi</b>
+            <p>Impostato di default sul docente, è possibile modificare direttamente nella scheda docente (Admin → Docenti) — non da questa attività.</p>
+            <div class="pf"><button type="button" class="btn ghost small" id="aTeacherPopClose">Chiudi</button></div>
+          </div>
+        </div>
         <div class="field"><label>Tipologia <span class="req">*</span></label><select id="aTipo"></select><div class="hint" id="aTipoHint" data-doc="1" style="margin-top:5px"></div></div>
         <div class="field full" id="aLuogoField">
           <label id="aLuogoLabel">Scuola</label>
@@ -608,7 +614,13 @@ tfoot td.l{text-align:left}
           <div class="hint" id="aLuogoHint" data-doc="1" style="margin-top:5px"></div>
         </div>
         <div class="field"><label>Corso <span class="req">*</span></label><select id="aArea"></select><div class="hint" data-doc="1" style="margin-top:5px">Vedi solo i corsi collegati alla tua interfaccia/area. Se manca quello che ti serve, contatta l'amministratore.</div></div>
-        <div class="field"><label>Importo orario <span class="req">*</span></label><input type="number" id="aRate" step="0.5" min="0"></div>
+        <div class="field"><label>Importo orario <span class="req">*</span> <button type="button" class="help-ic" id="aRateHelpIc" aria-label="Aiuto: Importo orario">?</button></label><input type="number" id="aRate" step="0.5" min="0">
+          <div class="helppop" id="aRatePop">
+            <b>Importo orario</b>
+            <p>Impostato di default sul docente, è possibile modificare per questa attività.</p>
+            <div class="pf"><button type="button" class="btn ghost small" id="aRatePopClose">Chiudi</button></div>
+          </div>
+        </div>
       </div>
       <div class="date-rows" id="aDateRows"></div>
       <div class="hint ws-only" id="aOrarioHint" data-doc="1" style="margin:-4px 0 8px">Per i Workshop, indica sempre Dalle e Alle (step di 30 minuti) qualunque sia la Sede: serve a calcolare il compenso.</div>
@@ -2260,7 +2272,10 @@ function refreshDateTotals(){
   const bonusOre = tipo==='Workshop' ? workshopBonusOre(totOre) : 0;
   const bonusLine = bonusOre>0 ? `<div class="date-bonus">+ ${bonusOre} ${bonusOre===1?'ora bonus':'ore bonus'} (regola Workshop su ${totOre} ore totali)</div>` : "";
   document.getElementById("aDateTotal").innerHTML = `${bonusLine}<div class="date-total-row"><span>Totale</span><span>${totOre+bonusOre} ore</span><span>${eur2((totOre+bonusOre)*rate)} (${eur2(rate)}/h)</span><span></span></div>`;
-  document.getElementById("aMap").innerHTML=`Categoria budget: <b>CONS. COMM. MKTG</b> (sempre, per le attività docenti). Entra come <b>programmata</b>: si conferma "svolta" singolarmente per ogni data dall'elenco Attività una volta avvenuta.`;
+  // dettaglio di sola competenza admin (categoria budget interna) — un orientatore/docente non deve vederlo
+  document.getElementById("aMap").innerHTML = CURRENT.role==='admin'
+    ? `Categoria budget: <b>CONS. COMM. MKTG</b> (sempre, per le attività docenti). Entra come <b>programmata</b>: si conferma "svolta" singolarmente per ogni data dall'elenco Attività una volta avvenuta.`
+    : '';
 }
 function openActivity(id){
   editActId=id||null;
@@ -2728,8 +2743,12 @@ document.getElementById("aFillSample").onclick=fillSampleActivity;
 document.getElementById("aSampleClear").onclick=()=>openActivity(null);
 document.getElementById("aNoteHelpIc").onclick=e=>{ e.stopPropagation(); document.getElementById("aNotePop").classList.toggle("open"); };
 document.getElementById("aNotePopClose").onclick=()=>document.getElementById("aNotePop").classList.remove("open");
-document.addEventListener("click",()=>document.getElementById("aNotePop").classList.remove("open"));
-document.addEventListener("keydown",e=>{ if(e.key==="Escape") document.getElementById("aNotePop").classList.remove("open"); });
+document.getElementById("aTeacherHelpIc").onclick=e=>{ e.stopPropagation(); document.getElementById("aTeacherPop").classList.toggle("open"); };
+document.getElementById("aTeacherPopClose").onclick=()=>document.getElementById("aTeacherPop").classList.remove("open");
+document.getElementById("aRateHelpIc").onclick=e=>{ e.stopPropagation(); document.getElementById("aRatePop").classList.toggle("open"); };
+document.getElementById("aRatePopClose").onclick=()=>document.getElementById("aRatePop").classList.remove("open");
+document.addEventListener("click",()=>{ document.getElementById("aNotePop").classList.remove("open"); document.getElementById("aTeacherPop").classList.remove("open"); document.getElementById("aRatePop").classList.remove("open"); });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ document.getElementById("aNotePop").classList.remove("open"); document.getElementById("aTeacherPop").classList.remove("open"); document.getElementById("aRatePop").classList.remove("open"); } });
 document.querySelector("#actOverlay .mbody").addEventListener("input",()=>{ if(aSampleMode) setSampleMode(false); });
 document.querySelector("#actOverlay .mbody").addEventListener("change",()=>{ if(aSampleMode) setSampleMode(false); });
 document.getElementById("aTeacher").addEventListener("change",()=>{
