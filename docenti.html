@@ -169,9 +169,12 @@ tfoot td.l{text-align:left}
 .chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .chip.reset{border-style:dashed;border-color:var(--over);color:var(--over)}
 /* 3 flag fiscali indipendenti del docente (Cassa 4% / IVA 22% / Ritenuta d'acconto) — sostituiscono
-   il vecchio select "Contributi" a scelta unica, vedi FLAG_FISCALI */
-.fiscal-flags{display:flex;flex-wrap:wrap;gap:2px 12px}
-.fiscal-flags label{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;color:var(--ink-soft);white-space:nowrap;cursor:pointer}
+   il vecchio select "Contributi" a scelta unica, vedi FLAG_FISCALI. Selettore ".field .fiscal-flags
+   label" (2 classi+tipo) per battere in specificità ".field label" (1 classe+tipo, riga sopra) che
+   altrimenti vince essendo dichiarata dopo a parità di specificità — altrimenti ogni checkbox erediva
+   lo stile da 9.5px/maiuscolo/display:block pensato per le label dei campi, non per queste. */
+.fiscal-flags{display:flex;flex-wrap:wrap;gap:4px 12px}
+.field .fiscal-flags label{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-family:'Inter',sans-serif;text-transform:none;letter-spacing:normal;margin-bottom:0;color:var(--ink-soft);white-space:nowrap;cursor:pointer}
 .fiscal-flags input{margin:0}
 .chip.reset:hover{background:var(--over-soft)}
 /* bacheca Chiusura mensile (vista alternativa a colonne) */
@@ -319,7 +322,13 @@ tfoot td.l{text-align:left}
 .sample-banner{display:flex;justify-content:space-between;align-items:center;gap:10px;background:var(--warn-soft);color:var(--warn);border:1px solid var(--warn);border-radius:10px;padding:10px 14px;font-size:12.5px;font-weight:600;margin-bottom:14px}
 @keyframes filledFlash{0%{background:var(--accent-soft);box-shadow:0 0 0 2px var(--accent)}100%{background:transparent;box-shadow:0 0 0 2px transparent}}
 .filled-flash{animation:filledFlash 1.3s ease}
-@media (prefers-reduced-motion:reduce){.help-ic,.helppop,.sede-warn,.filled-flash{transition:none!important;animation:none!important}}
+/* "sta scrivendo": il pulsante Esempio stesso diventa l'indicatore di generazione, come nel promo
+   "Prendi appunti con Gemini" — icona a gradiente con un pennino che disegna in loop, poi si rivela il risultato */
+#aFillSample.gen-loading{background:linear-gradient(135deg,#8B5CF6,#3B82F6);color:#fff;border-color:transparent}
+#aFillSample .gen-icon{display:inline-flex}
+#aFillSample .gen-wave{stroke-dasharray:20;stroke-dashoffset:0;animation:genDraw 1s ease-in-out infinite}
+@keyframes genDraw{0%{stroke-dashoffset:0}50%{stroke-dashoffset:-20}100%{stroke-dashoffset:0}}
+@media (prefers-reduced-motion:reduce){.help-ic,.helppop,.sede-warn,.filled-flash,.gen-wave{transition:none!important;animation:none!important}}
 #loginScreen{position:fixed;inset:0;z-index:200;background:var(--paper);display:none;align-items:center;justify-content:center;padding:20px}
 .login-card{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:30px 28px;box-shadow:var(--shadow-lg)}
 .login-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px}
@@ -603,9 +612,9 @@ tfoot td.l{text-align:left}
       <div class="field"><label>Email</label><input type="email" id="ntEmail" placeholder="mario.rossi@..."></div>
       <div class="grid2">
         <div class="field"><label>Ruolo</label><select id="ntRuolo"></select></div>
-        <div class="field"><label>Contributi</label><div id="ntContributi"></div></div>
+        <div class="field"><label>Tariffa oraria (€/h) <span class="req">*</span></label><input type="number" id="ntRate" step="0.5" min="0" value="50"></div>
       </div>
-      <div class="field"><label>Tariffa oraria (€/h) <span class="req">*</span></label><input type="number" id="ntRate" step="0.5" min="0" value="50"></div>
+      <div class="field"><label>Contributi</label><div id="ntContributi"></div></div>
     </div>
     <div class="mfoot">
       <div class="sp"></div>
@@ -2263,6 +2272,20 @@ function setSampleMode(on){
 function flashFilled(el){ if(!el) return; el.classList.remove('filled-flash'); void el.offsetWidth; el.classList.add('filled-flash'); }
 function fillSampleActivity(){
   if(editActId) return; // solo per una nuova attività, mai sopra dati reali già salvati
+  const btn=document.getElementById("aFillSample");
+  const reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const original=btn.innerHTML;
+  btn.disabled=true;
+  btn.classList.add('gen-loading');
+  btn.innerHTML=`<span class="gen-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path class="gen-wave" d="M4 15 Q7 11 10 15 T16 15"/></svg></span> Sto scrivendo…`;
+  setTimeout(()=>{
+    btn.innerHTML=original;
+    btn.disabled=false;
+    btn.classList.remove('gen-loading');
+    fillSampleNow();
+  }, reduced?80:700);
+}
+function fillSampleNow(){
   const tipoSel=document.getElementById("aTipo");
   tipoSel.value='Workshop';
   updateLuogoField();
