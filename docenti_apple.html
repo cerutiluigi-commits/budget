@@ -524,7 +524,10 @@ tfoot td.l{text-align:left}
   <section class="panel" id="panel-attivita">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
       <div><h2 class="sec">Attività</h2><span class="hint" id="actCount"></span></div>
-      <button class="btn" id="btnNewAct" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuova attività</button>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <a class="btn ghost" href="guida-docenti.html" target="_blank" rel="noopener" style="text-decoration:none" title="Apre in una nuova scheda la guida animata su come inserire le attività"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Video guida</a>
+        <button class="btn" id="btnNewAct"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuova attività</button>
+      </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
       <button class="btn small" id="btnCalAdd" title="Apre un link Outlook per ogni attività 'programmata' futura, uno alla volta: scegli quali aggiungere al tuo calendario"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>Aggiungi al calendario</button>

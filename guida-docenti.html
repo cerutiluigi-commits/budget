@@ -1,0 +1,528 @@
+﻿<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guida Docenti NABA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --tut-bg:#15171C; --tut-bg2:#1B1E24; --tut-panel:#20232A; --tut-line:#2E323B;
+  --tut-ink:#F1EFE8; --tut-ink-soft:#AEB2BC; --tut-ink-mute:#787D89;
+  --tut-accent:#E0A23B; --tut-accent-ink:#1B1508;
+  --tut-cursor:#3B82F6; --tut-cursor-soft:rgba(59,130,246,.22);
+  --mk-paper:#F5F3EC; --mk-surface:#FFFFFF; --mk-surface2:#FBFAF6;
+  --mk-ink:#1B1D19; --mk-ink-soft:#5F6459; --mk-ink-mute:#93968A;
+  --mk-line:#E4E1D5; --mk-line-strong:#D2CEBD;
+  --mk-accent:#2E6B54; --mk-accent-soft:#E3EFE8; --mk-accent-ink:#1F4E3D;
+  --mk-warn:#C1892E; --mk-warn-soft:#F7ECD9;
+  --mk-info:#6B5B95; --mk-info-soft:#ECE7F5;
+  --mk-over:#B5462F; --mk-over-soft:#F7E4DD;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ color-scheme: dark; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--tut-bg);color:var(--tut-ink);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:28px 16px 40px;display:flex;flex-direction:column;gap:16px}
+.hd{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.hd h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.01em}
+.hd .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--tut-ink-mute);font-weight:600}
+.hd-right{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tut-ink-mute)}
+
+/* ---- stage (mockup frame) ---- */
+.stage-shell{position:relative;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.04) inset;border:1px solid var(--tut-line);background:var(--mk-paper)}
+.stage{position:relative;min-height:400px}
+.stage.fade{animation:stageFade .35s ease}
+@keyframes stageFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+#cursor{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;pointer-events:none;z-index:40;transition:left .7s cubic-bezier(.22,.68,0,1.01),top .7s cubic-bezier(.22,.68,0,1.01),opacity .25s;opacity:0}
+#cursor.on{opacity:1}
+#cursor svg{width:30px;height:30px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.35))}
+#cursor .ring{position:absolute;inset:-9px;border-radius:50%;background:var(--tut-cursor-soft);animation:ringPulse 1.6s ease-out infinite}
+@keyframes ringPulse{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.9);opacity:0}}
+
+#highlight{position:absolute;border:2.5px solid var(--tut-cursor);border-radius:10px;box-shadow:0 0 0 4000px rgba(15,17,20,.38),0 0 0 3px rgba(59,130,246,.18);pointer-events:none;z-index:30;transition:left .55s cubic-bezier(.22,.68,0,1.01),top .55s cubic-bezier(.22,.68,0,1.01),width .55s cubic-bezier(.22,.68,0,1.01),height .55s cubic-bezier(.22,.68,0,1.01),opacity .25s;opacity:0}
+#highlight.on{opacity:1}
+
+.start-overlay{position:absolute;inset:0;z-index:50;background:linear-gradient(180deg,rgba(21,23,28,.94),rgba(21,23,28,.985));display:flex;align-items:center;justify-content:center;text-align:center;padding:28px}
+.start-overlay.hidden{display:none}
+.start-card{max-width:420px;display:flex;flex-direction:column;gap:14px;align-items:center}
+.start-card .eyebrow{color:var(--tut-accent);font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:700}
+.start-card h2{margin:0;font-size:24px;font-weight:800;color:var(--tut-ink);letter-spacing:-.01em}
+.start-card p{margin:0;color:var(--tut-ink-soft);font-size:14px;line-height:1.6}
+.play-btn{display:inline-flex;align-items:center;gap:10px;background:var(--tut-accent);color:var(--tut-accent-ink);border:0;border-radius:999px;padding:13px 26px;font-family:'Inter',sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 10px 26px -8px rgba(224,162,59,.55)}
+.play-btn:hover{filter:brightness(1.06)}
+.play-btn svg{width:18px;height:18px}
+.start-hint{font-size:11.5px;color:var(--tut-ink-mute)}
+
+/* ---- controls ---- */
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ctrl-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--tut-panel);border:1px solid var(--tut-line);color:var(--tut-ink);border-radius:10px;padding:9px 14px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
+.ctrl-btn:hover{border-color:#454955}
+.ctrl-btn:disabled{opacity:.4;cursor:default}
+.ctrl-btn svg{width:15px;height:15px}
+.ctrl-btn.primary{background:var(--tut-accent);color:var(--tut-accent-ink);border-color:transparent}
+.ctrl-sp{flex:1}
+.voice-toggle{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--tut-ink-mute);background:var(--tut-panel);border:1px solid var(--tut-line);border-radius:10px;padding:9px 12px;cursor:pointer}
+.voice-toggle.off{color:var(--tut-ink-mute)}
+.voice-toggle.on{color:var(--tut-accent);border-color:rgba(224,162,59,.4)}
+.voice-toggle svg{width:14px;height:14px}
+
+.progress-row{display:flex;align-items:center;gap:10px}
+.progress-track{flex:1;height:5px;border-radius:99px;background:var(--tut-line);overflow:hidden}
+.progress-fill{height:100%;background:var(--tut-accent);border-radius:99px;transition:width .35s ease}
+.progress-label{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--tut-ink-mute);white-space:nowrap}
+
+.section-strip{display:flex;gap:6px;flex-wrap:wrap}
+.section-chip{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;padding:5px 10px;border-radius:999px;background:var(--tut-panel);border:1px solid var(--tut-line);color:var(--tut-ink-mute);font-weight:600}
+.section-chip.on{color:var(--tut-accent);border-color:rgba(224,162,59,.45);background:rgba(224,162,59,.1)}
+
+.caption-card{background:var(--tut-panel);border:1px solid var(--tut-line);border-radius:14px;padding:18px 20px;min-height:78px;display:flex;align-items:center}
+.caption-card p{margin:0;font-size:15.5px;line-height:1.55;color:var(--tut-ink)}
+.caption-card .say{display:inline-flex;align-items:center;gap:6px;color:var(--tut-accent);margin-right:2px}
+
+.foot-note{font-size:11.5px;color:var(--tut-ink-mute);text-align:center;line-height:1.6}
+
+@media (max-width:560px){
+  .hd{flex-direction:column;align-items:flex-start}
+  .stage{min-height:340px}
+}
+
+/* =====================================================================
+   Mockup styles — riprendono esattamente la palette/tipografia reale
+   del tool Docenti (Inter + JetBrains Mono, stessi colori badge)
+   ===================================================================== */
+.mk{font-family:'Inter',sans-serif;color:var(--mk-ink);background:var(--mk-paper);font-size:13.5px}
+.mk-topbar{background:#14161B;color:#EDEBE2;display:flex;align-items:center;gap:10px;padding:13px 20px}
+.mk-brand b{font-weight:800;font-size:16px}
+.mk-brand span{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#9DA39C;margin-left:8px}
+.mk-tabs{display:flex;gap:4px;background:var(--mk-surface2);border:1px solid var(--mk-line);border-radius:12px;padding:5px;margin:16px 20px}
+.mk-tab{background:none;border:0;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--mk-ink-soft);font-family:'Inter',sans-serif}
+.mk-tab.on{background:var(--mk-ink);color:var(--mk-paper)}
+.mk-banner{margin:0 20px 16px;background:var(--mk-accent-soft);color:var(--mk-accent-ink);border:1px solid rgba(46,107,84,.25);border-radius:11px;padding:12px 16px;font-size:13px;line-height:1.5}
+.mk-banner b{font-weight:700}
+.mk-pad{padding:0 20px 22px}
+.mk-h1{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px}
+.mk-h1 h2{font-size:18px;margin:0;font-weight:800}
+.mk-h1 .sub{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--mk-ink-mute)}
+.mk-btn{display:inline-flex;align-items:center;gap:7px;background:var(--mk-accent);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;font-family:'Inter',sans-serif}
+.mk-btn svg{width:15px;height:15px}
+.mk-card{background:var(--mk-surface);border:1px solid var(--mk-line);border-radius:13px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.mk-row{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--mk-line);flex-wrap:wrap}
+.mk-row:last-child{border-bottom:0}
+.mk-row .ty{flex:1;min-width:170px}
+.mk-row .who{font-weight:700;font-size:13.5px}
+.mk-row .sub2{font-size:11.5px;color:var(--mk-ink-mute);margin-top:2px}
+.mk-row .dt{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--mk-ink-mute);min-width:58px}
+.mk-row .amt{font-family:'JetBrains Mono',monospace;font-weight:700;min-width:74px;text-align:right}
+.mk-badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.mk-badge.warn{background:var(--mk-warn-soft);color:var(--mk-warn)}
+.mk-badge.ok{background:var(--mk-accent-soft);color:var(--mk-accent)}
+.mk-badge.trace{background:var(--mk-info-soft);color:var(--mk-info)}
+.mk-acts{display:inline-flex;gap:6px}
+.mk-iconbtn{width:28px;height:28px;border-radius:7px;border:1px solid var(--mk-line-strong);background:var(--mk-surface);display:inline-flex;align-items:center;justify-content:center;color:var(--mk-ink-soft)}
+.mk-iconbtn svg{width:14px;height:14px}
+.mk-iconbtn.x{color:var(--mk-over)}
+.mk-iconbtn.check{color:var(--mk-accent)}
+
+.mk-form{display:flex;flex-direction:column;gap:14px}
+.mk-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mk-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mk-ink-mute);margin-bottom:6px}
+.mk-field label b.req{color:var(--mk-over)}
+.mk-help{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1.4px solid var(--mk-accent);color:var(--mk-accent);font-weight:700;font-size:9.5px;margin-left:5px;vertical-align:middle}
+.mk-input,.mk-select,.mk-textarea{width:100%;border:1px solid var(--mk-line-strong);border-radius:9px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--mk-surface);color:var(--mk-ink)}
+.mk-input.ph,.mk-textarea.ph{color:var(--mk-ink-mute);font-style:italic}
+.mk-daterow{display:grid;grid-template-columns:1fr .7fr .8fr 1fr .8fr .8fr;gap:8px;align-items:end}
+.mk-daterow .mk-field label{font-size:8.5px}
+.mk-daterow .mk-input,.mk-daterow .mk-select{padding:8px 8px;font-size:12px}
+.mk-hint{font-size:11px;color:var(--mk-ink-mute);line-height:1.5}
+@media (max-width:640px){ .mk-grid2{grid-template-columns:1fr} .mk-daterow{grid-template-columns:1fr 1fr} }
+
+.mk-filters{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:14px}
+.mk-hgroup{background:var(--mk-surface);border:1px solid var(--mk-line-strong);border-radius:10px;padding:8px 12px}
+.mk-hgroup label{display:block;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mk-ink-mute)}
+.mk-hgroup .val{font-weight:700;font-size:13px}
+.mk-chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.mk-chip{border:1px solid var(--mk-line-strong);background:var(--mk-surface);border-radius:20px;padding:6px 13px;font-size:12px;font-weight:600;color:var(--mk-ink-soft)}
+.mk-chip.on{background:var(--mk-ink);color:var(--mk-paper);border-color:var(--mk-ink)}
+.mk-tree{background:var(--mk-surface);border:1px solid var(--mk-line);border-radius:13px;overflow:hidden}
+.mk-trow{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--mk-line)}
+.mk-trow:last-child{border-bottom:0}
+.mk-trow .nm{flex:1;font-weight:700}
+.mk-trow .stat{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--mk-ink-soft);text-align:right;min-width:150px}
+
+.mk-table{width:100%;border-collapse:collapse}
+.mk-table th{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.07em;text-transform:uppercase;color:var(--mk-ink-mute);text-align:left;padding:10px 14px;border-bottom:1px solid var(--mk-line)}
+.mk-table th.r{text-align:right}
+.mk-table td{padding:11px 14px;border-bottom:1px solid var(--mk-line);font-size:12.5px}
+.mk-table td.r{text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700}
+.mk-table tr:last-child td{border-bottom:0}
+
+.mk-toast{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);background:#3A1712;color:#F9DCD3;border:1px solid #6E2A20;border-radius:10px;padding:11px 16px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 10px 24px -8px rgba(0,0,0,.4);max-width:88%}
+.mk-toast svg{width:15px;height:15px;flex:none;color:#E38B78}
+
+.mk-outro{padding:64px 30px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}
+.mk-outro .badge-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.mk-outro h2{margin:0;font-size:22px;font-weight:800}
+.mk-outro p{margin:0;color:var(--mk-ink-soft);max-width:420px;line-height:1.6}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="hd">
+    <div>
+      <div class="eyebrow">Nabasuite · Docenti</div>
+      <h1>Guida passo passo per chi inserisce le attività</h1>
+    </div>
+    <div class="hd-right" id="stepLabel">Passo 0 / 0</div>
+  </div>
+
+  <div class="stage-shell">
+    <div class="stage" id="stage"></div>
+    <div id="highlight"></div>
+    <div id="cursor"><div class="ring"></div>
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 3l7 17 2.2-7.1L20 10.8 4 3z" fill="var(--tut-cursor)" stroke="#0b1220" stroke-width="1.2" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="mk-toast" id="toast" style="display:none"></div>
+
+    <div class="start-overlay" id="startOverlay">
+      <div class="start-card">
+        <div class="eyebrow">Tutorial guidato · ~4 minuti</div>
+        <h2>Come usare il tool Docenti</h2>
+        <p>Un cursore animato ti mostra dove cliccare, con una voce che spiega ogni passaggio: come inserire un'attività, leggere lo stato dei pagamenti e usare i filtri.</p>
+        <button class="play-btn" id="btnStart"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Avvia il tutorial</button>
+        <div class="start-hint">Serve un clic per attivare l'audio del browser — puoi anche seguirlo solo leggendo, con l'audio spento.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption-card"><p id="caption">Premi "Avvia il tutorial" per cominciare.</p></div>
+
+  <div class="progress-row">
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-label" id="progressLabel">0 / 0</div>
+  </div>
+
+  <div class="section-strip" id="sectionStrip"></div>
+
+  <div class="controls">
+    <button class="ctrl-btn" id="btnPrev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"/></svg>Indietro</button>
+    <button class="ctrl-btn primary" id="btnPlay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Play</button>
+    <button class="ctrl-btn" id="btnNext">Avanti<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></button>
+    <div class="ctrl-sp"></div>
+    <button class="voice-toggle on" id="btnVoice"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 5V4L8 9H4z"/></svg><span id="voiceLabel">Voce attiva</span></button>
+    <button class="ctrl-btn" id="btnRestart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg>Riavvia</button>
+  </div>
+
+  <div class="foot-note">Ricostruzione fedele delle schermate reali del tool Docenti, a scopo didattico — non è una registrazione dell'applicazione live.</div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ============================== SCENE TEMPLATES ============================== */
+var ICON = {
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6L9 17l-5-5"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9L2.5 17a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>'
+};
+
+function tabbar(active){
+  var tabs=['Le mie attività','Il mio riepilogo','Scuole'];
+  return '<div class="mk-tabs" data-tut="tabs">'+tabs.map(function(t){return '<button class="mk-tab'+(t===active?' on':'')+'">'+t+'</button>';}).join('')+'</div>';
+}
+function topbar(){
+  return '<div class="mk-topbar" data-tut="brand"><span class="mk-brand"><b>Docenti</b><span>NABA · ATTIVITÀ RETRIBUITE</span></span></div>';
+}
+function banner(){
+  return '<div class="mk-banner" data-tut="banner">Accesso interfaccia orientamento: <b>Valeria Battel</b> · Design, Fashion. Gestisci le attività di 2 docenti.</div>';
+}
+
+var SCENES = {
+
+intro: function(){
+  return '<div class="mk">'+topbar()+tabbar('Le mie attività')+banner()+
+  '<div class="mk-pad"><div class="mk-hint" style="padding:40px 0;text-align:center">Le tue attività compariranno qui sotto.</div></div></div>';
+},
+
+lista: function(){
+  return '<div class="mk">'+topbar()+tabbar('Le mie attività')+banner()+
+  '<div class="mk-pad">'+
+    '<div class="mk-h1"><div><h2>Attività</h2><div class="sub">4 attività · € 530</div></div>'+
+      '<button class="mk-btn" data-tut="nuova-btn">'+ICON.plus+'Nuova attività</button></div>'+
+    '<div class="mk-card">'+
+      '<div class="mk-row">'+
+        '<span class="ty"><div class="who">Francesco Albano</div><div class="sub2">Workshop · Liceo Artistico Caravaggio · Milano · Design</div></span>'+
+        '<span class="dt">30/09</span>'+
+        '<span class="mk-badge warn" data-tut="row1-badge">programmata</span>'+
+        '<span class="amt">€ 150,00</span>'+
+        '<span class="mk-acts" data-tut="row1-actions"><span class="mk-iconbtn check">'+ICON.check+'</span><span class="mk-iconbtn x">'+ICON.x+'</span></span>'+
+      '</div>'+
+      '<div class="mk-row">'+
+        '<span class="ty"><div class="who">Francesco Albano</div><div class="sub2">Open Day · Liceo Artistico Caravaggio · Milano · Design</div></span>'+
+        '<span class="dt">20/09</span>'+
+        '<span class="mk-badge ok">svolta</span>'+
+        '<span class="mk-badge trace" data-tut="row2-badge">in attesa di RDA</span>'+
+        '<span class="amt">€ 200,00</span>'+
+      '</div>'+
+      '<div class="mk-row" data-tut="row34-badges">'+
+        '<span class="ty"><div class="who">Denise Carnini</div><div class="sub2">Webinar · Liceo Artistico Caravaggio · Milano · Fashion</div></span>'+
+        '<span class="dt">13/09</span>'+
+        '<span class="mk-badge ok">svolta</span>'+
+        '<span class="mk-badge ok">RDA Pagato · RDA-2026-0139</span>'+
+        '<span class="amt">€ 90,00</span>'+
+      '</div>'+
+      '<div class="mk-row">'+
+        '<span class="ty"><div class="who">Denise Carnini</div><div class="sub2">Webinar · Liceo Artistico Caravaggio · Milano · Fashion</div></span>'+
+        '<span class="dt">03/09</span>'+
+        '<span class="mk-badge ok">svolta</span>'+
+        '<span class="mk-badge ok">RDA inserita · RDA-2026-0142</span>'+
+        '<span class="amt">€ 90,00</span>'+
+      '</div>'+
+    '</div>'+
+  '</div></div>';
+},
+
+listaErr: function(){
+  return SCENES.lista().replace('</div></div>','</div>'+
+    '<div class="mk-toast" style="display:flex" data-tut="err-toast">'+ICON.warn+'Non puoi segnare come svolta un\'attività futura (30/09): puoi confermarla solo dalla data in poi.</div></div>');
+},
+
+form: function(){
+  return '<div class="mk">'+topbar()+
+  '<div class="mk-pad" style="padding-top:18px">'+
+    '<div class="mk-h1"><h2>Nuova attività</h2></div>'+
+    '<div class="mk-card" style="padding:18px 18px 20px">'+
+    '<div class="mk-form">'+
+      '<div class="mk-grid2">'+
+        '<div class="mk-field" data-tut="f-docente"><label>Docente <b class="req">*</b></label><select class="mk-select"><option>Francesco Albano</option><option>Denise Carnini</option></select></div>'+
+        '<div class="mk-field" data-tut="f-tipo"><label>Tipologia <b class="req">*</b></label><select class="mk-select"><option>Workshop</option><option>Open Day</option><option>Naba Incontri</option><option>Naba Experience</option><option>Webinar</option><option>Test</option><option>Altro</option></select></div>'+
+      '</div>'+
+      '<div class="mk-field" data-tut="f-scuola"><label>Scuola</label><input class="mk-input ph" value="Liceo Artistico Caravaggio — Milano"></div>'+
+      '<div class="mk-grid2">'+
+        '<div class="mk-field" data-tut="f-corso"><label>Corso <b class="req">*</b></label><select class="mk-select"><option>Design</option></select></div>'+
+        '<div class="mk-field" data-tut="f-importo"><label>Importo orario <b class="req">*</b><span class="mk-help">?</span></label><input class="mk-input" value="50"></div>'+
+      '</div>'+
+      '<div class="mk-daterow" data-tut="f-daterow">'+
+        '<div class="mk-field"><label>Data</label><input class="mk-input" value="06/10/2026"></div>'+
+        '<div class="mk-field"><label>Ore</label><input class="mk-input" value="3"></div>'+
+        '<div class="mk-field"><label>Importo</label><input class="mk-input" value="€ 150"></div>'+
+        '<div class="mk-field"><label>Sede</label><select class="mk-select"><option>In Campus</option><option>A scuola</option><option>Esterna</option></select></div>'+
+        '<div class="mk-field"><label>Dalle</label><select class="mk-select"><option>09:00</option></select></div>'+
+        '<div class="mk-field"><label>Alle</label><select class="mk-select"><option>12:00</option></select></div>'+
+      '</div>'+
+      '<div class="mk-field" data-tut="f-note"><label>Note <b class="req">*</b><span class="mk-help">?</span></label><textarea class="mk-textarea ph" rows="2">Inserire eventuali spese di trasferta, location esterna, richieste particolari...altro</textarea></div>'+
+      '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px">'+
+        '<button class="mk-btn" data-tut="f-save" style="background:var(--mk-accent)">'+ICON.check+'Salva attività</button>'+
+      '</div>'+
+    '</div></div>'+
+  '</div></div>';
+},
+
+riepilogo: function(){
+  return '<div class="mk">'+topbar()+tabbar('Il mio riepilogo')+banner()+
+  '<div class="mk-pad">'+
+    '<div class="mk-filters" data-tut="r-filtri">'+
+      '<div class="mk-hgroup"><label>Mese</label><div class="val">Settembre 2026</div></div>'+
+      '<div class="mk-hgroup"><label>Anno accademico</label><div class="val">2026 / 2027</div></div>'+
+    '</div>'+
+    '<div class="mk-chips" data-tut="r-chips">'+
+      '<span class="mk-chip on">Design</span><span class="mk-chip">Fashion</span><span class="mk-chip on">Workshop</span><span class="mk-chip">Webinar</span><span class="mk-chip">Open Day</span>'+
+    '</div>'+
+    '<div class="mk-tree" data-tut="r-tree">'+
+      '<div class="mk-trow"><span class="nm">Francesco Albano</span><span class="stat">2 attività · 2 giornate · 7 ore · € 350</span></div>'+
+      '<div class="mk-trow"><span class="nm">Denise Carnini</span><span class="stat">2 attività · 2 giornate · 4 ore · € 180</span></div>'+
+    '</div>'+
+  '</div></div>';
+},
+
+scuole: function(){
+  return '<div class="mk">'+topbar()+tabbar('Scuole')+banner()+
+  '<div class="mk-pad">'+
+    '<div class="mk-chips" data-tut="s-filtri">'+
+      '<span class="mk-chip on">Lombardia</span><span class="mk-chip">Piemonte</span><span class="mk-chip">Veneto</span>'+
+      '<span class="mk-chip on">Milano</span><span class="mk-chip">Bergamo</span>'+
+    '</div>'+
+    '<table class="mk-table" data-tut="s-row"><thead><tr><th>Nome</th><th>Città</th><th class="r">Programmate</th><th class="r">Svolte</th></tr></thead><tbody>'+
+      '<tr><td>Liceo Artistico Caravaggio</td><td>Milano</td><td class="r">1</td><td class="r">3</td></tr>'+
+      '<tr><td>Istituto Marconi</td><td>Monza</td><td class="r">0</td><td class="r">1</td></tr>'+
+    '</tbody></table>'+
+  '</div></div>';
+},
+
+outro: function(){
+  return '<div class="mk"><div class="mk-outro" data-tut="outro-card">'+
+    '<div class="eyebrow" style="color:var(--mk-accent);font-family:\'JetBrains Mono\',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:700">Hai finito la guida</div>'+
+    '<h2>Sei pronto per inserire le tue attività</h2>'+
+    '<p>Inserisci l\'attività, confermala come svolta quando avviene, e segui il pagamento dai badge colorati: in attesa di RDA → RDA inserita → RDA Pagato.</p>'+
+    '<div class="badge-row"><span class="mk-badge warn">programmata</span><span class="mk-badge trace">in attesa di RDA</span><span class="mk-badge ok">RDA inserita</span><span class="mk-badge ok">RDA Pagato</span></div>'+
+  '</div></div>';
+}
+};
+
+/* ============================== SCRIPT (passi) ============================== */
+var STEPS = [
+  {scene:'intro', section:'Benvenuto', target:'brand', caption:'Ciao! Sono la tua guida al tool Docenti di NABA. In pochi minuti ti mostro come inserire le attività, leggere i pagamenti e usare i filtri.', speech:'Ciao! Sono la tua guida al tool Docenti di NABA. In pochi minuti ti mostro come inserire le attività, leggere i pagamenti e usare i filtri.'},
+  {scene:'intro', section:'Benvenuto', target:'banner', caption:'Quando accedi, il sistema ti riconosce come interfaccia di orientamento: gestisci le attività di uno o più docenti reali collegati a te, non un tuo profilo personale.', speech:'Quando accedi, il sistema ti riconosce come interfaccia di orientamento: gestisci le attività di uno o più docenti reali collegati a te, non un tuo profilo personale.'},
+  {scene:'intro', section:'Benvenuto', target:'tabs', caption:'In alto trovi tre sezioni: Le mie attività, Il mio riepilogo e Scuole. Iniziamo dalla prima.', speech:'In alto trovi tre sezioni: le mie attività, il mio riepilogo e scuole. Iniziamo dalla prima.'},
+
+  {scene:'lista', section:'Leggere le attività', target:'nuova-btn', caption:'Da qui aggiungi una nuova attività in qualsiasi momento, con il pulsante in alto a destra.', speech:'Da qui aggiungi una nuova attività in qualsiasi momento, con il pulsante in alto a destra.'},
+  {scene:'lista', section:'Leggere le attività', target:'row1-badge', caption:'Ogni attività nasce con lo stato "programmata": è stata pianificata ma non ancora svolta.', speech:'Ogni attività nasce con lo stato programmata: è stata pianificata ma non ancora svolta.'},
+  {scene:'lista', section:'Leggere le attività', target:'row1-actions', caption:'Con questi due pulsanti la confermi come svolta (la spunta) oppure la annulli (la croce) se non si è più tenuta.', speech:'Con questi due pulsanti la confermi come svolta, con la spunta, oppure la annulli con la croce se non si è più tenuta.'},
+  {scene:'lista', section:'Leggere le attività', target:'row2-badge', caption:'Una volta confermata come svolta, l\'attività entra "in attesa di RDA": aspetta solo che l\'amministrazione generi la richiesta di pagamento.', speech:'Una volta confermata come svolta, l\'attività entra in attesa di R D A: aspetta solo che l\'amministrazione generi la richiesta di pagamento.'},
+  {scene:'lista', section:'Leggere le attività', target:'row34-badges', caption:'Quando l\'RDA viene inserita vedi il suo codice; quando viene pagata, il badge diventa "RDA Pagato": segui l\'intero percorso del compenso senza chiedere nulla a nessuno.', speech:'Quando l\'R D A viene inserita vedi il suo codice; quando viene pagata, il badge diventa R D A pagato. Segui così l\'intero percorso del compenso senza chiedere nulla a nessuno.'},
+
+  {scene:'form', section:'Inserire un\'attività', target:'f-docente', caption:'Nel modulo "Nuova attività" il primo campo è il Docente: l\'elenco mostra solo i docenti collegati alla tua interfaccia.', speech:'Nel modulo nuova attività il primo campo è il Docente: l\'elenco mostra solo i docenti collegati alla tua interfaccia.'},
+  {scene:'form', section:'Inserire un\'attività', target:'f-tipo', caption:'Poi scegli la Tipologia: Workshop, Open Day, Naba Incontri, Naba Experience, Webinar, Test o Altro.', speech:'Poi scegli la tipologia: workshop, open day, naba incontri, naba experience, webinar, test o altro.'},
+  {scene:'form', section:'Inserire un\'attività', target:'f-scuola', caption:'Cerchi la scuola digitando il nome o la città, in qualsiasi ordine: il sistema la trova nell\'anagrafica CRM.', speech:'Cerchi la scuola digitando il nome o la città, in qualsiasi ordine: il sistema la trova nell\'anagrafica C R M.'},
+  {scene:'form', section:'Inserire un\'attività', target:'f-importo', caption:'L\'Importo orario arriva già precompilato dalla scheda del docente, ma puoi modificarlo solo per questa attività: l\'icona con il punto interrogativo te lo ricorda.', speech:'L\'importo orario arriva già precompilato dalla scheda del docente, ma puoi modificarlo solo per questa attività: l\'icona con il punto interrogativo te lo ricorda.'},
+  {scene:'form', section:'Inserire un\'attività', target:'f-daterow', caption:'Per ogni data indichi le ore, la sede (a scuola, in campus o esterna) e, se serve, l\'orario di inizio e fine: l\'importo si calcola da solo.', speech:'Per ogni data indichi le ore, la sede: a scuola, in campus o esterna, e se serve l\'orario di inizio e fine. L\'importo si calcola da solo.'},
+  {scene:'form', section:'Inserire un\'attività', target:'f-note', caption:'Il campo Note è sempre obbligatorio: usalo per segnalare spese di trasferta, location esterne o richieste particolari.', speech:'Il campo note è sempre obbligatorio: usalo per segnalare spese di trasferta, location esterne o richieste particolari.'},
+  {scene:'form', section:'Inserire un\'attività', target:'f-save', caption:'Premendo "Salva attività", l\'attività nasce sempre come Programmata, pronta per essere confermata quando si sarà davvero svolta.', speech:'Premendo salva attività, l\'attività nasce sempre come programmata, pronta per essere confermata quando si sarà davvero svolta.'},
+
+  {scene:'listaErr', section:'Una regola importante', target:'err-toast', caption:'Un\'ultima cosa importante: il sistema non ti lascia confermare come svolta un\'attività la cui data non è ancora arrivata — comparirà un avviso che te lo ricorda.', speech:'Un\'ultima cosa importante: il sistema non ti lascia confermare come svolta un\'attività la cui data non è ancora arrivata. Comparirà un avviso che te lo ricorda.'},
+
+  {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-filtri', caption:'Nella sezione "Il mio riepilogo" puoi filtrare per mese e anno accademico, per vedere solo il periodo che ti interessa.', speech:'Nella sezione il mio riepilogo puoi filtrare per mese e anno accademico, per vedere solo il periodo che ti interessa.'},
+  {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-chips', caption:'Sotto ai filtri principali trovi i filtri per Corso e Tipologia: selezionane uno o più per restringere l\'analisi.', speech:'Sotto ai filtri principali trovi i filtri per corso e tipologia: selezionane uno o più per restringere l\'analisi.'},
+  {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-tree', caption:'L\'elenco mostra, per ogni docente, quante attività, giornate e ore ha fatto — con lo stesso conteggio sempre coerente in tutto il tool.', speech:'L\'elenco mostra, per ogni docente, quante attività, giornate e ore ha fatto, con lo stesso conteggio sempre coerente in tutto il tool.'},
+
+  {scene:'scuole', section:'La sezione Scuole', target:'s-filtri', caption:'Nella sezione Scuole puoi filtrare per regione, provincia o città, per trovare rapidamente la scuola che ti interessa.', speech:'Nella sezione scuole puoi filtrare per regione, provincia o città, per trovare rapidamente la scuola che ti interessa.'},
+  {scene:'scuole', section:'La sezione Scuole', target:'s-row', caption:'Per ogni scuola vedi quante attività sono ancora programmate e quante già svolte — contate una volta sola per ogni attività, anche se dura più giornate.', speech:'Per ogni scuola vedi quante attività sono ancora programmate e quante già svolte: contate una volta sola per ogni attività, anche se dura più giornate.'},
+
+  {scene:'outro', section:'Fine', target:'outro-card', caption:'Questo è tutto! Ricorda: inserisci l\'attività, confermala come svolta quando avviene, e segui il pagamento dai badge colorati. Buon lavoro!', speech:'Questo è tutto! Ricorda: inserisci l\'attività, confermala come svolta quando avviene, e segui il pagamento dai badge colorati. Buon lavoro!'}
+];
+
+var SECTIONS = [];
+STEPS.forEach(function(s){ if(SECTIONS.indexOf(s.section)===-1) SECTIONS.push(s.section); });
+
+/* ============================== ENGINE ============================== */
+var stage=document.getElementById('stage'), highlight=document.getElementById('highlight'), cursor=document.getElementById('cursor');
+var caption=document.getElementById('caption'), progressFill=document.getElementById('progressFill'), progressLabel=document.getElementById('progressLabel');
+var stepLabel=document.getElementById('stepLabel'), sectionStrip=document.getElementById('sectionStrip');
+var btnPlay=document.getElementById('btnPlay'), btnPrev=document.getElementById('btnPrev'), btnNext=document.getElementById('btnNext'), btnRestart=document.getElementById('btnRestart');
+var btnVoice=document.getElementById('btnVoice'), voiceLabel=document.getElementById('voiceLabel');
+var startOverlay=document.getElementById('startOverlay'), btnStart=document.getElementById('btnStart');
+
+var idx=-1, currentScene=null, playing=false, voiceOn=true, advanceTimer=null, voices=[], started=false;
+
+function loadVoices(){ try{ voices=speechSynthesis.getVoices()||[]; }catch(e){} }
+if('speechSynthesis' in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
+function pickItVoice(){ for(var i=0;i<voices.length;i++){ if(/^it/i.test(voices[i].lang)) return voices[i]; } return null; }
+
+function renderSections(){
+  sectionStrip.innerHTML = SECTIONS.map(function(s){ return '<span class="section-chip" data-s="'+s+'">'+s+'</span>'; }).join('');
+}
+renderSections();
+
+function positionCursor(targetKey){
+  var el = targetKey ? stage.querySelector('[data-tut="'+targetKey+'"]') : null;
+  if(!el){ highlight.classList.remove('on'); cursor.classList.remove('on'); return; }
+  var er = el.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+  var pad = 7;
+  highlight.style.left = (er.left - sr.left - pad) + 'px';
+  highlight.style.top = (er.top - sr.top - pad) + 'px';
+  highlight.style.width = (er.width + pad*2) + 'px';
+  highlight.style.height = (er.height + pad*2) + 'px';
+  highlight.classList.add('on');
+  var cx = er.left - sr.left + Math.min(er.width - 14, er.width*0.82);
+  var cy = er.top - sr.top + Math.min(er.height - 10, er.height*0.78);
+  cursor.style.left = cx + 'px';
+  cursor.style.top = cy + 'px';
+  cursor.classList.add('on');
+}
+
+function estimateMs(text){ return Math.max(2200, Math.min(9000, text.length*58)); }
+
+function speak(text, onDone){
+  if(!voiceOn || !('speechSynthesis' in window)){ advanceTimer=setTimeout(onDone, estimateMs(text)); return; }
+  try{
+    speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang='it-IT'; var v=pickItVoice(); if(v) u.voice=v; u.rate=1.0; u.pitch=1.0;
+    var done=false;
+    function finish(){ if(done) return; done=true; onDone(); }
+    u.onend=finish; u.onerror=finish;
+    advanceTimer=setTimeout(finish, estimateMs(text)+4000); // rete di sicurezza se l'evento onend non arriva
+    speechSynthesis.speak(u);
+  }catch(e){ advanceTimer=setTimeout(onDone, estimateMs(text)); }
+}
+
+function clearAdvance(){ if(advanceTimer){ clearTimeout(advanceTimer); advanceTimer=null; } try{ speechSynthesis.cancel(); }catch(e){} }
+
+function goTo(i, autoChain){
+  if(i<0) i=0; if(i>=STEPS.length) i=STEPS.length-1;
+  clearAdvance();
+  var step = STEPS[i];
+  idx = i;
+  if(step.scene !== currentScene){
+    stage.innerHTML = SCENES[step.scene]();
+    currentScene = step.scene;
+    stage.classList.remove('fade'); void stage.offsetWidth; stage.classList.add('fade');
+    highlight.classList.remove('on'); cursor.classList.remove('on');
+  }
+  var raf = window.requestAnimationFrame || function(f){ setTimeout(f,16); };
+  raf(function(){ raf(function(){
+    positionCursor(step.target);
+    caption.textContent = step.caption;
+    progressFill.style.width = (((i+1)/STEPS.length)*100) + '%';
+    progressLabel.textContent = (i+1) + ' / ' + STEPS.length;
+    stepLabel.textContent = 'Passo ' + (i+1) + ' / ' + STEPS.length;
+    var chips = sectionStrip.querySelectorAll('.section-chip');
+    for(var c=0;c<chips.length;c++) chips[c].classList.toggle('on', chips[c].getAttribute('data-s')===step.section);
+    btnPrev.disabled = (i===0);
+    btnNext.disabled = (i===STEPS.length-1);
+    if(autoChain){
+      speak(step.speech, function(){ if(playing && idx<STEPS.length-1) goTo(idx+1, true); else if(playing && idx===STEPS.length-1) setPlaying(false); });
+    }
+  }); });
+}
+
+function setPlaying(v){
+  playing = v;
+  btnPlay.innerHTML = v
+    ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>Pausa'
+    : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Play';
+  if(!v) clearAdvance();
+}
+
+btnStart.addEventListener('click', function(){
+  started = true;
+  startOverlay.classList.add('hidden');
+  setPlaying(true);
+  goTo(0, true);
+});
+btnPlay.addEventListener('click', function(){
+  if(!started){ btnStart.click(); return; }
+  if(playing){ setPlaying(false); }
+  else { setPlaying(true); goTo(idx<0?0:idx, true); }
+});
+btnPrev.addEventListener('click', function(){ if(!started) return; setPlaying(false); goTo(idx-1, false); });
+btnNext.addEventListener('click', function(){ if(!started) return; setPlaying(false); goTo(idx+1, false); });
+btnRestart.addEventListener('click', function(){
+  if(!started){ btnStart.click(); return; }
+  setPlaying(true); goTo(0, true);
+});
+btnVoice.addEventListener('click', function(){
+  voiceOn = !voiceOn;
+  btnVoice.classList.toggle('on', voiceOn);
+  btnVoice.classList.toggle('off', !voiceOn);
+  voiceLabel.textContent = voiceOn ? 'Voce attiva' : 'Voce spenta';
+  if(!voiceOn){ try{ speechSynthesis.cancel(); }catch(e){} }
+});
+
+stepLabel.textContent = 'Passo 0 / ' + STEPS.length;
+progressLabel.textContent = '0 / ' + STEPS.length;
+stage.innerHTML = SCENES.intro();
+currentScene='intro';
+})();
+</script>
+</body>
+</html>
