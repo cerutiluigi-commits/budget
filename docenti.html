@@ -1125,8 +1125,15 @@ async function revertToProgrammata(id){
   save(); renderAll(); cloudUpsertActivity(a);
   toast("Attività rimessa in programmata");
 }
+// non si può confermare "svolta" un'attività la cui data non è ancora arrivata (Luigi/Sofia/Stefano,
+// 2026-09-21: "non puoi aver svolto un'attività nel futuro") — vale per chiunque, non solo per il
+// docente: non c'è un caso legittimo in cui anche l'admin debba forzarla prima della data.
 function quickSetStato(id,stato){
   const a=STATE.activities.find(x=>x.id===id); if(!a) return;
+  if(stato==='svolta' && (a.data||'')>todayISO()){
+    toast(`Non puoi segnare come svolta un'attività futura (${fmtD(a.data)}): puoi confermarla solo dalla data in poi.`,'err');
+    return;
+  }
   a.stato=stato;
   if(stato==='svolta' && a.tariffa_oraria==null){
     a.tariffa_oraria=Number(teacherById(a.teacher_id).tariffa_oraria)||0;
@@ -1437,12 +1444,27 @@ async function fetchSchoolNames(ids){
 }
 // scuole che hanno almeno un'attività (non annullata) registrata: nessuna nuova query, SCHOOL_CACHE
 // è già popolata per tutti gli school_id realmente usati (fetchSchoolNames() alla pull iniziale)
+// conta le MACRO-attività (stesso gruppo_id, es. un workshop di più giornate = 1), non le singole
+// righe-data — confermato esplicitamente da Luigi in riunione (2026-09-21): "un workshop su 3 giornate
+// conta 1, non 3". Un gruppo con almeno una data ancora "programmata" conta come "programmata" (non è
+// ancora concluso); solo quando tutte le sue date sono "svolta"/"annullata" (nessuna più "programmata")
+// passa a "svolta" — stessa nozione di "gruppo chiuso" già usata altrove (vedi groupClosed()).
 function schoolsWithActivity(){
   const byId={};
+  const groupsBySchool={};
   visibleActivities().forEach(a=>{
     if(!a.school_id || a.stato==='annullata') return;
-    const s=byId[a.school_id]||(byId[a.school_id]={id:a.school_id,programmata:0,svolta:0});
-    s[a.stato]=(s[a.stato]||0)+1;
+    const gid=a.gruppo_id||a.id;
+    const g=groupsBySchool[a.school_id]||(groupsBySchool[a.school_id]={});
+    const rec=g[gid]||(g[gid]={hasProgrammata:false,hasSvolta:false});
+    if(a.stato==='programmata') rec.hasProgrammata=true;
+    if(a.stato==='svolta') rec.hasSvolta=true;
+  });
+  Object.keys(groupsBySchool).forEach(schoolId=>{
+    const s=byId[schoolId]||(byId[schoolId]={id:schoolId,programmata:0,svolta:0});
+    Object.values(groupsBySchool[schoolId]).forEach(rec=>{
+      if(rec.hasProgrammata) s.programmata++; else if(rec.hasSvolta) s.svolta++;
+    });
   });
   const info=SCHOOL_CACHE;
   return Object.values(byId).map(s=>{

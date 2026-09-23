@@ -321,10 +321,8 @@ tfoot td.l{text-align:left}
     <div class="mbody">
       <div class="grid2">
         <div class="field"><label>Viaggiatore <span class="req">*</span></label><select id="tTrav"></select></div>
-        <div class="field"><label>Stato</label><select id="tStato"><option>prenotato</option><option>pianificato</option><option>completato</option><option>annullato</option></select></div>
+        <div class="field"><label>Inseritore</label><input type="text" id="tInseritore" placeholder="chi sta prenotando"></div>
         <div class="field full"><label>Scopo</label><input type="text" id="tScopo" placeholder="es. Orientamento Puglia"></div>
-        <div class="field"><label>Destinazione</label><input type="text" id="tDest" placeholder="es. Bari"></div>
-        <div class="field"><label>Scuola / evento</label><input type="text" id="tScuola" placeholder="facoltativo"></div>
         <div class="field"><label>Data inizio</label><input type="date" id="tDa"></div>
         <div class="field"><label>Data fine</label><input type="date" id="tA"></div>
         <div class="field full"><label>Note</label><textarea id="tNote" rows="2"></textarea></div>
@@ -426,6 +424,10 @@ tfoot td.l{text-align:left}
 const CATS=["VIAGGI TRASF. STAFF","VIAGGI TRASF. ALTRI NO STAFF","ALBERGHI RIST. STAFF","ALBERGHI RIST. NO STAFF"];
 const CAT_COLOR={"VIAGGI TRASF. STAFF":"#1F7A8C","VIAGGI TRASF. ALTRI NO STAFF":"#2E9C8E","ALBERGHI RIST. STAFF":"#A87B4F","ALBERGHI RIST. NO STAFF":"#C99A5B"};
 const TIPI=["Volo","Treno","Noleggio auto","Hotel","Spese in fattura","Rimborso km","Altro"];
+// fornitori di default per tipologia (Sofia, riunione 2026-09-23): Volo/Noleggio auto/Hotel -> Uvet,
+// Treno -> Trenitalia; Spese in fattura/Rimborso km/Altro non hanno un fornitore fisso di riferimento.
+// Solo un suggerimento di partenza: il campo Fornitore resta libero, non un menu chiuso.
+const FORNITORE_DEFAULT={"Volo":"Uvet","Noleggio auto":"Uvet","Hotel":"Uvet","Treno":"Trenitalia"};
 const MESI=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
 const MESI_LONG=["gennaio","febbraio","marzo","aprile","maggio","giugno","luglio","agosto","settembre","ottobre","novembre","dicembre"];
 const LS_KEY="naba_spese_ec_v1";
@@ -583,14 +585,6 @@ function fillSelects(){
   document.getElementById("refDate").value=STATE.refDate;
   document.getElementById("ivaDef").value=STATE.ivaDef;
 }
-function statoBadge(st){
-  if(st==="annullato") return `<span class="badge rev">annullato</span>`;
-  if(st==="riconciliato") return `<span class="badge ok">riconciliato</span>`;
-  if(st==="completato") return `<span class="badge speso">completato</span>`;
-  if(st==="pianificato") return `<span class="badge alloc">pianificato</span>`;
-  if(st==="bozza") return `<span class="tag">bozza</span>`;
-  return `<span class="badge alloc">prenotato</span>`;
-}
 function impactBadge(it){
   const imp=impactOf(it);
   if(imp==="TRACE_ONLY") return `<span class="badge trace">tracciata</span>`;
@@ -614,9 +608,8 @@ function renderTrips(){
       <div class="trip-h">
         <div>
           <div class="who">${esc(tv.nome)} <span class="tag">${tv.staff?'staff':'no-staff'}</span></div>
-          <div class="meta">${esc(tp.scopo)||'—'}${tp.destinazione?' · '+esc(tp.destinazione):''} · ${fmtD(tp.data_inizio)}${tp.data_fine&&tp.data_fine!==tp.data_inizio?'→'+fmtD(tp.data_fine):''}${tp.scuola_evento?' · '+esc(tp.scuola_evento):''}</div>
+          <div class="meta">${esc(tp.scopo)||'—'} · ${fmtD(tp.data_inizio)}${tp.data_fine&&tp.data_fine!==tp.data_inizio?'→'+fmtD(tp.data_fine):''}${tp.inseritore?' · inserito da '+esc(tp.inseritore):''}</div>
         </div>
-        ${statoBadge(tp.stato)}
         <span class="tot">${eur2(tot)}${trace?` <span class="meta" style="font-weight:400">+ ${eur2(trace)} in fattura</span>`:''}</span>
         <button class="btn ghost small trip-edit" data-id="${tp.id}">Modifica</button>
       </div>
@@ -775,10 +768,10 @@ function openTrip(id){
   const travField=document.getElementById("tTrav").closest(".field");
   if(CURRENT.role==="orientatore"){ travField.style.display="none"; document.getElementById("tTrav").value=t?t.traveler_id:CURRENT.travelerId; }
   else { travField.style.display=""; document.getElementById("tTrav").value=t?t.traveler_id:(STATE.travelers[0]&&STATE.travelers[0].id); }
-  document.getElementById("tStato").value=t?t.stato:"prenotato";
+  // "inseritore" (chi prenota, non necessariamente il viaggiatore — es. Greta prenota per Corrado):
+  // di default chi ha fatto login, modificabile; su un viaggio esistente resta quello già salvato.
+  document.getElementById("tInseritore").value=t?(t.inseritore||""):(CURRENT.name||CURRENT.email||"");
   document.getElementById("tScopo").value=t?t.scopo||"":"";
-  document.getElementById("tDest").value=t?t.destinazione||"":"";
-  document.getElementById("tScuola").value=t?t.scuola_evento||"":"";
   document.getElementById("tDa").value=t?t.data_inizio||"":"";
   document.getElementById("tA").value=t?t.data_fine||"":"";
   document.getElementById("tNote").value=t?t.note||"":"";
@@ -788,7 +781,7 @@ function openTrip(id){
 function saveTrip(){
   const trav=document.getElementById("tTrav").value;
   if(!trav){ toast("Seleziona un viaggiatore"); return; }
-  const o={ traveler_id:trav, stato:document.getElementById("tStato").value, scopo:document.getElementById("tScopo").value.trim(), destinazione:document.getElementById("tDest").value.trim(), scuola_evento:document.getElementById("tScuola").value.trim(), data_inizio:document.getElementById("tDa").value||null, data_fine:document.getElementById("tA").value||null, note:document.getElementById("tNote").value.trim() };
+  const o={ traveler_id:trav, inseritore:document.getElementById("tInseritore").value.trim(), scopo:document.getElementById("tScopo").value.trim(), data_inizio:document.getElementById("tDa").value||null, data_fine:document.getElementById("tA").value||null, note:document.getElementById("tNote").value.trim() };
   let saved;
   if(editTripId){ const t=STATE.trips.find(x=>x.id===editTripId); Object.assign(t,o); saved=t; toast("Viaggio aggiornato"); }
   else { o.id=uuid(); STATE.trips.unshift(o); saved=o; toast("Viaggio creato"); }
@@ -825,7 +818,7 @@ function openItem(tripId,itemId){
   const it=itemId?STATE.items.find(x=>x.id===itemId):null;
   document.getElementById("itemTitle").textContent=itemId?"Modifica voce":"Nuova voce";
   document.getElementById("iTipo").value=it?it.tipo:"Volo";
-  document.getElementById("iForn").value=it?it.fornitore||"":"Uvet";
+  document.getElementById("iForn").value=it?it.fornitore||"":(FORNITORE_DEFAULT[document.getElementById("iTipo").value]||"");
   document.getElementById("iImp").value=it?it.importo:"";
   document.getElementById("iIva").value=it?(it.iva==null?STATE.ivaDef:it.iva):STATE.ivaDef;
   document.getElementById("iAcq").value=it?it.data_acquisto||"":"";
@@ -880,7 +873,11 @@ function cloudSetDot(s){ const d=document.getElementById("cloudDot"),l=document.
 function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clearTimeout(flashSynced._t); flashSynced._t=setTimeout(()=>{ if(cloudReady())cloudSetDot('on'); },600); }
 function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toast("Errore salvataggio cloud ("+ctx+"): "+(error&&error.message?error.message:'riprova')+" — dato solo in locale",'err'); }
 function travRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,staff:!!t.staff,attivo:t.attivo!==false}; }
-function tripRow(t){ return {id:t.id,traveler_id:t.traveler_id,scopo:t.scopo||null,destinazione:t.destinazione||null,data_inizio:t.data_inizio||null,data_fine:t.data_fine||null,scuola_evento:t.scuola_evento||null,stato:t.stato||'prenotato',note:t.note||null}; }
+// destinazione/scuola_evento/stato non sono più raccolte dal modale (2026-09-23, riunione Luigi/
+// Sofia/Stefano: a livello di macro-viaggio non servono — lo stato che conta è quello per singola
+// voce, la cancellazione dell'intero viaggio si fa con "Elimina") ma restano nella tabella per non
+// perdere lo storico di chi le aveva già valorizzate: qui si scrive solo quanto già presente in t.
+function tripRow(t){ return {id:t.id,traveler_id:t.traveler_id,inseritore:t.inseritore||null,scopo:t.scopo||null,destinazione:t.destinazione||null,data_inizio:t.data_inizio||null,data_fine:t.data_fine||null,scuola_evento:t.scuola_evento||null,stato:t.stato||'prenotato',note:t.note||null}; }
 function itemRow(it){ const trip=STATE.trips.find(t=>t.id===it.trip_id)||{}; const staff=travById(trip.traveler_id).staff; return {id:it.id,trip_id:it.trip_id,tipo:it.tipo,fornitore:it.fornitore||null,data_acquisto:it.data_acquisto||null,comp_da:it.comp_da||null,comp_a:it.comp_a||null,importo:Number(it.importo)||0,iva:it.iva==null?null:Number(it.iva),rif_prenotazione:it.rif_prenotazione||null,categoria:mapCat(it.tipo,staff),impact_mode:impactOf(it),stato:it.stato||'prenotato',actual_ref:it.actual_ref||null,note:it.note||null}; }
 
 async function cloudInit(){ const cfg=cloudCfg(); if(!cfg||!window.supabase){ cloudSetDot('off'); return; } try{ sb=window.supabase.createClient(cfg.url,cfg.anonKey); const {data}=await sb.auth.getSession(); cloudSession=data.session||null; if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else cloudSetDot('off'); }catch(e){ console.error(e); cloudSetDot('err'); } }
@@ -893,7 +890,7 @@ async function cloudPullAll(silent){
     const {data:tp,error:e2}=await sb.from('bdg_travel_trips').select('*'); if(e2) throw e2;
     const {data:it,error:e3}=await sb.from('bdg_travel_items').select('*'); if(e3) throw e3;
     if(tv&&tv.length) STATE.travelers=tv.map(x=>({id:x.id,nome:x.nome,email:x.email||"",staff:!!x.staff,attivo:x.attivo!==false}));
-    STATE.trips=(tp||[]).map(x=>({id:x.id,traveler_id:x.traveler_id,scopo:x.scopo||"",destinazione:x.destinazione||"",data_inizio:x.data_inizio,data_fine:x.data_fine,scuola_evento:x.scuola_evento||"",stato:x.stato||'prenotato',note:x.note||""}));
+    STATE.trips=(tp||[]).map(x=>({id:x.id,traveler_id:x.traveler_id,inseritore:x.inseritore||"",scopo:x.scopo||"",destinazione:x.destinazione||"",data_inizio:x.data_inizio,data_fine:x.data_fine,scuola_evento:x.scuola_evento||"",stato:x.stato||'prenotato',note:x.note||""}));
     STATE.items=(it||[]).map(x=>({id:x.id,trip_id:x.trip_id,tipo:x.tipo,fornitore:x.fornitore||"",data_acquisto:x.data_acquisto,comp_da:x.comp_da,comp_a:x.comp_a,importo:Number(x.importo)||0,iva:x.iva,rif_prenotazione:x.rif_prenotazione||"",stato:x.stato||'prenotato',actual_ref:x.actual_ref||"",note:x.note||""}));
     await cloudFetchRoles();
     save(); fillSelects(); renderAll(); gate(); cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud"); cloudRealtimeSubscribe();
@@ -959,6 +956,14 @@ document.getElementById("iCancel").onclick=()=>document.getElementById("itemOver
 document.getElementById("iSave").onclick=saveItem;
 document.getElementById("iDelete").onclick=deleteItem;
 ["iTipo","iStato","iCda","iAcq"].forEach(id=>document.getElementById(id).addEventListener("change",itemMapPreview));
+// aggiorna il suggerimento fornitore al cambio tipologia — solo su una voce nuova, e solo se il campo
+// è vuoto o è ancora uno dei suggerimenti (mai sovrascrive un fornitore digitato a mano dall'utente)
+document.getElementById("iTipo").addEventListener("change",()=>{
+  if(editItemId) return;
+  const forn=document.getElementById("iForn");
+  const known=new Set(Object.values(FORNITORE_DEFAULT));
+  if(!forn.value || known.has(forn.value)) forn.value=FORNITORE_DEFAULT[document.getElementById("iTipo").value]||"";
+});
 document.getElementById("btnAddTrav").onclick=()=>{ const n=prompt("Nome viaggiatore:"); if(!n)return; const staff=confirm("È staff? (OK = staff, Annulla = no-staff)"); const t={id:uuid(),nome:n.trim(),staff,attivo:true}; STATE.travelers.push(t); save(); fillSelects(); renderAll(); cloudUpsertTraveler(t); };
 document.getElementById("btnSnap").onclick=exportSnap;
 document.getElementById("btnSnapR").onclick=()=>document.getElementById("snapIn").click();
