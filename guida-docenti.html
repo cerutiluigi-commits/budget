@@ -66,7 +66,11 @@ body{margin:0;background:var(--tut-bg);color:var(--tut-ink);font-family:'Inter',
 .ctrl-btn:disabled{opacity:.4;cursor:default}
 .ctrl-btn svg{width:15px;height:15px}
 .ctrl-btn.primary{background:var(--tut-accent);color:var(--tut-accent-ink);border-color:transparent}
+.ctrl-btn.active{color:var(--tut-accent);border-color:rgba(224,162,59,.45)}
+#btnSpeed{min-width:44px;justify-content:center;font-variant-numeric:tabular-nums}
 .ctrl-sp{flex:1}
+.stage-shell.speed2x #cursor{transition:left .35s cubic-bezier(.22,.68,0,1.01),top .35s cubic-bezier(.22,.68,0,1.01),opacity .18s}
+.stage-shell.speed2x #highlight{transition:left .28s cubic-bezier(.22,.68,0,1.01),top .28s cubic-bezier(.22,.68,0,1.01),width .28s cubic-bezier(.22,.68,0,1.01),height .28s cubic-bezier(.22,.68,0,1.01),opacity .18s}
 .voice-toggle{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--tut-ink-mute);background:var(--tut-panel);border:1px solid var(--tut-line);border-radius:10px;padding:9px 12px;cursor:pointer}
 .voice-toggle.off{color:var(--tut-ink-mute)}
 .voice-toggle.on{color:var(--tut-accent);border-color:rgba(224,162,59,.4)}
@@ -258,6 +262,7 @@ body{margin:0;background:var(--tut-bg);color:var(--tut-ink);font-family:'Inter',
     <button class="ctrl-btn primary" id="btnPlay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Play</button>
     <button class="ctrl-btn" id="btnNext">Avanti<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></button>
     <div class="ctrl-sp"></div>
+    <button class="ctrl-btn" id="btnSpeed" title="Raddoppia la velocità di riproduzione (voce e avanzamento)">1×</button>
     <button class="voice-toggle on" id="btnVoice"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 5V4L8 9H4z"/></svg><span id="voiceLabel">Voce attiva</span></button>
     <button class="ctrl-btn" id="btnRestart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg>Riavvia</button>
   </div>
@@ -553,9 +558,10 @@ var caption=document.getElementById('caption'), progressFill=document.getElement
 var stepLabel=document.getElementById('stepLabel'), sectionStrip=document.getElementById('sectionStrip');
 var btnPlay=document.getElementById('btnPlay'), btnPrev=document.getElementById('btnPrev'), btnNext=document.getElementById('btnNext'), btnRestart=document.getElementById('btnRestart');
 var btnVoice=document.getElementById('btnVoice'), voiceLabel=document.getElementById('voiceLabel');
+var btnSpeed=document.getElementById('btnSpeed'), stageShell=document.querySelector('.stage-shell');
 var startOverlay=document.getElementById('startOverlay'), btnStart=document.getElementById('btnStart');
 
-var idx=-1, currentScene=null, playing=false, voiceOn=true, advanceTimer=null, voices=[], started=false;
+var idx=-1, currentScene=null, playing=false, voiceOn=true, advanceTimer=null, voices=[], started=false, speedX=1;
 
 function loadVoices(){ try{ voices=speechSynthesis.getVoices()||[]; }catch(e){} }
 if('speechSynthesis' in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
@@ -601,14 +607,14 @@ function positionCursor(targetKey){
   cursor.classList.add('on');
 }
 
-function estimateMs(text){ return Math.max(2200, Math.min(9000, text.length*58)); }
+function estimateMs(text){ return Math.max(2200, Math.min(9000, text.length*58)) / speedX; }
 
 function speak(text, onDone){
   if(!voiceOn || !('speechSynthesis' in window)){ advanceTimer=setTimeout(onDone, estimateMs(text)); return; }
   try{
     speechSynthesis.cancel();
     var u = new SpeechSynthesisUtterance(text);
-    u.lang='it-IT'; var v=pickItVoice(); if(v) u.voice=v; u.rate=0.97; u.pitch=1.0;
+    u.lang='it-IT'; var v=pickItVoice(); if(v) u.voice=v; u.rate=0.97*speedX; u.pitch=1.0;
     var done=false;
     function finish(){ if(done) return; done=true; onDone(); }
     u.onend=finish; u.onerror=finish;
@@ -681,6 +687,12 @@ btnVoice.addEventListener('click', function(){
   btnVoice.classList.toggle('off', !voiceOn);
   voiceLabel.textContent = voiceOn ? 'Voce attiva' : 'Voce spenta';
   if(!voiceOn){ try{ speechSynthesis.cancel(); }catch(e){} }
+});
+btnSpeed.addEventListener('click', function(){
+  speedX = speedX===1 ? 2 : 1;
+  btnSpeed.textContent = speedX+'×';
+  btnSpeed.classList.toggle('active', speedX===2);
+  stageShell.classList.toggle('speed2x', speedX===2);
 });
 
 stepLabel.textContent = 'Passo 0 / ' + STEPS.length;
