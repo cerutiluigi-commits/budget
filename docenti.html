@@ -356,22 +356,25 @@ tfoot td.l{text-align:left}
 
 /* ---- calendario (tab Docenti) ---- */
 .cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.cal-filters{display:flex;gap:6px;margin:-4px 0 14px;flex-wrap:wrap}
 .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden}
 .cal-dow div{background:var(--surface-2);padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute)}
-.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
-.cal-cell{background:var(--surface);min-height:96px;padding:6px;display:flex;flex-direction:column;gap:4px}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:112px;gap:1px;background:var(--line);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+.cal-cell{background:var(--surface);padding:6px;display:flex;flex-direction:column;gap:4px;overflow:hidden}
 .cal-cell.cal-blank{background:var(--surface-2)}
 .cal-daynum{font-size:12px;color:var(--ink-mute);font-weight:600}
 .cal-daynum-today{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--paper)}
 .cal-entries{display:flex;flex-direction:column;gap:3px;overflow:hidden}
 .cal-entry{display:flex;align-items:center;gap:5px;font-size:11px;padding:2px 4px;border-radius:5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
 .cal-entry:hover{background:var(--surface-2)}
-.cal-dot{width:6px;height:6px;border-radius:50%;flex:none}
+.cal-entry.cal-entry-muted{color:var(--ink-mute);opacity:.65}
+.cal-stico{width:12px;height:12px;flex:none}
 .cal-more{font-size:10.5px;color:var(--ink-mute);cursor:pointer;padding:2px 4px}
 .cal-more:hover{text-decoration:underline}
 .cal-daylist-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .cal-daylist-row:last-child{border-bottom:0}
-@media(max-width:700px){.cal-cell{min-height:64px}.cal-dow div{padding:6px 4px;font-size:9px}}
+.cal-daylist-row.cal-entry-muted{color:var(--ink-mute);opacity:.65}
+@media(max-width:700px){.cal-grid{grid-auto-rows:84px}.cal-dow div{padding:6px 4px;font-size:9px}}
 
 .empty{padding:26px;text-align:center;color:var(--ink-mute)}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:80;box-shadow:var(--shadow-lg)}
@@ -523,6 +526,11 @@ tfoot td.l{text-align:left}
         <button class="btn ghost small" id="calPrev">←</button>
         <button class="btn ghost small" id="calNext">→</button>
       </div>
+    </div>
+    <div class="cal-filters">
+      <button type="button" class="chip" id="calFiltProgrammata" data-stato="programmata">Programmate</button>
+      <button type="button" class="chip" id="calFiltSvolta" data-stato="svolta">Svolte</button>
+      <button type="button" class="chip" id="calFiltAnnullata" data-stato="annullata">Annullate</button>
     </div>
     <div class="cal-dow"><div>Dom</div><div>Lun</div><div>Mar</div><div>Mer</div><div>Gio</div><div>Ven</div><div>Sab</div></div>
     <div class="cal-grid" id="calGrid"></div>
@@ -2348,7 +2356,15 @@ function refreshDateTotals(){
 // stesso ambito di visibilità delle altre tab (visibleActivities(): docente vede i propri,
 // Superuser il proprio scope, admin tutto) — qui si aggiunge solo la vista "a griglia per mese"
 let calMonth=null;
-function calStatoColor(stato){ return stato==='svolta' ? 'var(--speso)' : stato==='annullata' ? 'var(--ink-mute)' : 'var(--allocato)'; }
+let calStatoFilter=[]; // vuoto = nessun filtro, mostra tutte; altrimenti solo gli stati selezionati
+// icona di stato invece del semplice pallino colorato (su richiesta di Luigi, stile spunta/X/!
+// come nel riferimento inviato): verde=svolta, ambra=programmata (stesso significato di --warn/--allocato
+// già usato nelle KPI del Riepilogo), grigio=annullata — mai rosso, riservato altrove a errori/sforamenti
+function calStatoIcon(stato){
+  if(stato==='svolta') return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--accent)"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  if(stato==='annullata') return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--ink-mute)"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+  return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--warn)"/><rect x="11" y="6.5" width="2" height="7" rx="1" fill="#fff"/><rect x="11" y="15.5" width="2" height="2" rx="1" fill="#fff"/></svg>`;
+}
 function calEntryLabel(a){ const t=teacherById(a.teacher_id); return (t?t.nome:'?') + (a.tipo?' · '+a.tipo:''); }
 function calShift(delta){
   const [y,m]=calMonth.split('-').map(Number);
@@ -2356,16 +2372,18 @@ function calShift(delta){
   calMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   renderCalendario();
 }
+function calPassesFilter(a){ return !calStatoFilter.length || calStatoFilter.includes(a.stato); }
 function renderCalendario(){
   const label=document.getElementById('calMonthLabel'); if(!label) return; // pannello non ancora nel DOM
   if(!calMonth) calMonth=todayMonth();
   label.textContent=monthLabel(calMonth);
+  document.querySelectorAll('.cal-filters .chip').forEach(c=>c.classList.toggle('on', calStatoFilter.includes(c.dataset.stato)));
   const [y,m]=calMonth.split('-').map(Number);
   const startDow=new Date(y,m-1,1).getDay(); // 0=domenica, come le colonne Dom..Sab
   const daysInMonth=new Date(y,m,0).getDate();
   const todayStr=todayISO();
   const byDay={};
-  visibleActivities().forEach(a=>{ if((a.data||'').slice(0,7)!==calMonth) return; (byDay[a.data]=byDay[a.data]||[]).push(a); });
+  visibleActivities().forEach(a=>{ if((a.data||'').slice(0,7)!==calMonth || !calPassesFilter(a)) return; (byDay[a.data]=byDay[a.data]||[]).push(a); });
   let cells='';
   for(let i=0;i<startDow;i++) cells+=`<div class="cal-cell cal-blank"></div>`;
   for(let d=1; d<=daysInMonth; d++){
@@ -2373,7 +2391,7 @@ function renderCalendario(){
     const dayActs=(byDay[dateStr]||[]).slice().sort((a,b)=>String(a.ora_evento||'').localeCompare(String(b.ora_evento||'')));
     const isToday=dateStr===todayStr;
     const shown=dayActs.slice(0,3), extra=dayActs.length-shown.length;
-    const entries=shown.map(a=>`<div class="cal-entry" data-id="${a.id}" title="${esc(calEntryLabel(a))}"><span class="cal-dot" style="background:${calStatoColor(a.stato)}"></span>${esc(calEntryLabel(a))}</div>`).join("");
+    const entries=shown.map(a=>`<div class="cal-entry${a.stato==='annullata'?' cal-entry-muted':''}" data-id="${a.id}" title="${esc(calEntryLabel(a))}">${calStatoIcon(a.stato)}${esc(calEntryLabel(a))}</div>`).join("");
     cells+=`<div class="cal-cell">
       <div class="cal-daynum">${isToday?`<span class="cal-daynum-today">${d}</span>`:d}</div>
       <div class="cal-entries">${entries}${extra>0?`<div class="cal-more" data-date="${dateStr}">+${extra} altr${extra===1?'a':'e'}</div>`:''}</div>
@@ -2404,11 +2422,11 @@ function openCalPreview(id){
 }
 function openCalDayList(dateStr){
   calPreviewId=null;
-  const acts=visibleActivities().filter(a=>a.data===dateStr);
+  const acts=visibleActivities().filter(a=>a.data===dateStr && calPassesFilter(a));
   document.getElementById('calPreviewTitle').textContent=dateStr;
   document.getElementById('calPreviewBody').innerHTML = acts.map(a=>`
-    <div class="cal-daylist-row" data-id="${a.id}">
-      <span class="cal-dot" style="background:${calStatoColor(a.stato)}"></span>
+    <div class="cal-daylist-row${a.stato==='annullata'?' cal-entry-muted':''}" data-id="${a.id}">
+      ${calStatoIcon(a.stato)}
       <span style="flex:1">${esc(calEntryLabel(a))}</span>
     </div>`).join("") || `<div class="hint">Nessuna attività.</div>`;
   document.querySelectorAll('#calPreviewBody .cal-daylist-row').forEach(row=>row.onclick=()=>openCalPreview(row.dataset.id));
@@ -2879,6 +2897,11 @@ document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=
 document.getElementById("calToday").onclick=()=>{ calMonth=todayMonth(); renderCalendario(); };
 document.getElementById("calPrev").onclick=()=>calShift(-1);
 document.getElementById("calNext").onclick=()=>calShift(1);
+document.querySelectorAll(".cal-filters .chip").forEach(c=>c.onclick=()=>{
+  const s=c.dataset.stato, i=calStatoFilter.indexOf(s);
+  if(i>=0) calStatoFilter.splice(i,1); else calStatoFilter.push(s);
+  renderCalendario();
+});
 document.getElementById("calPreviewClose").onclick=closeCalPreview;
 document.getElementById("calPreviewClose2").onclick=closeCalPreview;
 document.getElementById("calPreviewOpen").onclick=()=>{ const id=calPreviewId; closeCalPreview(); if(id) openActivity(id); };
