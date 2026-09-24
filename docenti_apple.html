@@ -393,6 +393,25 @@ tfoot td.l{text-align:left}
 .date-total-row span:first-child{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);font-weight:600;align-self:center}
 @media(max-width:600px){ .date-row,.date-row.ws{grid-template-columns:1fr}.date-total-row{grid-template-columns:1fr} }
 
+/* ---- calendario (tab Docenti) ---- */
+.cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden}
+.cal-dow div{background:var(--surface-2);padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+.cal-cell{background:var(--surface);min-height:96px;padding:6px;display:flex;flex-direction:column;gap:4px}
+.cal-cell.cal-blank{background:var(--surface-2)}
+.cal-daynum{font-size:12px;color:var(--ink-mute);font-weight:600}
+.cal-daynum-today{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--paper)}
+.cal-entries{display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.cal-entry{display:flex;align-items:center;gap:5px;font-size:11px;padding:2px 4px;border-radius:5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.cal-entry:hover{background:var(--surface-2)}
+.cal-dot{width:6px;height:6px;border-radius:50%;flex:none}
+.cal-more{font-size:10.5px;color:var(--ink-mute);cursor:pointer;padding:2px 4px}
+.cal-more:hover{text-decoration:underline}
+.cal-daylist-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.cal-daylist-row:last-child{border-bottom:0}
+@media(max-width:700px){.cal-cell{min-height:64px}.cal-dow div{padding:6px 4px;font-size:9px}}
+
 .empty{padding:26px;text-align:center;color:var(--ink-mute)}
 #toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:80;box-shadow:var(--shadow-lg)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
@@ -474,6 +493,7 @@ tfoot td.l{text-align:left}
   <nav class="tabs" id="tabs">
     <button data-tab="riepilogo" class="on" style="display:none">Riepilogo</button>
     <button data-tab="attivita" style="display:none">Attività</button>
+    <button data-tab="calendario" style="display:none">Calendario</button>
     <button data-tab="scuole" style="display:none">Scuole</button>
     <button data-tab="chiusura" style="display:none">Chiusura mensile</button>
   </nav>
@@ -533,6 +553,20 @@ tfoot td.l{text-align:left}
       <button class="btn small" id="btnCalAdd" title="Apre un link Outlook per ogni attività 'programmata' futura, uno alla volta: scegli quali aggiungere al tuo calendario"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>Aggiungi al calendario</button>
     </div>
     <div class="card scroll"><div id="actList"></div></div>
+  </section>
+
+  <!-- CALENDARIO -->
+  <section class="panel" id="panel-calendario">
+    <div class="cal-head">
+      <h2 class="sec" id="calMonthLabel" style="margin:0"></h2>
+      <div class="cal-nav" style="margin-left:auto;display:flex;gap:4px">
+        <button class="btn ghost small" id="calToday">Oggi</button>
+        <button class="btn ghost small" id="calPrev">←</button>
+        <button class="btn ghost small" id="calNext">→</button>
+      </div>
+    </div>
+    <div class="cal-dow"><div>Dom</div><div>Lun</div><div>Mar</div><div>Mer</div><div>Gio</div><div>Ven</div><div>Sab</div></div>
+    <div class="cal-grid" id="calGrid"></div>
   </section>
 
   <!-- SCUOLE -->
@@ -682,6 +716,19 @@ tfoot td.l{text-align:left}
   </div>
 </div>
 
+<!-- ANTEPRIMA RAPIDA (click su un'attività dal Calendario) -->
+<div class="overlay" id="calPreviewOverlay">
+  <div class="modal" style="max-width:380px">
+    <div class="mhead"><h3 id="calPreviewTitle">Attività</h3><button class="iconx" id="calPreviewClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mbody" id="calPreviewBody"></div>
+    <div class="mfoot">
+      <div class="sp"></div>
+      <button class="btn ghost" id="calPreviewClose2">Chiudi</button>
+      <button class="btn" id="calPreviewOpen">Apri</button>
+    </div>
+  </div>
+</div>
+
 <!-- CONFERMA GENERICA (sostituisce confirm() nativo dove serve un po' più di contesto/cura grafica) -->
 <div class="overlay" id="confirmOverlay">
   <div class="modal" style="max-width:420px">
@@ -781,7 +828,7 @@ tfoot td.l{text-align:left}
         <div class="card scroll" style="margin-bottom:26px"><table id="usersTable"></table></div>
         <div style="display:flex;gap:8px;margin-bottom:26px;flex-wrap:wrap">
           <input type="email" id="newUserEmail" placeholder="email@naba.it" style="flex:1;min-width:180px">
-          <select id="newUserRole"><option value="admin">Admin</option><option value="orientatore">Orientatore</option><option value="docente" selected>Docente</option></select>
+          <select id="newUserRole"><option value="admin">Admin</option><option value="superuser">Superuser</option><option value="orientatore">Orientatore</option><option value="docente" selected>Docente</option></select>
           <button class="btn ghost small" id="btnAddUser">+ Aggiungi</button>
         </div>
 
@@ -884,6 +931,7 @@ function baseIdentity(){
       return {role:'none',interfaceId:null,preview:false,email,name:null};
     }
     if(role==='orientatore') return {role:'orientatore',interfaceId:null,preview:false,email,name:null};
+    if(role==='superuser') return {role:'superuser',interfaceId:null,preview:false,email,name:null};
     return {role:'none',interfaceId:null,preview:false,email,name:null};
   }
   if(STATE.localIdentity==='admin') return {role:'admin',interfaceId:null,preview:false,email:null,name:'Admin'};
@@ -901,7 +949,7 @@ function myFilter(){ return STATE.view!=="ALL"?STATE.view:null; }
 function tabVisible(tool,tabKey,role){
   const cfg=STATE.tabVisibility&&STATE.tabVisibility[tool]&&STATE.tabVisibility[tool][tabKey];
   if(cfg && Object.prototype.hasOwnProperty.call(cfg,role)) return !!cfg[role];
-  return role==='admin';
+  return role==='admin' || role==='superuser';
 }
 let forceLogin=false;
 function gate(){
@@ -926,10 +974,10 @@ function updateViewIndicator(){
 }
 function applyRole(){
   CURRENT=effectiveIdentity();
-  const isAdmin=CURRENT.role==='admin', teach=CURRENT.role==='docente';
+  const isAdmin=CURRENT.role==='admin', teach=CURRENT.role==='docente', manage=canManage();
   const q=s=>document.querySelector(s);
-  const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display=isAdmin?'':'none';
-  const vg=document.getElementById('viewSel').closest('.hgroup'); if(vg) vg.style.display=isAdmin?'':'none';
+  const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display=isAdmin?'':'none'; // Admin panel: mai al Superuser, solo Admin vero
+  const vg=document.getElementById('viewSel').closest('.hgroup'); if(vg) vg.style.display=manage?'':'none';
   updateViewIndicator();
   const active=document.querySelector('nav.tabs button.on');
   let anyVisible=false, firstBtn=null, activeHidden=false;
@@ -951,16 +999,53 @@ function applyRole(){
     banner.style.display='block'; banner.className='role-banner';
     banner.innerHTML=`Accesso interfaccia orientamento: <b>${esc(CURRENT.name||'')}</b> · ${esc(aree)}. Gestisci le attività di ${n} docent${n===1?'e':'i'}.`;
   }
+  else if(CURRENT.role==='superuser'){
+    const sc=currentScope();
+    const parts=[];
+    if(sc.tipologia && sc.tipologia.length) parts.push('Tipologia: '+sc.tipologia.join(', '));
+    if(sc.area && sc.area.length) parts.push('Corso/Area: '+sc.area.join(', '));
+    banner.style.display='block'; banner.className='role-banner';
+    banner.innerHTML = parts.length
+      ? `Accesso Superuser — ambito: <b>${esc(parts.join(' · '))}</b>`
+      : `Accesso Superuser — nessuna restrizione impostata: vedi tutte le attività.`;
+  }
   else banner.style.display='none';
-  document.getElementById('btnNewAct').style.display=(isAdmin||teach)?'':'none';
-  document.getElementById('btnNewActRiep').style.display=(isAdmin||teach)?'':'none';
+  document.getElementById('btnNewAct').style.display=(manage||teach)?'':'none';
+  document.getElementById('btnNewActRiep').style.display=(manage||teach)?'':'none';
   if(!anyVisible){ document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('on')); document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on')); }
   else if((activeHidden || !document.querySelector('nav.tabs button.on')) && firstBtn) firstBtn.click();
   renderDueBanner();
 }
+// Superuser: stesse potenzialità di admin (inserisce, approva RDA) ma con l'elenco attività
+// limitato a uno "scope" (Tipologia/Corso) che l'admin imposta da Admin → Utenti. Uno scope con
+// array vuoto o assente per una dimensione = nessuna restrizione su quella dimensione.
+function canManage(){ return CURRENT.role==='admin' || CURRENT.role==='superuser'; }
+function currentScope(){
+  if(CURRENT.role!=='superuser' || !CURRENT.email) return null;
+  const u=(STATE.appUsers||{})[CURRENT.email.toLowerCase()];
+  return (u && u.scope) || {tipologia:[],area:[]};
+}
+function activityInScope(a){
+  if(CURRENT.role!=='superuser') return true;
+  const sc=currentScope();
+  if(sc.tipologia && sc.tipologia.length && !sc.tipologia.includes(a.tipo)) return false;
+  if(sc.area && sc.area.length && !sc.area.includes(a.area)) return false;
+  return true;
+}
+// le Tipologie di competenza di un Superuser, usate ovunque la Chiusura mensile itera TIPI: le RDA
+// sono raggruppate per docente+mese+tipo, quindi lo scope Tipologia si applica lì in modo esatto —
+// lo scope Corso/Area invece filtra solo le attività (una RDA può comunque coprire più corsi)
+function scopedTipi(){
+  if(CURRENT.role!=='superuser') return TIPI;
+  const sc=currentScope();
+  return (sc.tipologia && sc.tipologia.length) ? TIPI.filter(t=>sc.tipologia.includes(t)) : TIPI;
+}
 function visibleActivities(){
   if(CURRENT.role==='docente'){ const ids=myTeacherIds()||[]; return STATE.activities.filter(a=>ids.includes(a.teacher_id)); }
-  const f=myFilter(); return f?STATE.activities.filter(a=>a.teacher_id===f):STATE.activities;
+  const f=myFilter();
+  let list=f?STATE.activities.filter(a=>a.teacher_id===f):STATE.activities;
+  if(CURRENT.role==='superuser') list=list.filter(activityInScope);
+  return list;
 }
 function renderDueBanner(){
   const b=document.getElementById('dueBanner');
@@ -1109,12 +1194,12 @@ function activityRowHtml(a){
       <button class="rowbtn act-done" data-id="${a.id}" title="Segna come svolta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></button>
       <button class="rowbtn act-cancel" data-id="${a.id}" title="Annulla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
     </span>`;
-  } else if(a.stato==='svolta' && CURRENT.role==='admin'){
-    // solo admin, solo su richiesta esplicita: rimette un'attività già confermata dal docente in
-    // "programmata" (es. confermata per errore) — bloccato se già parte di un'RDA inserita/pagata,
+  } else if(a.stato==='svolta' && canManage()){
+    // solo admin/superuser, solo su richiesta esplicita: rimette un'attività già confermata dal docente
+    // in "programmata" (es. confermata per errore) — bloccato se già parte di un'RDA inserita/pagata,
     // vedi revertToProgrammata()
     quick = `<span class="act-actions">
-      <button class="rowbtn act-revert" data-id="${a.id}" title="Rimetti in programmata (solo admin)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg></button>
+      <button class="rowbtn act-revert" data-id="${a.id}" title="Rimetti in programmata"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg></button>
     </span>`;
   }
   // il nome del docente è la cosa che serve identificare più in fretta scorrendo l'elenco (specie
@@ -1456,7 +1541,7 @@ function renderPreviewAs(){
   const pv=document.getElementById("previewAs"); if(!pv) return;
   pv.innerHTML=`<option value="">— Admin (vista completa) —</option>`+STATE.interfaces.map(i=>`<option value="${i.id}" ${STATE.previewAs===i.id?'selected':''}>${esc(i.nome)} · ${esc((i.aree||[]).join(', '))}</option>`).join("");
 }
-function renderAll(){ renderActivities(); renderRiepilogo(); renderChiusura(); renderSchoolsTable(); save(); }
+function renderAll(){ renderActivities(); renderRiepilogo(); renderChiusura(); renderSchoolsTable(); renderCalendario(); save(); }
 
 /* ============================ SCUOLE (ricerca live, mai caricate per intero) ============================ */
 let _schoolSearchT=null;
@@ -1774,18 +1859,22 @@ function renderChiusuraList(){
   // (Luigi, 2026-09-16) un docente può avere più unità — quindi più RDA — nello stesso mese
   const units=[];
   teacherIds.forEach(tid=>{
-    TIPI.forEach(tipo=>{
+    scopedTipi().forEach(tipo=>{
       const rdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && r.tipo===tipo);
       const acts=activitiesForRda(tid,month,tipo);
-      const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.tipo===tipo && a.stato==='svolta' && (a.data||'').slice(0,7)===month);
+      const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.tipo===tipo && a.stato==='svolta' && (a.data||'').slice(0,7)===month && activityInScope(a));
       const pending=svolteThisMonth.filter(a=>!acts.includes(a) && !(a.rda_id && rdaLocked(rdaById(a.rda_id))));
       if(!rdas.length && !acts.length && !pending.length) return;
       units.push({tid,tipo,rdas,acts,pending});
     });
     // RDA storiche da prima di questa modifica (2026-09-16), senza tipologia: restano visibili così
-    // come sono, mai fuse con le nuove RDA per tipologia
-    const legacyRdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && !r.tipo);
-    if(legacyRdas.length) units.push({tid,tipo:null,rdas:legacyRdas,acts:[],pending:[]});
+    // come sono, mai fuse con le nuove RDA per tipologia — a un Superuser con scope Tipologia
+    // impostato non le mostriamo, perché senza tipo non c'è modo di verificare se rientrano nel suo ambito
+    const scopeTip=CURRENT.role==='superuser' ? (currentScope().tipologia||[]) : [];
+    if(!scopeTip.length){
+      const legacyRdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && !r.tipo);
+      if(legacyRdas.length) units.push({tid,tipo:null,rdas:legacyRdas,acts:[],pending:[]});
+    }
   });
   if(!units.length){ box.innerHTML=`<div class="card pad"><div class="empty">Nessuna attività per ${monthLabel(month)}${teacherFilter!=='ALL'?' per questo docente':''}.</div></div>`; return; }
   units.sort((a,b)=>chUnitPriority(a)-chUnitPriority(b) || teacherById(a.tid).nome.localeCompare(teacherById(b.tid).nome) || String(a.tipo).localeCompare(String(b.tipo)));
@@ -1953,15 +2042,15 @@ function renderChiusuraKanban(){
   const cols={confermare:[],gruppo:[],pronte:[],bozza:[],emessa:[],pagata:[]};
   teachers.forEach(t=>{
     const tid=t.id;
-    const daConfermare=STATE.activities.filter(a=>a.teacher_id===tid && a.stato==='programmata' && (a.data||'').slice(0,7)===month);
+    const daConfermare=STATE.activities.filter(a=>a.teacher_id===tid && a.stato==='programmata' && (a.data||'').slice(0,7)===month && activityInScope(a));
     if(daConfermare.length){
       const imp=daConfermare.reduce((s,a)=>s+activityAmount(a),0);
       cols.confermare.push({teacher:t,count:daConfermare.length,imp});
     }
     // dalla colonna "Pronte per RDA" in giù, un'unità è docente+tipologia (2026-09-16): tipi diversi
     // non condividono mai la stessa RDA, quindi un docente può avere più card nello stesso mese
-    TIPI.forEach(tipo=>{
-      const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.tipo===tipo && a.stato==='svolta' && (a.data||'').slice(0,7)===month);
+    scopedTipi().forEach(tipo=>{
+      const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.tipo===tipo && a.stato==='svolta' && (a.data||'').slice(0,7)===month && activityInScope(a));
       const acts=activitiesForRda(tid,month,tipo);
       const pending=svolteThisMonth.filter(a=>!acts.includes(a) && !(a.rda_id && rdaLocked(rdaById(a.rda_id))));
       if(pending.length){
@@ -2297,11 +2386,85 @@ function refreshDateTotals(){
   const bonusOre = tipo==='Workshop' ? workshopBonusOre(totOre) : 0;
   const bonusLine = bonusOre>0 ? `<div class="date-bonus">+ ${bonusOre} ${bonusOre===1?'ora bonus':'ore bonus'} (regola Workshop su ${totOre} ore totali)</div>` : "";
   document.getElementById("aDateTotal").innerHTML = `${bonusLine}<div class="date-total-row"><span>Totale</span><span>${totOre+bonusOre} ore</span><span>${eur2((totOre+bonusOre)*rate)} (${eur2(rate)}/h)</span><span></span></div>`;
-  // dettaglio di sola competenza admin (categoria budget interna) — un orientatore/docente non deve vederlo
-  document.getElementById("aMap").innerHTML = CURRENT.role==='admin'
+  // dettaglio di sola competenza admin/superuser (categoria budget interna) — un orientatore/docente non deve vederlo
+  document.getElementById("aMap").innerHTML = canManage()
     ? `Categoria budget: <b>CONS. COMM. MKTG</b> (sempre, per le attività docenti). Entra come <b>programmata</b>: si conferma "svolta" singolarmente per ogni data dall'elenco Attività una volta avvenuta.`
     : '';
 }
+
+/* ============================ CALENDARIO ============================ */
+// stesso ambito di visibilità delle altre tab (visibleActivities(): docente vede i propri,
+// Superuser il proprio scope, admin tutto) — qui si aggiunge solo la vista "a griglia per mese"
+let calMonth=null;
+function calStatoColor(stato){ return stato==='svolta' ? 'var(--speso)' : stato==='annullata' ? 'var(--ink-mute)' : 'var(--allocato)'; }
+function calEntryLabel(a){ const t=teacherById(a.teacher_id); return (t?t.nome:'?') + (a.tipo?' · '+a.tipo:''); }
+function calShift(delta){
+  const [y,m]=calMonth.split('-').map(Number);
+  const d=new Date(y, m-1+delta, 1);
+  calMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  renderCalendario();
+}
+function renderCalendario(){
+  const label=document.getElementById('calMonthLabel'); if(!label) return; // pannello non ancora nel DOM
+  if(!calMonth) calMonth=todayMonth();
+  label.textContent=monthLabel(calMonth);
+  const [y,m]=calMonth.split('-').map(Number);
+  const startDow=new Date(y,m-1,1).getDay(); // 0=domenica, come le colonne Dom..Sab
+  const daysInMonth=new Date(y,m,0).getDate();
+  const todayStr=todayISO();
+  const byDay={};
+  visibleActivities().forEach(a=>{ if((a.data||'').slice(0,7)!==calMonth) return; (byDay[a.data]=byDay[a.data]||[]).push(a); });
+  let cells='';
+  for(let i=0;i<startDow;i++) cells+=`<div class="cal-cell cal-blank"></div>`;
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr=`${calMonth}-${String(d).padStart(2,'0')}`;
+    const dayActs=(byDay[dateStr]||[]).slice().sort((a,b)=>String(a.ora_evento||'').localeCompare(String(b.ora_evento||'')));
+    const isToday=dateStr===todayStr;
+    const shown=dayActs.slice(0,3), extra=dayActs.length-shown.length;
+    const entries=shown.map(a=>`<div class="cal-entry" data-id="${a.id}" title="${esc(calEntryLabel(a))}"><span class="cal-dot" style="background:${calStatoColor(a.stato)}"></span>${esc(calEntryLabel(a))}</div>`).join("");
+    cells+=`<div class="cal-cell">
+      <div class="cal-daynum">${isToday?`<span class="cal-daynum-today">${d}</span>`:d}</div>
+      <div class="cal-entries">${entries}${extra>0?`<div class="cal-more" data-date="${dateStr}">+${extra} altr${extra===1?'a':'e'}</div>`:''}</div>
+    </div>`;
+  }
+  const trailing=(7-((startDow+daysInMonth)%7))%7;
+  for(let i=0;i<trailing;i++) cells+=`<div class="cal-cell cal-blank"></div>`;
+  document.getElementById('calGrid').innerHTML=cells;
+  document.querySelectorAll('#calGrid .cal-entry').forEach(el=>el.onclick=()=>openCalPreview(el.dataset.id));
+  document.querySelectorAll('#calGrid .cal-more').forEach(el=>el.onclick=()=>openCalDayList(el.dataset.date));
+}
+let calPreviewId=null;
+function openCalPreview(id){
+  const a=STATE.activities.find(x=>x.id===id); if(!a) return;
+  calPreviewId=id;
+  const t=teacherById(a.teacher_id);
+  const stLabel=a.stato==='svolta'?'Svolta':a.stato==='annullata'?'Annullata':'Programmata';
+  const orario=a.ora_evento?`${a.ora_evento}${a.ora_evento_fine?'–'+a.ora_evento_fine:''}`:'';
+  document.getElementById('calPreviewTitle').textContent=a.tipo||'Attività';
+  document.getElementById('calPreviewBody').innerHTML=`
+    <div class="field"><label>Docente</label><div>${esc(t?t.nome:'—')}</div></div>
+    <div class="field"><label>Data</label><div>${esc(a.data||'—')}${orario?' · '+esc(orario):''}</div></div>
+    <div class="field"><label>Stato</label><div>${esc(stLabel)}</div></div>
+    ${a.note?`<div class="field"><label>Note</label><div>${esc(a.note)}</div></div>`:''}
+  `;
+  document.getElementById('calPreviewOpen').style.display='';
+  document.getElementById('calPreviewOverlay').classList.add('on');
+}
+function openCalDayList(dateStr){
+  calPreviewId=null;
+  const acts=visibleActivities().filter(a=>a.data===dateStr);
+  document.getElementById('calPreviewTitle').textContent=dateStr;
+  document.getElementById('calPreviewBody').innerHTML = acts.map(a=>`
+    <div class="cal-daylist-row" data-id="${a.id}">
+      <span class="cal-dot" style="background:${calStatoColor(a.stato)}"></span>
+      <span style="flex:1">${esc(calEntryLabel(a))}</span>
+    </div>`).join("") || `<div class="hint">Nessuna attività.</div>`;
+  document.querySelectorAll('#calPreviewBody .cal-daylist-row').forEach(row=>row.onclick=()=>openCalPreview(row.dataset.id));
+  document.getElementById('calPreviewOpen').style.display='none';
+  document.getElementById('calPreviewOverlay').classList.add('on');
+}
+function closeCalPreview(){ document.getElementById('calPreviewOverlay').classList.remove('on'); calPreviewId=null; }
+
 function openActivity(id){
   editActId=id||null;
   const a=id?STATE.activities.find(x=>x.id===id):null;
@@ -2505,7 +2668,7 @@ function saveNewTeacherQuick(){
 const TOOL_TABS={
   spese_ec:[["trasferte","Trasferte"],["riepilogo","Riepilogo"],["calendario","Calendario"],["impostazioni","Impostazioni"]],
   budget:[["riepilogo","Riepilogo"],["calendario","Calendario"],["movimenti","Movimenti"],["budget","Budget annuale"],["finance","Finance"],["registro","Registro"]],
-  docenti:[["attivita","Attività"],["riepilogo","Riepilogo"],["scuole","Scuole"],["chiusura","Chiusura mensile"]]
+  docenti:[["attivita","Attività"],["riepilogo","Riepilogo"],["calendario","Calendario"],["scuole","Scuole"],["chiusura","Chiusura mensile"]]
 };
 function openAdmin(){
   renderInterfacesTable(); renderTeachersTable(); renderUsersTable(); renderTabVisTable(); renderPreviewAs();
@@ -2565,31 +2728,62 @@ function renderUsersTable(){
   const rows=Object.entries(STATE.appUsers||{});
   let h=`<thead><tr><th class="l">Email</th><th class="l">Ruolo</th><th>Attivo</th><th></th></tr></thead><tbody>`;
   if(!rows.length) h+=`<tr><td colspan="4"><div class="empty">Nessun utente configurato.</div></td></tr>`;
-  rows.forEach(([email,u])=>{ h+=`<tr>
+  rows.forEach(([email,u])=>{
+    h+=`<tr>
     <td class="l">${esc(email)}</td>
     <td class="l"><select class="uRole" data-email="${esc(email)}">
       <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+      <option value="superuser" ${u.role==='superuser'?'selected':''}>Superuser</option>
       <option value="orientatore" ${u.role==='orientatore'?'selected':''}>Orientatore</option>
       <option value="docente" ${u.role==='docente'?'selected':''}>Docente</option>
     </select></td>
     <td><input type="checkbox" class="uAttivo" data-email="${esc(email)}" ${u.attivo!==false?'checked':''}></td>
     <td><button class="rowbtn uDel" data-email="${esc(email)}" title="Rimuovi">✕</button></td>
-  </tr>`; });
+  </tr>`;
+    // Superuser = stesse potenzialità di admin, ma solo sulle attività che rientrano in questo ambito
+    // (nessuna selezione su una riga = nessuna restrizione su quella dimensione, vede tutto)
+    if(u.role==='superuser'){
+      const sc=u.scope||{tipologia:[],area:[]};
+      const tipChips=TIPI.map(t=>`<button type="button" class="chip uScopeTipo ${sc.tipologia&&sc.tipologia.includes(t)?'on':''}" data-email="${esc(email)}" data-v="${esc(t)}">${esc(t)}</button>`).join("");
+      const areeList=allKnownAreas();
+      const areaChips=areeList.length ? areeList.map(a=>`<button type="button" class="chip uScopeArea ${sc.area&&sc.area.includes(a)?'on':''}" data-email="${esc(email)}" data-v="${esc(a)}">${esc(a)}</button>`).join("") : `<span class="hint">Nessun corso configurato.</span>`;
+      h+=`<tr><td colspan="4" style="background:var(--surface-2);padding:12px 14px">
+        <div style="font-size:11.5px;font-weight:700;color:var(--ink-mute);margin-bottom:6px">AMBITO SUPERUSER — nessuna selezione su una riga = nessuna restrizione su quella dimensione</div>
+        <div class="hint" style="margin-bottom:4px">Tipologia</div>
+        <div class="chips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${tipChips}</div>
+        <div class="hint" style="margin-bottom:4px">Corso/Area</div>
+        <div class="chips" style="display:flex;gap:6px;flex-wrap:wrap">${areaChips}</div>
+      </td></tr>`;
+    }
+  });
   h+=`</tbody>`; document.getElementById("usersTable").innerHTML=h;
-  document.querySelectorAll(".uRole").forEach(s=>s.onchange=()=>{ const email=s.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.role=s.value; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
-  document.querySelectorAll(".uAttivo").forEach(c=>c.onchange=()=>{ const email=c.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.attivo=c.checked; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
+  document.querySelectorAll(".uRole").forEach(s=>s.onchange=()=>{ const email=s.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.role=s.value; if(u.role==='superuser' && !u.scope) u.scope={tipologia:[],area:[]}; save(); renderUsersTable(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo,u.scope); });
+  document.querySelectorAll(".uAttivo").forEach(c=>c.onchange=()=>{ const email=c.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.attivo=c.checked; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo,u.scope); });
+  document.querySelectorAll(".uScopeTipo,.uScopeArea").forEach(b=>b.onclick=()=>{
+    const email=b.dataset.email, u=STATE.appUsers[email]; if(!u) return;
+    if(!u.scope) u.scope={tipologia:[],area:[]};
+    const dim=b.classList.contains('uScopeTipo')?'tipologia':'area';
+    if(!u.scope[dim]) u.scope[dim]=[];
+    const i=u.scope[dim].indexOf(b.dataset.v);
+    if(i>=0) u.scope[dim].splice(i,1); else u.scope[dim].push(b.dataset.v);
+    save(); renderUsersTable(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo,u.scope);
+  });
   document.querySelectorAll(".uDel").forEach(b=>b.onclick=async()=>{ const email=b.dataset.email; if(!confirm(`Rimuovere l'utente ${email}?`))return; delete STATE.appUsers[email]; save(); renderUsersTable(); applyRole(); if(cloudReady()){ const {error}=await sb.from('bdg_app_users').delete().eq('email',email); error?cloudErr('utente',error):flashSynced(); } });
 }
 function renderTabVisTable(){
-  let h=`<thead><tr><th class="l">Strumento</th><th class="l">Sezione</th><th>Admin</th><th>Orientatore</th><th>Docente</th></tr></thead><tbody>`;
+  let h=`<thead><tr><th class="l">Strumento</th><th class="l">Sezione</th><th>Admin</th><th>Superuser</th><th>Orientatore</th><th>Docente</th></tr></thead><tbody>`;
   Object.keys(TOOL_TABS).forEach(tool=>{
     TOOL_TABS[tool].forEach(([key,label])=>{
       const get=role=>{ const cfg=STATE.tabVisibility[tool]&&STATE.tabVisibility[tool][key]; return cfg&&Object.prototype.hasOwnProperty.call(cfg,role)?!!cfg[role]:false; };
+      // Superuser vede tutto per default (come Admin), a differenza di Orientatore/Docente: qui la
+      // casella riflette quello, non "false" finché non viene esplicitamente tolta una spunta
+      const getSuperuser=()=>{ const cfg=STATE.tabVisibility[tool]&&STATE.tabVisibility[tool][key]; return cfg&&Object.prototype.hasOwnProperty.call(cfg,'superuser')?!!cfg['superuser']:true; };
       const toolLabel=tool==='budget'?'Gestione Budget':tool==='spese_ec'?'Spese EC':'Docenti';
       h+=`<tr>
         <td class="l">${toolLabel}</td>
         <td class="l">${esc(label)}</td>
         <td><input type="checkbox" checked disabled title="Admin vede sempre tutto"></td>
+        <td><input type="checkbox" class="tvChk" data-tool="${tool}" data-tab="${key}" data-role="superuser" ${getSuperuser()?'checked':''}></td>
         <td><input type="checkbox" class="tvChk" data-tool="${tool}" data-tab="${key}" data-role="orientatore" ${get('orientatore')?'checked':''}></td>
         <td><input type="checkbox" class="tvChk" data-tool="${tool}" data-tab="${key}" data-role="docente" ${get('docente')?'checked':''}></td>
       </tr>`;
@@ -2643,12 +2837,12 @@ async function cloudFetchRoles(){
   try{
     const {data:au,error:eu}=await sb.from('bdg_app_users').select('*'); if(eu) throw eu;
     const {data:tvz,error:et}=await sb.from('bdg_tab_visibility').select('*'); if(et) throw et;
-    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false}; });
+    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,scope:r.scope||null}; });
     const vis={}; (tvz||[]).forEach(r=>{ if(!vis[r.tool])vis[r.tool]={}; if(!vis[r.tool][r.tab_key])vis[r.tool][r.tab_key]={}; vis[r.tool][r.tab_key][r.role]=!!r.visible; });
     STATE.appUsers=users; STATE.tabVisibility=vis;
   }catch(e){ console.error('roles fetch',e); }
 }
-function cloudUpsertAppUser(email,role,attivo){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_app_users').upsert({email:String(email||'').toLowerCase(),role,attivo:attivo!==false}).then(({error})=>{ error?cloudErr('utente',error):flashSynced(); return {error}; }); }
+function cloudUpsertAppUser(email,role,attivo,scope){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_app_users').upsert({email:String(email||'').toLowerCase(),role,attivo:attivo!==false,scope:scope||null}).then(({error})=>{ error?cloudErr('utente',error):flashSynced(); return {error}; }); }
 function cloudSetTabVisible(tool,tabKey,role,visible){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_tab_visibility').upsert({tool,tab_key:tabKey,role,visible}).then(({error})=>{ error?cloudErr('visibilità tab',error):flashSynced(); return {error}; }); }
 function cloudUpsertInterface(i){ if(!cloudReady())return; sb.from('bdg_orientamento_interfaces').upsert(interfaceRow(i)).then(({error})=>{ error?cloudErr('interfaccia',error):flashSynced(); }); }
 function cloudUpsertTeacher(t){ if(!cloudReady())return; sb.from('bdg_teachers').upsert(teacherRow(t)).then(({error})=>{ error?cloudErr('docente',error):flashSynced(); }); }
@@ -2727,8 +2921,16 @@ function switchTab(tab){
   document.getElementById("panel-"+tab).classList.add("on");
   if(tab==='chiusura') renderChiusura();
   if(tab==='scuole') renderSchoolsTable();
+  if(tab==='calendario') renderCalendario();
 }
 document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
+document.getElementById("calToday").onclick=()=>{ calMonth=todayMonth(); renderCalendario(); };
+document.getElementById("calPrev").onclick=()=>calShift(-1);
+document.getElementById("calNext").onclick=()=>calShift(1);
+document.getElementById("calPreviewClose").onclick=closeCalPreview;
+document.getElementById("calPreviewClose2").onclick=closeCalPreview;
+document.getElementById("calPreviewOpen").onclick=()=>{ const id=calPreviewId; closeCalPreview(); if(id) openActivity(id); };
+document.getElementById("calPreviewOverlay").onclick=e=>{ if(e.target.id==="calPreviewOverlay") e.currentTarget.classList.remove("on"); };
 document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); updateViewIndicator(); };
 document.getElementById("riepFySel").onchange=e=>{ STATE.riepFy=+e.target.value; STATE.riepMonths=[]; save(); renderRiepMonthChips(); renderRiepilogo(); };
 document.getElementById("riepFiltersToggle").onclick=()=>{
@@ -2850,9 +3052,10 @@ document.getElementById("btnAddUser").onclick=()=>{
   const email=(document.getElementById("newUserEmail").value||"").trim().toLowerCase();
   const role=document.getElementById("newUserRole").value;
   if(!email||!/^[^@]+@[^@]+\.[^@]+$/.test(email)){ toast("Inserisci un'email valida"); return; }
-  STATE.appUsers[email]={role,attivo:true}; save(); renderUsersTable(); applyRole();
+  const scope=role==='superuser'?{tipologia:[],area:[]}:null;
+  STATE.appUsers[email]={role,attivo:true,scope}; save(); renderUsersTable(); applyRole();
   document.getElementById("newUserEmail").value="";
-  cloudUpsertAppUser(email,role,true);
+  cloudUpsertAppUser(email,role,true,scope);
 };
 document.getElementById("ntClose").onclick=closeNewTeacherModal;
 document.getElementById("ntCancel").onclick=closeNewTeacherModal;
