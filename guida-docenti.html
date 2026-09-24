@@ -131,7 +131,15 @@ body{margin:0;background:var(--tut-bg);color:var(--tut-ink);font-family:'Inter',
 
 .mk-form{display:flex;flex-direction:column;gap:14px}
 .mk-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mk-field{position:relative}
 .mk-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mk-ink-mute);margin-bottom:6px}
+.mk-dropdown-pop{position:absolute;left:0;top:100%;margin-top:4px;min-width:150px;width:max-content;max-width:230px;background:var(--mk-surface);border:1px solid var(--mk-line-strong);border-radius:10px;box-shadow:0 14px 30px -10px rgba(0,0,0,.3);padding:5px;z-index:35;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .3s,transform .3s}
+.mk-dropdown-pop.show{opacity:1;transform:translateY(0)}
+.mk-dropdown-pop .opt{padding:7px 10px;border-radius:7px;font-size:12.5px;color:var(--mk-ink-soft);white-space:nowrap}
+.mk-dropdown-pop .opt.sel{background:var(--mk-accent-soft);color:var(--mk-accent-ink);font-weight:700}
+.mk-dropdown-pop .opt.add{color:var(--mk-accent);font-weight:700;border-top:1px solid var(--mk-line);margin-top:3px;padding-top:9px}
+.mk-btn.ghost{background:var(--mk-surface);color:var(--mk-ink);border:1px solid var(--mk-line-strong)}
+.mk-card.form{overflow:visible}
 .mk-field label b.req{color:var(--mk-over)}
 .mk-help{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1.4px solid var(--mk-accent);color:var(--mk-accent);font-weight:700;font-size:9.5px;margin-left:5px;vertical-align:middle}
 .mk-input,.mk-select,.mk-textarea{width:100%;border:1px solid var(--mk-line-strong);border-radius:9px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--mk-surface);color:var(--mk-ink)}
@@ -164,6 +172,15 @@ body{margin:0;background:var(--tut-bg);color:var(--tut-ink);font-family:'Inter',
 
 .mk-toast{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);background:#3A1712;color:#F9DCD3;border:1px solid #6E2A20;border-radius:10px;padding:11px 16px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 10px 24px -8px rgba(0,0,0,.4);max-width:88%}
 .mk-toast svg{width:15px;height:15px;flex:none;color:#E38B78}
+
+.mk-calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--mk-line);border:1px solid var(--mk-line);border-radius:11px;overflow:hidden}
+.mk-caldow{background:var(--mk-surface2);padding:6px 3px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mk-ink-mute)}
+.mk-calcell{background:var(--mk-surface);min-height:56px;padding:5px;display:flex;flex-direction:column;gap:3px}
+.mk-calcell.blank{background:var(--mk-surface2)}
+.mk-caldn{font-size:10px;color:var(--mk-ink-mute);font-weight:600}
+.mk-calentry{font-size:9px;padding:2px 4px;border-radius:5px;background:var(--mk-accent-soft);color:var(--mk-accent-ink);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.mk-calentry.warn{background:var(--mk-warn-soft);color:var(--mk-warn)}
+@media (max-width:640px){ .mk-calcell{min-height:44px} .mk-calentry{font-size:8px} }
 
 .mk-outro{padding:64px 30px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}
 .mk-outro .badge-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
@@ -236,7 +253,7 @@ var ICON = {
 };
 
 function tabbar(active){
-  var tabs=['Le mie attività','Il mio riepilogo','Scuole'];
+  var tabs=['Le mie attività','Il mio riepilogo','Calendario','Scuole'];
   return '<div class="mk-tabs" data-tut="tabs">'+tabs.map(function(t){return '<button class="mk-tab'+(t===active?' on':'')+'">'+t+'</button>';}).join('')+'</div>';
 }
 function topbar(){
@@ -256,35 +273,43 @@ intro: function(){
 lista: function(){
   return '<div class="mk">'+topbar()+tabbar('Le mie attività')+banner()+
   '<div class="mk-pad">'+
-    '<div class="mk-h1"><div><h2>Attività</h2><div class="sub">4 attività · € 530</div></div>'+
+    '<div class="mk-h1"><div><h2>Attività</h2><div class="sub">5 attività · € 680</div></div>'+
       '<button class="mk-btn" data-tut="nuova-btn">'+ICON.plus+'Nuova attività</button></div>'+
     '<div class="mk-card">'+
+      '<div class="mk-rows2" data-tut="macro-rows">'+
       '<div class="mk-row">'+
         '<span class="ty"><div class="who">Francesco Albano</div><div class="sub2">Workshop · Liceo Artistico Caravaggio · Milano · Design</div></span>'+
-        '<span class="dt">30/09</span>'+
-        '<span class="mk-badge warn" data-tut="row1-badge">programmata</span>'+
+        '<span class="dt">06/10</span>'+
+        '<span class="mk-badge warn" data-tut="row-future-badge">programmata</span>'+
         '<span class="amt">€ 150,00</span>'+
-        '<span class="mk-acts" data-tut="row1-actions"><span class="mk-iconbtn check">'+ICON.check+'</span><span class="mk-iconbtn x">'+ICON.x+'</span></span>'+
+        '<span class="mk-acts" data-tut="row-future-actions"><span class="mk-iconbtn check">'+ICON.check+'</span><span class="mk-iconbtn x">'+ICON.x+'</span></span>'+
+      '</div>'+
+      '<div class="mk-row">'+
+        '<span class="ty"><div class="who">Francesco Albano</div><div class="sub2">Workshop · Liceo Artistico Caravaggio · Milano · Design</div></span>'+
+        '<span class="dt">07/10</span>'+
+        '<span class="mk-badge warn">programmata</span>'+
+        '<span class="amt">€ 150,00</span>'+
+      '</div>'+
       '</div>'+
       '<div class="mk-row">'+
         '<span class="ty"><div class="who">Francesco Albano</div><div class="sub2">Open Day · Liceo Artistico Caravaggio · Milano · Design</div></span>'+
         '<span class="dt">20/09</span>'+
         '<span class="mk-badge ok">svolta</span>'+
-        '<span class="mk-badge trace" data-tut="row2-badge">in attesa di RDA</span>'+
+        '<span class="mk-badge trace" data-tut="row-pending-badge">in attesa di RDA</span>'+
         '<span class="amt">€ 200,00</span>'+
-      '</div>'+
-      '<div class="mk-row" data-tut="row34-badges">'+
-        '<span class="ty"><div class="who">Denise Carnini</div><div class="sub2">Webinar · Liceo Artistico Caravaggio · Milano · Fashion</div></span>'+
-        '<span class="dt">13/09</span>'+
-        '<span class="mk-badge ok">svolta</span>'+
-        '<span class="mk-badge ok">RDA Pagato · RDA-2026-0139</span>'+
-        '<span class="amt">€ 90,00</span>'+
       '</div>'+
       '<div class="mk-row">'+
         '<span class="ty"><div class="who">Denise Carnini</div><div class="sub2">Webinar · Liceo Artistico Caravaggio · Milano · Fashion</div></span>'+
         '<span class="dt">03/09</span>'+
         '<span class="mk-badge ok">svolta</span>'+
-        '<span class="mk-badge ok">RDA inserita · RDA-2026-0142</span>'+
+        '<span class="mk-badge warn" data-tut="row-inserita-badge">RDA inserita · RDA-2026-0142</span>'+
+        '<span class="amt">€ 90,00</span>'+
+      '</div>'+
+      '<div class="mk-row">'+
+        '<span class="ty"><div class="who">Denise Carnini</div><div class="sub2">Webinar · Liceo Artistico Caravaggio · Milano · Fashion</div></span>'+
+        '<span class="dt">13/09</span>'+
+        '<span class="mk-badge ok">svolta</span>'+
+        '<span class="mk-badge ok" data-tut="row-pagato-badge">RDA Pagato · RDA-2026-0139</span>'+
         '<span class="amt">€ 90,00</span>'+
       '</div>'+
     '</div>'+
@@ -293,37 +318,102 @@ lista: function(){
 
 listaErr: function(){
   return SCENES.lista().replace('</div></div>','</div>'+
-    '<div class="mk-toast" style="display:flex" data-tut="err-toast">'+ICON.warn+'Non puoi segnare come svolta un\'attività futura (30/09): puoi confermarla solo dalla data in poi.</div></div>');
+    '<div class="mk-toast" style="display:flex" data-tut="err-toast">'+ICON.warn+'Non puoi segnare come svolta un\'attività futura (06/10): puoi confermarla solo dalla data in poi.</div></div>');
 },
 
 form: function(){
   return '<div class="mk">'+topbar()+
   '<div class="mk-pad" style="padding-top:18px">'+
     '<div class="mk-h1"><h2>Nuova attività</h2></div>'+
-    '<div class="mk-card" style="padding:18px 18px 20px">'+
+    '<div class="mk-card form" style="padding:18px 18px 20px">'+
     '<div class="mk-form">'+
       '<div class="mk-grid2">'+
-        '<div class="mk-field" data-tut="f-docente"><label>Docente <b class="req">*</b></label><select class="mk-select"><option>Francesco Albano</option><option>Denise Carnini</option></select></div>'+
-        '<div class="mk-field" data-tut="f-tipo"><label>Tipologia <b class="req">*</b></label><select class="mk-select"><option>Workshop</option><option>Open Day</option><option>Naba Incontri</option><option>Naba Experience</option><option>Webinar</option><option>Test</option><option>Altro</option></select></div>'+
+        '<div class="mk-field" data-tut="f-docente"><label>Docente <b class="req">*</b></label><select class="mk-select"><option>Francesco Albano</option><option>Denise Carnini</option></select>'+
+          '<div class="mk-dropdown-pop" data-tut="f-docente-pop"><div class="opt sel">Francesco Albano</div><div class="opt">Denise Carnini</div><div class="opt add">+ Aggiungi nuovo docente…</div></div>'+
+        '</div>'+
+        '<div class="mk-field" data-tut="f-tipo"><label>Tipologia <b class="req">*</b></label><select class="mk-select"><option>Workshop</option><option>Open Day</option><option>NabaIncontra</option><option>NabaExperience</option><option>Webinar</option><option>Test</option><option>Altro</option></select>'+
+          '<div class="mk-dropdown-pop" data-tut="f-tipo-pop"><div class="opt sel">Workshop</div><div class="opt">Open Day</div><div class="opt">NabaIncontra</div><div class="opt">NabaExperience</div><div class="opt">Webinar</div><div class="opt">Test</div><div class="opt">Altro</div></div>'+
+        '</div>'+
       '</div>'+
       '<div class="mk-field" data-tut="f-scuola"><label>Scuola</label><input class="mk-input ph" value="Liceo Artistico Caravaggio — Milano"></div>'+
       '<div class="mk-grid2">'+
-        '<div class="mk-field" data-tut="f-corso"><label>Corso <b class="req">*</b></label><select class="mk-select"><option>Design</option></select></div>'+
+        '<div class="mk-field" data-tut="f-corso"><label>Corso <b class="req">*</b></label><select class="mk-select"><option>Design</option></select>'+
+          '<div class="mk-dropdown-pop" data-tut="f-corso-pop"><div class="opt sel">Design</div><div class="opt">Fashion</div></div>'+
+        '</div>'+
         '<div class="mk-field" data-tut="f-importo"><label>Importo orario <b class="req">*</b><span class="mk-help">?</span></label><input class="mk-input" value="50"></div>'+
       '</div>'+
       '<div class="mk-daterow" data-tut="f-daterow">'+
         '<div class="mk-field"><label>Data</label><input class="mk-input" value="06/10/2026"></div>'+
         '<div class="mk-field"><label>Ore</label><input class="mk-input" value="3"></div>'+
         '<div class="mk-field"><label>Importo</label><input class="mk-input" value="€ 150"></div>'+
-        '<div class="mk-field"><label>Sede</label><select class="mk-select"><option>In Campus</option><option>A scuola</option><option>Esterna</option></select></div>'+
+        '<div class="mk-field"><label>Sede</label><select class="mk-select"><option>In Campus</option><option>A scuola</option><option>Esterna</option></select>'+
+          '<div class="mk-dropdown-pop" data-tut="f-sede-pop"><div class="opt sel">In Campus</div><div class="opt">A scuola</div><div class="opt">Esterna</div></div>'+
+        '</div>'+
         '<div class="mk-field"><label>Dalle</label><select class="mk-select"><option>09:00</option></select></div>'+
         '<div class="mk-field"><label>Alle</label><select class="mk-select"><option>12:00</option></select></div>'+
       '</div>'+
+      '<button type="button" class="mk-btn ghost" data-tut="f-add-date" style="align-self:flex-start">'+ICON.plus+'aggiungi data</button>'+
+    '</div></div>'+
+  '</div></div>';
+},
+
+formMulti: function(){
+  return '<div class="mk">'+topbar()+
+  '<div class="mk-pad" style="padding-top:18px">'+
+    '<div class="mk-h1"><h2>Nuova attività</h2></div>'+
+    '<div class="mk-card form" style="padding:18px 18px 20px">'+
+    '<div class="mk-form">'+
+      '<div class="mk-grid2">'+
+        '<div class="mk-field"><label>Docente <b class="req">*</b></label><select class="mk-select"><option>Francesco Albano</option></select></div>'+
+        '<div class="mk-field"><label>Tipologia <b class="req">*</b></label><select class="mk-select"><option>Workshop</option></select></div>'+
+      '</div>'+
+      '<div class="mk-field"><label>Scuola</label><input class="mk-input ph" value="Liceo Artistico Caravaggio — Milano"></div>'+
+      '<div class="mk-grid2">'+
+        '<div class="mk-field"><label>Corso <b class="req">*</b></label><select class="mk-select"><option>Design</option></select></div>'+
+        '<div class="mk-field"><label>Importo orario <b class="req">*</b><span class="mk-help">?</span></label><input class="mk-input" value="50"></div>'+
+      '</div>'+
+      '<div class="mk-daterow">'+
+        '<div class="mk-field"><label>Data</label><input class="mk-input" value="06/10/2026"></div>'+
+        '<div class="mk-field"><label>Ore</label><input class="mk-input" value="3"></div>'+
+        '<div class="mk-field"><label>Importo</label><input class="mk-input" value="€ 150"></div>'+
+        '<div class="mk-field"><label>Sede</label><select class="mk-select"><option>In Campus</option></select></div>'+
+        '<div class="mk-field"><label>Dalle</label><select class="mk-select"><option>09:00</option></select></div>'+
+        '<div class="mk-field"><label>Alle</label><select class="mk-select"><option>12:00</option></select></div>'+
+      '</div>'+
+      '<div class="mk-daterow" data-tut="f-daterow2">'+
+        '<div class="mk-field"><label>Data</label><input class="mk-input" value="07/10/2026"></div>'+
+        '<div class="mk-field"><label>Ore</label><input class="mk-input" value="3"></div>'+
+        '<div class="mk-field"><label>Importo</label><input class="mk-input" value="€ 150"></div>'+
+        '<div class="mk-field"><label>Sede</label><select class="mk-select"><option>In Campus</option></select></div>'+
+        '<div class="mk-field"><label>Dalle</label><select class="mk-select"><option>09:00</option></select></div>'+
+        '<div class="mk-field"><label>Alle</label><select class="mk-select"><option>12:00</option></select></div>'+
+      '</div>'+
+      '<button type="button" class="mk-btn ghost" style="align-self:flex-start">'+ICON.plus+'aggiungi data</button>'+
       '<div class="mk-field" data-tut="f-note"><label>Note <b class="req">*</b><span class="mk-help">?</span></label><textarea class="mk-textarea ph" rows="2">Inserire eventuali spese di trasferta, location esterna, richieste particolari...altro</textarea></div>'+
       '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px">'+
         '<button class="mk-btn" data-tut="f-save" style="background:var(--mk-accent)">'+ICON.check+'Salva attività</button>'+
       '</div>'+
     '</div></div>'+
+  '</div></div>';
+},
+
+calendario: function(){
+  var dow=['Lun','Mar','Mer','Gio','Ven','Sab','Dom'];
+  var head=dow.map(function(d){ return '<div class="mk-caldow">'+d+'</div>'; }).join('');
+  var cells='';
+  var blanks=3; // il mese inizia di giovedì, per esempio
+  for(var i=0;i<blanks;i++) cells+='<div class="mk-calcell blank"></div>';
+  for(var d=1; d<=28; d++){
+    var entry='';
+    if(d===6) entry='<div class="mk-calentry" data-tut="cal-entry">F. Albano · Workshop</div>';
+    if(d===7) entry='<div class="mk-calentry">F. Albano · Workshop</div>';
+    if(d===13) entry='<div class="mk-calentry warn">D. Carnini · Webinar</div>';
+    cells+='<div class="mk-calcell"><div class="mk-caldn">'+d+'</div>'+entry+'</div>';
+  }
+  return '<div class="mk">'+topbar()+tabbar('Calendario')+banner()+
+  '<div class="mk-pad">'+
+    '<div class="mk-h1"><h2>Calendario</h2><div class="sub">Ottobre 2026</div></div>'+
+    '<div class="mk-calgrid" data-tut="cal-grid">'+head+cells+'</div>'+
   '</div></div>';
 },
 
@@ -363,36 +453,43 @@ outro: function(){
     '<div class="eyebrow" style="color:var(--mk-accent);font-family:\'JetBrains Mono\',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:700">Hai finito la guida</div>'+
     '<h2>Sei pronto per inserire le tue attività</h2>'+
     '<p>Inserisci l\'attività, confermala come svolta quando avviene, e segui il pagamento dai badge colorati: in attesa di RDA → RDA inserita → RDA Pagato.</p>'+
-    '<div class="badge-row"><span class="mk-badge warn">programmata</span><span class="mk-badge trace">in attesa di RDA</span><span class="mk-badge ok">RDA inserita</span><span class="mk-badge ok">RDA Pagato</span></div>'+
+    '<div class="badge-row"><span class="mk-badge warn">programmata</span><span class="mk-badge trace">in attesa di RDA</span><span class="mk-badge warn">RDA inserita</span><span class="mk-badge ok">RDA Pagato</span></div>'+
   '</div></div>';
 }
 };
 
 /* ============================== SCRIPT (passi) ============================== */
 var STEPS = [
-  {scene:'intro', section:'Benvenuto', target:'brand', caption:'Ciao! Sono la tua guida al tool Docenti di NABA. In pochi minuti ti mostro come inserire le attività, leggere i pagamenti e usare i filtri.', speech:'Ciao! Sono la tua guida al tool Docenti di NABA. In pochi minuti ti mostro come inserire le attività, leggere i pagamenti e usare i filtri.'},
+  {scene:'intro', section:'Benvenuto', target:'brand', caption:'Ciao! Sono la tua guida al tool Docenti di NABA. In pochi minuti ti mostro come inserire un\'attività, leggerla nell\'elenco e usare i filtri.', speech:'Ciao! Sono la tua guida al tool Docenti di NABA. In pochi minuti ti mostro come inserire un\'attività, leggerla nell\'elenco e usare i filtri.'},
   {scene:'intro', section:'Benvenuto', target:'banner', caption:'Quando accedi, il sistema ti riconosce come interfaccia di orientamento: gestisci le attività di uno o più docenti reali collegati a te, non un tuo profilo personale.', speech:'Quando accedi, il sistema ti riconosce come interfaccia di orientamento: gestisci le attività di uno o più docenti reali collegati a te, non un tuo profilo personale.'},
-  {scene:'intro', section:'Benvenuto', target:'tabs', caption:'In alto trovi tre sezioni: Le mie attività, Il mio riepilogo e Scuole. Iniziamo dalla prima.', speech:'In alto trovi tre sezioni: le mie attività, il mio riepilogo e scuole. Iniziamo dalla prima.'},
+  {scene:'intro', section:'Benvenuto', target:'tabs', caption:'In alto trovi quattro sezioni: Le mie attività, Il mio riepilogo, Calendario e Scuole. Iniziamo da come si inserisce un\'attività.', speech:'In alto trovi quattro sezioni: le mie attività, il mio riepilogo, calendario e scuole. Iniziamo da come si inserisce un\'attività.'},
 
-  {scene:'lista', section:'Leggere le attività', target:'nuova-btn', caption:'Da qui aggiungi una nuova attività in qualsiasi momento, con il pulsante in alto a destra.', speech:'Da qui aggiungi una nuova attività in qualsiasi momento, con il pulsante in alto a destra.'},
-  {scene:'lista', section:'Leggere le attività', target:'row1-badge', caption:'Ogni attività nasce con lo stato "programmata": è stata pianificata ma non ancora svolta.', speech:'Ogni attività nasce con lo stato programmata: è stata pianificata ma non ancora svolta.'},
-  {scene:'lista', section:'Leggere le attività', target:'row1-actions', caption:'Con questi due pulsanti la confermi come svolta (la spunta) oppure la annulli (la croce) se non si è più tenuta.', speech:'Con questi due pulsanti la confermi come svolta, con la spunta, oppure la annulli con la croce se non si è più tenuta.'},
-  {scene:'lista', section:'Leggere le attività', target:'row2-badge', caption:'Una volta confermata come svolta, l\'attività entra "in attesa di RDA": aspetta solo che l\'amministrazione generi la richiesta di pagamento.', speech:'Una volta confermata come svolta, l\'attività entra in attesa di R D A: aspetta solo che l\'amministrazione generi la richiesta di pagamento.'},
-  {scene:'lista', section:'Leggere le attività', target:'row34-badges', caption:'Quando l\'RDA viene inserita vedi il suo codice; quando viene pagata, il badge diventa "RDA Pagato": segui l\'intero percorso del compenso senza chiedere nulla a nessuno.', speech:'Quando l\'R D A viene inserita vedi il suo codice; quando viene pagata, il badge diventa R D A pagato. Segui così l\'intero percorso del compenso senza chiedere nulla a nessuno.'},
-
-  {scene:'form', section:'Inserire un\'attività', target:'f-docente', caption:'Nel modulo "Nuova attività" il primo campo è il Docente: l\'elenco mostra solo i docenti collegati alla tua interfaccia.', speech:'Nel modulo nuova attività il primo campo è il Docente: l\'elenco mostra solo i docenti collegati alla tua interfaccia.'},
-  {scene:'form', section:'Inserire un\'attività', target:'f-tipo', caption:'Poi scegli la Tipologia: Workshop, Open Day, Naba Incontri, Naba Experience, Webinar, Test o Altro.', speech:'Poi scegli la tipologia: workshop, open day, naba incontri, naba experience, webinar, test o altro.'},
+  {scene:'form', section:'Inserire un\'attività', target:'f-docente', reveal:'f-docente-pop', caption:'Il primo campo è il Docente: l\'elenco mostra solo i docenti collegati alla tua interfaccia. In fondo trovi anche «+ Aggiungi nuovo docente»: se manca chi ti serve, lo crei al volo senza uscire dal modulo.', speech:'Il primo campo è il Docente: l\'elenco mostra solo i docenti collegati alla tua interfaccia. In fondo trovi anche Aggiungi nuovo docente: se manca chi ti serve, lo crei al volo senza uscire dal modulo.'},
+  {scene:'form', section:'Inserire un\'attività', target:'f-tipo', reveal:'f-tipo-pop', caption:'Poi scegli la Tipologia: Workshop, Open Day, Naba Incontra, Naba Experience, Webinar, Test o Altro.', speech:'Poi scegli la tipologia: workshop, open day, naba incontra, naba experience, webinar, test o altro.'},
   {scene:'form', section:'Inserire un\'attività', target:'f-scuola', caption:'Cerchi la scuola digitando il nome o la città, in qualsiasi ordine: il sistema la trova nell\'anagrafica CRM.', speech:'Cerchi la scuola digitando il nome o la città, in qualsiasi ordine: il sistema la trova nell\'anagrafica C R M.'},
+  {scene:'form', section:'Inserire un\'attività', target:'f-corso', reveal:'f-corso-pop', caption:'Subito dopo selezioni il Corso di appartenenza: l\'elenco mostra solo i corsi collegati alla tua interfaccia, così non sbagli mai categoria.', speech:'Subito dopo selezioni il Corso di appartenenza: l\'elenco mostra solo i corsi collegati alla tua interfaccia, così non sbagli mai categoria.'},
   {scene:'form', section:'Inserire un\'attività', target:'f-importo', caption:'L\'Importo orario arriva già precompilato dalla scheda del docente, ma puoi modificarlo solo per questa attività: l\'icona con il punto interrogativo te lo ricorda.', speech:'L\'importo orario arriva già precompilato dalla scheda del docente, ma puoi modificarlo solo per questa attività: l\'icona con il punto interrogativo te lo ricorda.'},
-  {scene:'form', section:'Inserire un\'attività', target:'f-daterow', caption:'Per ogni data indichi le ore, la sede (a scuola, in campus o esterna) e, se serve, l\'orario di inizio e fine: l\'importo si calcola da solo.', speech:'Per ogni data indichi le ore, la sede: a scuola, in campus o esterna, e se serve l\'orario di inizio e fine. L\'importo si calcola da solo.'},
-  {scene:'form', section:'Inserire un\'attività', target:'f-note', caption:'Il campo Note è sempre obbligatorio: usalo per segnalare spese di trasferta, location esterne o richieste particolari.', speech:'Il campo note è sempre obbligatorio: usalo per segnalare spese di trasferta, location esterne o richieste particolari.'},
-  {scene:'form', section:'Inserire un\'attività', target:'f-save', caption:'Premendo "Salva attività", l\'attività nasce sempre come Programmata, pronta per essere confermata quando si sarà davvero svolta.', speech:'Premendo salva attività, l\'attività nasce sempre come programmata, pronta per essere confermata quando si sarà davvero svolta.'},
+  {scene:'form', section:'Inserire un\'attività', target:'f-daterow', reveal:'f-sede-pop', caption:'Per ogni data indichi le ore, la sede (a scuola, in campus o esterna) e, se serve, l\'orario di inizio e fine: l\'importo si calcola da solo.', speech:'Per ogni data indichi le ore, la sede: a scuola, in campus o esterna, e se serve l\'orario di inizio e fine. L\'importo si calcola da solo.'},
+  {scene:'form', section:'Inserire un\'attività', target:'f-add-date', caption:'Se l\'attività si svolge su più giornate — un workshop di più incontri, per esempio — premi «+ aggiungi data»: si apre una nuova riga per la data successiva, con le stesse regole di ore, sede e orario.', speech:'Se l\'attività si svolge su più giornate, un workshop di più incontri per esempio, premi più aggiungi data: si apre una nuova riga per la data successiva, con le stesse regole di ore, sede e orario.'},
+  {scene:'formMulti', section:'Inserire un\'attività', target:'f-daterow2', caption:'Ecco la seconda giornata appena aggiunta: stessi campi, data diversa. Puoi aggiungerne quante ne servono, una riga per ogni data dell\'attività.', speech:'Ecco la seconda giornata appena aggiunta: stessi campi, data diversa. Puoi aggiungerne quante ne servono, una riga per ogni data dell\'attività.'},
+  {scene:'formMulti', section:'Inserire un\'attività', target:'f-note', caption:'Il campo Note è sempre obbligatorio: usalo per segnalare spese di trasferta, location esterne o richieste particolari.', speech:'Il campo note è sempre obbligatorio: usalo per segnalare spese di trasferta, location esterne o richieste particolari.'},
+  {scene:'formMulti', section:'Inserire un\'attività', target:'f-save', caption:'Premendo «Salva attività», l\'attività nasce sempre come Programmata — e se avevi aggiunto più date, vengono salvate come giornate distinte sotto la stessa attività: le ritrovi così nell\'elenco.', speech:'Premendo salva attività, l\'attività nasce sempre come programmata. Se avevi aggiunto più date, vengono salvate come giornate distinte sotto la stessa attività: le ritrovi così nell\'elenco.'},
+
+  {scene:'lista', section:'Leggere le attività', target:'macro-rows', caption:'Torniamo all\'elenco: l\'attività con due date che abbiamo appena creato compare come due righe separate, una per ciascuna giornata — stesso docente, stessa tipologia, ma stato indipendente per ognuna.', speech:'Torniamo all\'elenco: l\'attività con due date che abbiamo appena creato compare come due righe separate, una per ciascuna giornata. Stesso docente, stessa tipologia, ma stato indipendente per ognuna.'},
+  {scene:'lista', section:'Leggere le attività', target:'row-future-badge', caption:'Ogni giornata nasce con lo stato "programmata": è stata pianificata ma non ancora svolta.', speech:'Ogni giornata nasce con lo stato programmata: è stata pianificata ma non ancora svolta.'},
+  {scene:'lista', section:'Leggere le attività', target:'row-future-actions', caption:'Con questi due pulsanti la confermi come svolta (la spunta) oppure la annulli (la croce) se non si è più tenuta.', speech:'Con questi due pulsanti la confermi come svolta, con la spunta, oppure la annulli con la croce se non si è più tenuta.'},
+  {scene:'lista', section:'Leggere le attività', target:'row-pending-badge', caption:'Una volta confermata come svolta, la giornata entra "in attesa di RDA": aspetta solo che il team On Field generi la richiesta di pagamento.', speech:'Una volta confermata come svolta, la giornata entra in attesa di R D A: aspetta solo che il team On Field generi la richiesta di pagamento.'},
+  {scene:'lista', section:'Leggere le attività', target:'row-inserita-badge', caption:'Quando l\'RDA viene inserita il badge passa a «RDA Inserita», in giallo: il codice è già visibile.', speech:'Quando l\'R D A viene inserita, il badge passa a R D A inserita, in giallo: il codice è già visibile.'},
+  {scene:'lista', section:'Leggere le attività', target:'row-pagato-badge', caption:'Quando viene pagata, il badge diventa "RDA Pagato": puoi seguire l\'intero percorso del compenso senza chiedere nulla a nessuno.', speech:'Quando viene pagata, il badge diventa R D A pagato: puoi seguire l\'intero percorso del compenso senza chiedere nulla a nessuno.'},
 
   {scene:'listaErr', section:'Una regola importante', target:'err-toast', caption:'Un\'ultima cosa importante: il sistema non ti lascia confermare come svolta un\'attività la cui data non è ancora arrivata — comparirà un avviso che te lo ricorda.', speech:'Un\'ultima cosa importante: il sistema non ti lascia confermare come svolta un\'attività la cui data non è ancora arrivata. Comparirà un avviso che te lo ricorda.'},
 
   {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-filtri', caption:'Nella sezione "Il mio riepilogo" puoi filtrare per mese e anno accademico, per vedere solo il periodo che ti interessa.', speech:'Nella sezione il mio riepilogo puoi filtrare per mese e anno accademico, per vedere solo il periodo che ti interessa.'},
   {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-chips', caption:'Sotto ai filtri principali trovi i filtri per Corso e Tipologia: selezionane uno o più per restringere l\'analisi.', speech:'Sotto ai filtri principali trovi i filtri per corso e tipologia: selezionane uno o più per restringere l\'analisi.'},
   {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-tree', caption:'L\'elenco mostra, per ogni docente, quante attività, giornate e ore ha fatto — con lo stesso conteggio sempre coerente in tutto il tool.', speech:'L\'elenco mostra, per ogni docente, quante attività, giornate e ore ha fatto, con lo stesso conteggio sempre coerente in tutto il tool.'},
+
+  {scene:'calendario', section:'Calendario', target:'cal-grid', caption:'Nella sezione Calendario vedi tutte le tue attività in una vista mensile: un colpo d\'occhio su cosa succede giorno per giorno.', speech:'Nella sezione Calendario vedi tutte le tue attività in una vista mensile: un colpo d\'occhio su cosa succede giorno per giorno.'},
+  {scene:'calendario', section:'Calendario', target:'cal-entry', caption:'Clicca su una singola attività per aprirne subito il dettaglio, senza doverla cercare nell\'elenco.', speech:'Clicca su una singola attività per aprirne subito il dettaglio, senza doverla cercare nell\'elenco.'},
 
   {scene:'scuole', section:'La sezione Scuole', target:'s-filtri', caption:'Nella sezione Scuole puoi filtrare per regione, provincia o città, per trovare rapidamente la scuola che ti interessa.', speech:'Nella sezione scuole puoi filtrare per regione, provincia o città, per trovare rapidamente la scuola che ti interessa.'},
   {scene:'scuole', section:'La sezione Scuole', target:'s-row', caption:'Per ogni scuola vedi quante attività sono ancora programmate e quante già svolte — contate una volta sola per ogni attività, anche se dura più giornate.', speech:'Per ogni scuola vedi quante attività sono ancora programmate e quante già svolte: contate una volta sola per ogni attività, anche se dura più giornate.'},
@@ -415,7 +512,25 @@ var idx=-1, currentScene=null, playing=false, voiceOn=true, advanceTimer=null, v
 
 function loadVoices(){ try{ voices=speechSynthesis.getVoices()||[]; }catch(e){} }
 if('speechSynthesis' in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
-function pickItVoice(){ for(var i=0;i<voices.length;i++){ if(/^it/i.test(voices[i].lang)) return voices[i]; } return null; }
+// tra le voci italiane disponibili preferisce quelle che suonano meno robotiche: i browser espongono
+// spesso sia una voce "compatta" offline (veloce ma meccanica) sia una di rete più naturale (Google/
+// Natural/Neural/Online) — quando c'è, scegliamo quella
+function pickItVoice(){
+  var itVoices=voices.filter(function(v){ return /^it/i.test(v.lang); });
+  if(!itVoices.length) return null;
+  function score(v){
+    var n=(v.name||'').toLowerCase(); var s=0;
+    if(/natural/.test(n)) s+=4;
+    if(/neural/.test(n)) s+=4;
+    if(/google/.test(n)) s+=3;
+    if(/online/.test(n)) s+=2;
+    if(v.localService===false) s+=1;
+    if(/compact/.test(n)) s-=2;
+    return s;
+  }
+  itVoices.sort(function(a,b){ return score(b)-score(a); });
+  return itVoices[0];
+}
 
 function renderSections(){
   sectionStrip.innerHTML = SECTIONS.map(function(s){ return '<span class="section-chip" data-s="'+s+'">'+s+'</span>'; }).join('');
@@ -446,7 +561,7 @@ function speak(text, onDone){
   try{
     speechSynthesis.cancel();
     var u = new SpeechSynthesisUtterance(text);
-    u.lang='it-IT'; var v=pickItVoice(); if(v) u.voice=v; u.rate=1.0; u.pitch=1.0;
+    u.lang='it-IT'; var v=pickItVoice(); if(v) u.voice=v; u.rate=0.97; u.pitch=1.0;
     var done=false;
     function finish(){ if(done) return; done=true; onDone(); }
     u.onend=finish; u.onerror=finish;
@@ -470,6 +585,9 @@ function goTo(i, autoChain){
   }
   var raf = window.requestAnimationFrame || function(f){ setTimeout(f,16); };
   raf(function(){ raf(function(){
+    var openPops = stage.querySelectorAll('.mk-dropdown-pop.show');
+    for(var p=0;p<openPops.length;p++) openPops[p].classList.remove('show');
+    if(step.reveal){ var rp = stage.querySelector('[data-tut="'+step.reveal+'"]'); if(rp) rp.classList.add('show'); }
     positionCursor(step.target);
     caption.textContent = step.caption;
     progressFill.style.width = (((i+1)/STEPS.length)*100) + '%';
