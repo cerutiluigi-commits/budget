@@ -519,7 +519,10 @@ tfoot td.l{text-align:left}
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap">
       <div class="hgroup" style="background:var(--surface);border:1px solid var(--line-strong)"><label style="color:var(--ink-mute)">Anno fiscale</label><select id="riepFySel" style="color:var(--ink)"></select></div>
       <span class="hint">luglio → giugno · o seleziona uno o più mesi singoli qui sotto</span>
-      <button class="btn" id="btnNewActRiep" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuova attività</button>
+      <div style="display:flex;gap:8px;margin-left:auto">
+        <a class="btn ghost" href="guida-docenti.html" target="_blank" rel="noopener" style="text-decoration:none" title="Apre in una nuova scheda la guida animata su come inserire le attività"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Video guida</a>
+        <button class="btn" id="btnNewActRiep"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuova attività</button>
+      </div>
     </div>
     <div class="chips" id="riepMonthChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
     <button type="button" class="riep-filters-toggle" id="riepFiltersToggle">

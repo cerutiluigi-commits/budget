@@ -186,6 +186,32 @@ body{margin:0;background:var(--tut-bg);color:var(--tut-ink);font-family:'Inter',
 .mk-outro .badge-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
 .mk-outro h2{margin:0;font-size:22px;font-weight:800}
 .mk-outro p{margin:0;color:var(--mk-ink-soft);max-width:420px;line-height:1.6}
+
+/* ---- riepilogo: KPI e albero mese→docente, fedeli alla schermata reale ---- */
+.mk-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:18px}
+.mk-kpi{position:relative;background:var(--mk-surface);border:1px solid var(--mk-line);border-radius:12px;padding:12px 14px;overflow:hidden}
+.mk-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bar)}
+.mk-kpi .l{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.mk-kpi .sw{width:7px;height:7px;border-radius:2px;flex:none}
+.mk-kpi .eyebrow{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--mk-ink-mute);font-weight:700}
+.mk-kpi .v{font-size:20px;font-weight:800;line-height:1.1}
+.mk-kpi .sub{font-size:10px;color:var(--mk-ink-mute);margin-top:3px;line-height:1.4}
+@media (max-width:640px){ .mk-kpis{grid-template-columns:1fr 1fr} }
+.mk-node{background:var(--mk-surface);border:1px solid var(--mk-line);border-radius:12px;overflow:hidden}
+.mk-node.current{border-left:3px solid var(--mk-accent)}
+.mk-node-row{display:flex;align-items:center;gap:12px;padding:13px 15px;flex-wrap:wrap}
+.mk-twisty{width:15px;height:15px;color:var(--mk-ink-mute);transform:rotate(90deg);flex:none}
+.mk-node-title{font-weight:700;font-size:13.5px}
+.mk-node-sub{font-size:10.5px;color:var(--mk-ink-mute);margin-top:2px}
+.mk-riepstats{display:flex;gap:16px;margin-left:auto}
+.mk-riepstat .rl{display:block;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+.mk-riepstat.prog .rl{color:var(--mk-warn)}
+.mk-riepstat.done .rl{color:var(--mk-accent)}
+.mk-riepstat .rv{display:block;font-size:10.5px;color:var(--mk-ink-soft);white-space:nowrap}
+@media (max-width:640px){ .mk-riepstats{width:100%;margin-left:0;gap:20px} }
+.mk-node-children{border-top:1px solid var(--mk-line)}
+.mk-docente-row{display:flex;align-items:center;gap:12px;padding:11px 15px 11px 32px;border-bottom:1px solid var(--mk-line);flex-wrap:wrap}
+.mk-docente-row:last-child{border-bottom:0}
 </style>
 </head>
 <body>
@@ -418,18 +444,37 @@ calendario: function(){
 },
 
 riepilogo: function(){
+  var riepstats=function(progRv,doneRv){
+    return '<div class="mk-riepstats">'+
+      '<div class="mk-riepstat prog"><span class="rl">Programmate</span><span class="rv">'+progRv+'</span></div>'+
+      '<div class="mk-riepstat done"><span class="rl">Svolte</span><span class="rv">'+doneRv+'</span></div>'+
+    '</div>';
+  };
   return '<div class="mk">'+topbar()+tabbar('Il mio riepilogo')+banner()+
   '<div class="mk-pad">'+
-    '<div class="mk-filters" data-tut="r-filtri">'+
-      '<div class="mk-hgroup"><label>Mese</label><div class="val">Settembre 2026</div></div>'+
-      '<div class="mk-hgroup"><label>Anno accademico</label><div class="val">2026 / 2027</div></div>'+
+    '<div data-tut="r-filtri">'+
+      '<div class="mk-filters"><div class="mk-hgroup"><label>Anno fiscale</label><div class="val">FY 2026-2027</div></div></div>'+
+      '<div class="mk-chips">'+
+        '<span class="mk-chip on">Set \'26</span><span class="mk-chip">Ott \'26</span><span class="mk-chip">Nov \'26</span><span class="mk-chip">Dic \'26</span>'+
+      '</div>'+
     '</div>'+
-    '<div class="mk-chips" data-tut="r-chips">'+
-      '<span class="mk-chip on">Design</span><span class="mk-chip">Fashion</span><span class="mk-chip on">Workshop</span><span class="mk-chip">Webinar</span><span class="mk-chip">Open Day</span>'+
+    '<div class="mk-kpis" data-tut="r-kpis">'+
+      '<div class="mk-kpi" style="--bar:var(--mk-accent)"><div class="l"><span class="sw" style="background:var(--mk-accent)"></span><span class="eyebrow">Attività svolte</span></div><div class="v">3</div><div class="sub">3 giornate · 7 ore</div></div>'+
+      '<div class="mk-kpi" style="--bar:var(--mk-ink-mute)"><div class="l"><span class="sw" style="background:var(--mk-ink)"></span><span class="eyebrow">Importo svolto</span></div><div class="v">€ 380</div><div class="sub">da rendicontare in RDA</div></div>'+
+      '<div class="mk-kpi" style="--bar:var(--mk-warn)"><div class="l"><span class="sw" style="background:var(--mk-warn)"></span><span class="eyebrow">Attività programmate</span></div><div class="v">1</div><div class="sub">1 giornata · € 150,00 ancora da confermare</div></div>'+
+      '<div class="mk-kpi" style="--bar:var(--mk-over)"><div class="l"><span class="sw" style="background:var(--mk-over)"></span><span class="eyebrow">Annullate</span></div><div class="v">0</div><div class="sub">nel periodo selezionato</div></div>'+
     '</div>'+
-    '<div class="mk-tree" data-tut="r-tree">'+
-      '<div class="mk-trow"><span class="nm">Francesco Albano</span><span class="stat">2 attività · 2 giornate · 7 ore · € 350</span></div>'+
-      '<div class="mk-trow"><span class="nm">Denise Carnini</span><span class="stat">2 attività · 2 giornate · 4 ore · € 180</span></div>'+
+    '<h2 style="font-size:14.5px;margin:2px 0 10px;font-weight:800">Mese in corso</h2>'+
+    '<div class="mk-node current" data-tut="r-node">'+
+      '<div class="mk-node-row">'+
+        '<svg class="mk-twisty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>'+
+        '<div><div class="mk-node-title">Settembre 2026</div><div class="mk-node-sub">2 docenti coinvolti</div></div>'+
+        '<div data-tut="r-stats">'+riepstats('1 attività · 1 giornata · 3 ore · € 150,00','3 attività · 3 giornate · 7 ore · € 380,00')+'</div>'+
+      '</div>'+
+      '<div class="mk-node-children" data-tut="r-docenti">'+
+        '<div class="mk-docente-row"><div class="mk-node-title">Francesco Albano</div>'+riepstats('1 attività · 1 giornata · 3 ore · € 150,00','1 attività · 1 giornata · 4 ore · € 200,00')+'</div>'+
+        '<div class="mk-docente-row"><div class="mk-node-title">Denise Carnini</div>'+riepstats('0 attività · 0 giornate · 0 ore · € 0,00','2 attività · 2 giornate · 3 ore · € 180,00')+'</div>'+
+      '</div>'+
     '</div>'+
   '</div></div>';
 },
@@ -464,6 +509,7 @@ var STEPS = [
   {scene:'intro', section:'Benvenuto', target:'banner', caption:'Quando accedi, il sistema ti riconosce come interfaccia di orientamento: gestisci le attività di uno o più docenti reali collegati a te, non un tuo profilo personale.', speech:'Quando accedi, il sistema ti riconosce come interfaccia di orientamento: gestisci le attività di uno o più docenti reali collegati a te, non un tuo profilo personale.'},
   {scene:'intro', section:'Benvenuto', target:'tabs', caption:'In alto trovi quattro sezioni: Le mie attività, Il mio riepilogo, Calendario e Scuole. Iniziamo da come si inserisce un\'attività.', speech:'In alto trovi quattro sezioni: le mie attività, il mio riepilogo, calendario e scuole. Iniziamo da come si inserisce un\'attività.'},
 
+  {scene:'lista', section:'Inserire un\'attività', target:'nuova-btn', caption:'Per inserire una nuova attività, premi il pulsante «+ Nuova attività» in alto a destra: si apre il modulo che vediamo insieme nei prossimi passaggi. Lo stesso pulsante lo trovi anche nella sezione "Il mio riepilogo".', speech:'Per inserire una nuova attività, premi il pulsante più Nuova attività in alto a destra: si apre il modulo che vediamo insieme nei prossimi passaggi. Lo stesso pulsante lo trovi anche nella sezione il mio riepilogo.'},
   {scene:'form', section:'Inserire un\'attività', target:'f-docente', reveal:'f-docente-pop', caption:'Il primo campo è il Docente: l\'elenco mostra solo i docenti collegati alla tua interfaccia. In fondo trovi anche «+ Aggiungi nuovo docente»: se manca chi ti serve, lo crei al volo senza uscire dal modulo.', speech:'Il primo campo è il Docente: l\'elenco mostra solo i docenti collegati alla tua interfaccia. In fondo trovi anche Aggiungi nuovo docente: se manca chi ti serve, lo crei al volo senza uscire dal modulo.'},
   {scene:'form', section:'Inserire un\'attività', target:'f-tipo', reveal:'f-tipo-pop', caption:'Poi scegli la Tipologia: Workshop, Open Day, Naba Incontra, Naba Experience, Webinar, Test o Altro.', speech:'Poi scegli la tipologia: workshop, open day, naba incontra, naba experience, webinar, test o altro.'},
   {scene:'form', section:'Inserire un\'attività', target:'f-scuola', caption:'Cerchi la scuola digitando il nome o la città, in qualsiasi ordine: il sistema la trova nell\'anagrafica CRM.', speech:'Cerchi la scuola digitando il nome o la città, in qualsiasi ordine: il sistema la trova nell\'anagrafica C R M.'},
@@ -484,9 +530,10 @@ var STEPS = [
 
   {scene:'listaErr', section:'Una regola importante', target:'err-toast', caption:'Un\'ultima cosa importante: il sistema non ti lascia confermare come svolta un\'attività la cui data non è ancora arrivata — comparirà un avviso che te lo ricorda.', speech:'Un\'ultima cosa importante: il sistema non ti lascia confermare come svolta un\'attività la cui data non è ancora arrivata. Comparirà un avviso che te lo ricorda.'},
 
-  {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-filtri', caption:'Nella sezione "Il mio riepilogo" puoi filtrare per mese e anno accademico, per vedere solo il periodo che ti interessa.', speech:'Nella sezione il mio riepilogo puoi filtrare per mese e anno accademico, per vedere solo il periodo che ti interessa.'},
-  {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-chips', caption:'Sotto ai filtri principali trovi i filtri per Corso e Tipologia: selezionane uno o più per restringere l\'analisi.', speech:'Sotto ai filtri principali trovi i filtri per corso e tipologia: selezionane uno o più per restringere l\'analisi.'},
-  {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-tree', caption:'L\'elenco mostra, per ogni docente, quante attività, giornate e ore ha fatto — con lo stesso conteggio sempre coerente in tutto il tool.', speech:'L\'elenco mostra, per ogni docente, quante attività, giornate e ore ha fatto, con lo stesso conteggio sempre coerente in tutto il tool.'},
+  {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-filtri', caption:'Nella sezione "Il mio riepilogo" scegli l\'anno fiscale (luglio→giugno) e uno o più mesi, per vedere solo il periodo che ti interessa.', speech:'Nella sezione il mio riepilogo scegli l\'anno fiscale, da luglio a giugno, e uno o più mesi, per vedere solo il periodo che ti interessa.'},
+  {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-kpis', caption:'Queste quattro schede riassumono subito il periodo scelto: Attività svolte, il relativo Importo ancora da rendicontare in RDA, le Attività programmate cioè non ancora confermate, e le Annullate.', speech:'Queste quattro schede riassumono subito il periodo scelto: attività svolte, il relativo importo ancora da rendicontare in R D A, le attività programmate, cioè non ancora confermate, e le annullate.'},
+  {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-stats', caption:'Per ogni mese vedi sempre due conteggi affiancati: "Programmate" sono le giornate già inserite ma ancora da confermare, "Svolte" quelle già portate a termine — così distingui subito cosa manca da cosa è già concluso.', speech:'Per ogni mese vedi sempre due conteggi affiancati: programmate sono le giornate già inserite ma ancora da confermare, svolte quelle già portate a termine. Così distingui subito cosa manca da cosa è già concluso.'},
+  {scene:'riepilogo', section:'Riepilogo e filtri', target:'r-docenti', caption:'Aprendo il mese trovi lo stesso conteggio Programmate/Svolte ripetuto per ciascun docente: clicca su un nome per vederne anche le singole attività, una per una.', speech:'Aprendo il mese trovi lo stesso conteggio programmate e svolte ripetuto per ciascun docente: clicca su un nome per vederne anche le singole attività, una per una.'},
 
   {scene:'calendario', section:'Calendario', target:'cal-grid', caption:'Nella sezione Calendario vedi tutte le tue attività in una vista mensile: un colpo d\'occhio su cosa succede giorno per giorno.', speech:'Nella sezione Calendario vedi tutte le tue attività in una vista mensile: un colpo d\'occhio su cosa succede giorno per giorno.'},
   {scene:'calendario', section:'Calendario', target:'cal-entry', caption:'Clicca su una singola attività per aprirne subito il dettaglio, senza doverla cercare nell\'elenco.', speech:'Clicca su una singola attività per aprirne subito il dettaglio, senza doverla cercare nell\'elenco.'},
