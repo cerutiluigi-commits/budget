@@ -922,7 +922,20 @@ function tabVisible(tool,tabKey,role){
   return role==='admin' || role==='superuser';
 }
 let forceLogin=false;
+let cloudChecked=false;
+// il Portale (Portale_NABA.html) legge questa funzione per sapere se il ruolo è già stato verificato
+// per davvero (torna null finché non lo sappiamo) invece di indovinarlo dallo stato delle tab nel DOM —
+// bug reale segnalato da Luigi (2026-09-25): dopo un refresh del Portale a volte spariva tutto tranne
+// il tasto Backend, perché la finestra di verifica (prima che la sessione cloud fosse confermata)
+// veniva letta come "nessuna tab visibile per questo ruolo" invece che "ruolo ancora sconosciuto".
+// Stesso pattern già corretto in Gestione_budget_NABA_v2.html (currentRole()/cloudChecked).
+function currentRole(){ return (cloudCfg() && !cloudChecked) ? null : CURRENT.role; }
 function gate(){
+  if(cloudCfg() && !cloudChecked){
+    document.getElementById("loginScreen").style.display="none";
+    applyRole();
+    return;
+  }
   CURRENT=effectiveIdentity();
   const login=document.getElementById("loginScreen");
   if(forceLogin || CURRENT.role==='guest'){ populateLogin(); login.style.display="flex"; return; }
@@ -943,7 +956,19 @@ function updateViewIndicator(){
   if(vg) vg.classList.toggle('view-active', !!STATE.view && STATE.view!=='ALL');
 }
 function applyRole(){
+  if(cloudCfg() && !cloudChecked){
+    // in verifica: fail-closed, nessun contenuto finché non sappiamo il ruolo reale (vedi commento
+    // su currentRole()/gate() più sopra) — le tab restano al loro default HTML (style="display:none"),
+    // non le tocchiamo qui
+    const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display='none';
+    const banner=document.getElementById('roleBanner'); if(banner) banner.style.display='none';
+    document.querySelector('main').style.display='none';
+    document.getElementById('tabs').style.display='none';
+    return;
+  }
   CURRENT=effectiveIdentity();
+  document.querySelector('main').style.display='';
+  document.getElementById('tabs').style.display='';
   const isAdmin=CURRENT.role==='admin', teach=CURRENT.role==='docente', manage=canManage();
   const q=s=>document.querySelector(s);
   const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display=isAdmin?'':'none'; // Admin panel: mai al Superuser, solo Admin vero
@@ -2786,7 +2811,7 @@ function teacherRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,interfac
 function activityRow(a){ return {id:a.id,teacher_id:a.teacher_id,school_id:a.school_id||null,luogo:a.luogo||null,area:a.area||null,nome:a.nome||null,tipo:a.tipo,data:a.data,ore:Number(a.ore)||0,tariffa_oraria:a.tariffa_oraria==null?null:Number(a.tariffa_oraria),importo:a.importo==null?null:Number(a.importo),stato:a.stato||'programmata',rda_id:a.rda_id||null,note:a.note||null,gruppo_id:a.gruppo_id||null,bonus_ore:a.bonus_ore==null?null:Number(a.bonus_ore),bonus_importo:a.bonus_importo==null?null:Number(a.bonus_importo),cal_added_at:a.cal_added_at||null,rda_mode:a.rda_mode||'fine_periodo',sede_sessione:a.sede_sessione||null,ora_evento:a.ora_evento||null,ora_evento_fine:a.ora_evento_fine||null}; }
 function rdaRow(r){ return {id:r.id,teacher_id:r.teacher_id,mese:r.mese,tipo:r.tipo||null,stato:r.stato||'bozza',rif_rda:r.rif_rda||null,rif_rda_data:r.rif_rda_data||null,importo_totale:Number(r.importo_totale)||0,note:r.note||null}; }
 
-async function cloudInit(){ const cfg=cloudCfg(); if(!cfg||!window.supabase){ cloudSetDot('off'); return; } try{ sb=window.supabase.createClient(cfg.url,cfg.anonKey); const {data}=await sb.auth.getSession(); cloudSession=data.session||null; if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else cloudSetDot('off'); }catch(e){ console.error(e); cloudSetDot('err'); } }
+async function cloudInit(){ const cfg=cloudCfg(); if(!cfg||!window.supabase){ cloudSetDot('off'); cloudChecked=true; gate(); return; } try{ sb=window.supabase.createClient(cfg.url,cfg.anonKey); const {data}=await sb.auth.getSession(); cloudSession=data.session||null; cloudChecked=true; if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else { cloudSetDot('off'); gate(); } }catch(e){ console.error(e); cloudSetDot('err'); cloudChecked=true; gate(); } }
 async function cloudLogin(email,pw){ if(!sb){ toast("Configura prima il progetto"); return; } if(!email||!pw){ toast("Inserisci email e password"); return; } const {data,error}=await sb.auth.signInWithPassword({email,password:pw}); if(error){ toast("Accesso fallito: "+error.message); cloudSetDot('err'); return; } cloudSession=data.session; forceLogin=false; cloudSetDot('on'); toast("Connesso"); renderCloudModal(); await cloudPullAll(false); }
 async function cloudLogout(){ if(sb) await sb.auth.signOut(); cloudSession=null; if(rtChannel&&sb){try{sb.removeChannel(rtChannel);}catch(e){}} rtChannel=null; cloudSetDot('off'); renderCloudModal(); gate(); toast("Disconnesso"); }
 async function cloudPullAll(silent){

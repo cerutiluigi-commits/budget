@@ -672,7 +672,20 @@ function tabVisible(tool,tabKey,role){
   return role==='admin';
 }
 let forceLogin=false;
+let cloudChecked=false;
+// il Portale (Portale_NABA.html) legge questa funzione per sapere se il ruolo è già stato verificato
+// per davvero (torna null finché non lo sappiamo) invece di indovinarlo dallo stato delle tab nel DOM —
+// bug reale segnalato da Luigi (2026-09-25): dopo un refresh del Portale a volte spariva tutto tranne
+// il tasto Backend, perché la finestra di verifica (prima che la sessione cloud fosse confermata)
+// veniva letta come "nessuna tab visibile per questo ruolo" invece che "ruolo ancora sconosciuto".
+// Stesso pattern già corretto in Gestione_budget_NABA_v2.html (currentRole()/cloudChecked).
+function currentRole(){ return (cloudCfg() && !cloudChecked) ? null : CURRENT.role; }
 function gate(){
+  if(cloudCfg() && !cloudChecked){
+    document.getElementById("loginScreen").style.display="none";
+    applyRole();
+    return;
+  }
   CURRENT=effectiveIdentity();
   const login=document.getElementById("loginScreen");
   if(forceLogin || CURRENT.role==='guest'){ populateLogin(); login.style.display="flex"; return; }
@@ -687,7 +700,19 @@ function populateLogin(){
   else { cs.style.display="block"; cs.innerHTML=`<span class="login-hint" style="margin:0">Accesso rapido <b>locale</b> di prova: mostra i dati di questo dispositivo. Per i dati condivisi usa "Accedi con account cloud".</span>`; }
 }
 function applyRole(){
+  if(cloudCfg() && !cloudChecked){
+    // in verifica: fail-closed, nessun contenuto finché non sappiamo il ruolo reale (vedi commento
+    // su currentRole()/gate() più sopra) — le tab restano al loro default HTML (style="display:none"),
+    // non le tocchiamo qui
+    const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display='none';
+    const banner=document.getElementById('roleBanner'); if(banner) banner.style.display='none';
+    document.querySelector('main').style.display='none';
+    document.getElementById('tabs').style.display='none';
+    return;
+  }
   CURRENT=effectiveIdentity();
+  document.querySelector('main').style.display='';
+  document.getElementById('tabs').style.display='';
   const isAdmin=CURRENT.role==='admin', trav=CURRENT.role==='orientatore';
   const q=s=>document.querySelector(s);
   const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display=isAdmin?'':'none';
@@ -1391,7 +1416,7 @@ function travRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,staff:!!t.s
 function tripRow(t){ return {id:t.id,traveler_id:t.traveler_id,inseritore:t.inseritore||null,scopo:t.scopo||null,destinazione:t.destinazione||null,data_inizio:t.data_inizio||null,data_fine:t.data_fine||null,scuola_evento:t.scuola_evento||null,stato:t.stato||'prenotato',note:t.note||null}; }
 function itemRow(it){ const trip=STATE.trips.find(t=>t.id===it.trip_id)||{}; const staff=travById(trip.traveler_id).staff; return {id:it.id,trip_id:it.trip_id,gruppo_id:it.gruppo_id||null,tipo:it.tipo,fornitore:it.fornitore||null,data_acquisto:it.data_acquisto||null,comp_da:it.comp_da||null,comp_a:it.comp_a||null,importo:Number(it.importo)||0,iva:it.iva==null?null:Number(it.iva),rif_prenotazione:it.rif_prenotazione||null,categoria:mapCat(it.tipo,staff),impact_mode:impactOf(it),stato:it.stato||'prenotato',actual_ref:it.actual_ref||null,note:it.note||null}; }
 
-async function cloudInit(){ const cfg=cloudCfg(); if(!cfg||!window.supabase){ cloudSetDot('off'); return; } try{ sb=window.supabase.createClient(cfg.url,cfg.anonKey); const {data}=await sb.auth.getSession(); cloudSession=data.session||null; if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else cloudSetDot('off'); }catch(e){ console.error(e); cloudSetDot('err'); } }
+async function cloudInit(){ const cfg=cloudCfg(); if(!cfg||!window.supabase){ cloudSetDot('off'); cloudChecked=true; gate(); return; } try{ sb=window.supabase.createClient(cfg.url,cfg.anonKey); const {data}=await sb.auth.getSession(); cloudSession=data.session||null; cloudChecked=true; if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else { cloudSetDot('off'); gate(); } }catch(e){ console.error(e); cloudSetDot('err'); cloudChecked=true; gate(); } }
 async function cloudLogin(email,pw){ if(!sb){ toast("Configura prima il progetto"); return; } if(!email||!pw){ toast("Inserisci email e password"); return; } const {data,error}=await sb.auth.signInWithPassword({email,password:pw}); if(error){ toast("Accesso fallito: "+error.message); cloudSetDot('err'); return; } cloudSession=data.session; forceLogin=false; cloudSetDot('on'); toast("Connesso"); renderCloudModal(); await cloudPullAll(false); }
 async function cloudLogout(){ if(sb) await sb.auth.signOut(); cloudSession=null; if(rtChannel&&sb){try{sb.removeChannel(rtChannel);}catch(e){}} rtChannel=null; cloudSetDot('off'); renderCloudModal(); gate(); toast("Disconnesso"); }
 async function cloudPullAll(silent){

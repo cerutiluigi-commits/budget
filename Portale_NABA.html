@@ -319,7 +319,20 @@ function reloadFrames(){
   try{ frameDocenti.contentWindow.location.reload(); }catch(e){}
   recheckSoon();
 }
+// Le 3 app incorporate espongono ciascuna currentRole(): torna null finché il ruolo non è stato
+// verificato per davvero (sessione cloud + app_users/tab_visibility caricati), la stringa di ruolo
+// reale una volta risolto — stesso pattern in tutte e tre (Gestione_budget_NABA_v2.html, docenti.html,
+// spese_ec_3.html). Prima qui si indovinava lo stato "ancora in corso" guardando se le tab del frame
+// erano visibili nel DOM e aspettando che la lettura si stabilizzasse su due controlli consecutivi:
+// un'euristica che poteva sbagliarsi (bug reale segnalato da Luigi, 2026-09-25 — dopo un refresh a
+// volte restava visibile solo il tasto Backend) se la verifica cloud richiedeva più dei ~10 tentativi
+// da 180ms concessi. Ora la fonte di verità è currentRole()===null, non più una congettura sul DOM.
+function frameReady(iframe){
+  try{ const w=iframe.contentWindow; return !!w && typeof w.currentRole==='function' && w.currentRole()!==null; }
+  catch(e){ return false; }
+}
 function frameTabState(iframe){
+  if(!frameReady(iframe)) return 'pending';
   try{
     const doc=iframe.contentDocument; if(!doc) return 'pending';
     const btns=doc.querySelectorAll('nav.tabs button[data-tab]');
@@ -328,8 +341,9 @@ function frameTabState(iframe){
   }catch(e){ return 'pending'; }
 }
 function frameRole(){
-  try{ return (frameBudget.contentWindow && frameBudget.contentWindow.currentRole) ? frameBudget.contentWindow.currentRole() : 'none'; }
-  catch(e){ return 'none'; }
+  if(!frameReady(frameBudget)) return null;
+  try{ return frameBudget.contentWindow.currentRole(); }
+  catch(e){ return null; }
 }
 
 /* ---- schermate ---- */
@@ -361,33 +375,23 @@ function routeAfterAuth(){
   if(screen==='login') showScreen('landing');
   updateLanding();
 }
-let _landingLastSnapshot=null, _landingRetries=0;
-// frameTabState() sa dire solo se le tab dell'app incorporata esistono già nel DOM, non se il
-// controllo ruolo che le nasconde è già stato eseguito: appena il frame carica, per una frazione di
-// secondo tutte le tab risultano "visible" (non ancora nascoste), quindi una card a cui l'utente non
-// ha accesso può comparire per un istante. Bug reale segnalato da Sofia (schermata "Cosa vuoi aprire?"
-// con Gestione Budget visibile per un attimo con un ruolo "docente"). Nessun rischio di sicurezza —
-// l'app di destinazione blocca comunque correttamente l'accesso — ma non deve nemmeno comparire.
-// Fix qui, senza toccare le 3 app incorporate: accettiamo una lettura "risolta" solo se resta identica
-// su due controlli consecutivi (~180ms), altrimenti la trattiamo come ancora in corso e riproviamo.
+let _landingRetries=0;
+// pending = "il ruolo di almeno un'app incorporata non è ancora verificato" (currentRole()===null lì
+// dentro), un segnale vero e proprio esposto dalle 3 app, non più una congettura sul DOM — appena
+// nessuna delle tre è più pending la lettura è già definitiva, niente attesa di "stabilità" aggiuntiva.
+// Il retry qui sotto serve solo perché le app incorporate impiegano qualche istante a caricare/
+// verificare: un tetto largo (max ~9s) evita solo che un problema di rete lasci la schermata a girare
+// per sempre.
 function updateLanding(){
   const bState=frameTabState(frameBudget), sState=frameTabState(frameSpese), dState=frameTabState(frameDocenti);
   const pending = bState==='pending' || sState==='pending' || dState==='pending';
   if(pending){
-    _landingLastSnapshot=null; _landingRetries=0;
     document.getElementById('landingLoading').style.display='block';
     document.getElementById('landingGrid').style.display='none';
+    if(_landingRetries<60){ _landingRetries++; setTimeout(updateLanding,150); }
     return;
   }
-  const snapshot=bState+'|'+sState+'|'+dState;
-  if(snapshot!==_landingLastSnapshot && _landingRetries<10){
-    _landingLastSnapshot=snapshot; _landingRetries++;
-    document.getElementById('landingLoading').style.display='block';
-    document.getElementById('landingGrid').style.display='none';
-    setTimeout(updateLanding,180);
-    return;
-  }
-  _landingLastSnapshot=snapshot; _landingRetries=0;
+  _landingRetries=0;
   document.getElementById('landingLoading').style.display='none'; // risolto: la card giusta rimpiazza il messaggio, non ci convivono
   const role=frameRole(), isAdmin=role==='admin';
   const hasBudget=bState==='visible', hasSpese=sState==='visible', hasDocenti=dState==='visible';
@@ -397,15 +401,14 @@ function updateLanding(){
   document.getElementById('cardDocenti').style.display = hasDocenti ? '' : 'none';
   document.getElementById('cardBackend').style.display = isAdmin ? '' : 'none';
   const none = !hasBudget && !hasSpese && !hasDocenti && !isAdmin;
-  document.getElementById('landingEmptyRole').textContent = role;
+  document.getElementById('landingEmptyRole').textContent = role||'';
   document.getElementById('landingEmpty').style.display = none ? 'block' : 'none';
   document.getElementById('landingGrid').style.display = none ? 'none' : 'grid';
 }
 function recheck(){ if(cloudReady() && screen==='landing') updateLanding(); }
 function recheckSoon(){
+  _landingRetries=0;
   recheck();
-  setTimeout(()=>{ if(cloudReady()){ routeAfterAuth(); } }, 800);
-  setTimeout(()=>{ if(cloudReady()){ routeAfterAuth(); } }, 2000);
 }
 
 document.querySelectorAll('.app-card[data-app]').forEach(card=>{
