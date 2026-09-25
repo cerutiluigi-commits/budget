@@ -224,6 +224,94 @@ tfoot td.l{text-align:left}
   .trip-h .tot{margin-left:0;width:100%}
   main{padding:16px 12px 70px}
 }
+
+/* ---- Riepilogo/Calendario "come Docenti": chip filtro, albero mese->viaggiatore, dettaglio,
+   calendario a griglia mensile — stessi nomi di classe/pattern di docenti.html, adattati qui a
+   viaggiatore/voce al posto di docente/attività (Luigi, 2026-09-25: "copia la struttura ... con
+   vista chiaramente docenti") ---- */
+.chip{border:1px solid var(--line-strong);background:var(--surface);border-radius:20px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--ink-soft);display:inline-flex;align-items:center;gap:7px;cursor:pointer;transition:.12s}
+.chip:hover{border-color:var(--ink)}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip.reset{border-style:dashed;border-color:var(--over);color:var(--over)}
+.chip.reset:hover{background:var(--over-soft)}
+
+.riep-filters-toggle{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;margin-bottom:16px}
+.riep-filters-toggle:hover{border-color:var(--ink-mute);color:var(--ink)}
+.riep-filters-toggle .twisty{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:transform .16s ease}
+.riep-filters-toggle .twisty svg{width:11px;height:11px}
+.riep-filters-toggle.open .twisty{transform:rotate(90deg)}
+.riep-filters-toggle.active{border-color:var(--accent);color:var(--accent-ink);background:var(--accent-soft)}
+@media (prefers-reduced-motion:reduce){.riep-filters-toggle .twisty{transition:none}}
+
+.tree{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);box-shadow:var(--shadow-sm);overflow:hidden;margin-bottom:12px}
+.node{border-bottom:1px solid var(--line)}
+.node:last-child{border-bottom:0}
+.node-row{display:flex;align-items:center;gap:12px;padding:14px 16px;cursor:pointer;user-select:none;transition:background .12s}
+.node-row:hover{background:var(--surface-2)}
+.twisty{width:22px;height:22px;border-radius:6px;border:1px solid var(--line-strong);background:var(--surface);display:flex;align-items:center;justify-content:center;flex:0 0 auto;color:var(--ink-soft)}
+.twisty svg{width:11px;height:11px;transition:transform .16s ease}
+@media (prefers-reduced-motion:reduce){.twisty svg{transition:none}.node-children{transition:none!important}}
+.node.open>.node-row .twisty svg{transform:rotate(90deg)}
+.node.open>.node-row .twisty{background:var(--accent-soft);color:var(--accent-ink);border-color:transparent}
+.node-title{font-weight:700;font-size:14px}
+.month-title{text-transform:uppercase;letter-spacing:.03em}
+.node-sub{color:var(--ink-mute);font-size:11.5px;margin-top:1px}
+.node-meta{margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end}
+.node-alert{display:flex;align-items:center;gap:6px;color:var(--warn);font-size:11px;font-weight:700}
+.node-alert svg{width:13px;height:13px;flex:0 0 auto}
+.node-children{display:grid;grid-template-rows:0fr;transition:grid-template-rows .2s ease}
+.node.open>.node-children{grid-template-rows:1fr}
+.node-children-inner{overflow:hidden}
+.node.current-month>.node-row{background:var(--accent-soft)}
+
+.riep-stats{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;justify-content:flex-end}
+.riep-stat .rl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.riep-stat .rv{font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
+.riep-stat.prog{color:var(--warn)}
+.riep-stat.done{color:var(--accent-ink)}
+.docente-row{padding-left:44px;background:var(--surface-2);border-bottom:1px solid var(--line);cursor:pointer;transition:background .12s}
+.docente-row:last-child{border-bottom:0}
+.docente-row:hover{background:var(--accent-soft)}
+.docente-row.selected{box-shadow:inset 3px 0 0 var(--accent)}
+.docente-line{display:flex;align-items:center;gap:12px;padding:12px 16px 12px 0}
+.docente-line .riep-stats{margin-left:auto}
+.docente-line .node-title{font-size:13px;font-weight:600}
+
+.riep-detail{margin:14px 0 26px;border:1px solid var(--line);border-radius:var(--radius);background:var(--surface);box-shadow:var(--shadow-sm);overflow:hidden}
+.riep-detail-h{display:flex;align-items:center;justify-content:space-between;padding:14px 16px;border-bottom:1px solid var(--line)}
+.riep-detail-h h3{margin:0;font-size:15px;font-weight:700}
+.riep-detail-body{padding:14px 16px}
+
+.cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
+.cal-filters{display:flex;gap:6px;margin:-4px 0 14px;flex-wrap:wrap}
+.cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden}
+.cal-dow div{background:var(--surface-2);padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute)}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:112px;gap:1px;background:var(--line);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
+.cal-cell{background:var(--surface);padding:6px;display:flex;flex-direction:column;gap:4px;overflow:hidden}
+.cal-cell.cal-blank{background:var(--surface-2)}
+.cal-daynum{font-size:12px;color:var(--ink-mute);font-weight:600}
+.cal-daynum-today{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border-radius:50%;background:var(--ink);color:var(--paper)}
+.cal-entries{display:flex;flex-direction:column;gap:3px;overflow:hidden}
+.cal-entry{display:flex;align-items:center;gap:5px;font-size:11px;padding:2px 4px;border-radius:5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
+.cal-entry:hover{background:var(--surface-2)}
+.cal-entry.cal-entry-muted{color:var(--ink-mute);opacity:.65}
+.cal-stico{width:12px;height:12px;flex:none}
+.cal-more{font-size:10.5px;color:var(--ink-mute);cursor:pointer;padding:2px 4px}
+.cal-more:hover{text-decoration:underline}
+.cal-daylist-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
+.cal-daylist-row:last-child{border-bottom:0}
+.cal-daylist-row.cal-entry-muted{color:var(--ink-mute);opacity:.65}
+
+@media(max-width:700px){
+  .cal-grid{grid-auto-rows:84px}
+  .cal-dow div{padding:6px 4px;font-size:9px}
+  .node-row{flex-wrap:wrap}
+  .node-meta{width:100%}
+  .riep-stats{justify-content:flex-start;width:100%}
+  .riep-stat .rv{white-space:normal}
+  .docente-line{flex-wrap:wrap}
+  .docente-line .riep-stats{margin-left:0;width:100%}
+}
 </style>
 </head>
 <body>
@@ -280,28 +368,48 @@ tfoot td.l{text-align:left}
 
   <!-- RIEPILOGO -->
   <section class="panel" id="panel-riepilogo">
-    <div class="kpis" id="kpis"></div>
-    <h2 class="sec">Per persona</h2>
-    <p class="sec-desc">Costi stima (prenotazioni via agenzia) per viaggiatore. Le "spese in fattura" sono tracciate a parte perché entrano già da RDA.</p>
-    <div class="card scroll" style="margin-bottom:26px"><table id="byPerson"></table></div>
-    <h2 class="sec">Per categoria budget</h2>
-    <p class="sec-desc">Come queste stime si mappano sulle categorie del budget (staff / no-staff).</p>
-    <div class="card scroll" style="margin-bottom:26px"><table id="byCat"></table></div>
-    <h2 class="sec">Per tipologia</h2>
-    <div class="card scroll"><table id="byType"></table></div>
+    <div class="chips" id="riepMonthChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
+    <button type="button" class="riep-filters-toggle" id="riepFiltersToggle">
+      <span class="twisty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg></span>
+      <span id="riepFiltersLabel">Filtri per viaggiatore e tipologia</span>
+    </button>
+    <div id="riepFiltersPanel" style="display:none;margin:10px 0 18px">
+      <div style="display:flex;gap:20px;flex-wrap:wrap">
+        <div>
+          <div class="hint" style="margin-bottom:6px">Viaggiatore</div>
+          <div class="chips" id="riepTravChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+        <div>
+          <div class="hint" style="margin-bottom:6px">Tipologia</div>
+          <div class="chips" id="riepTipoChips" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+        </div>
+      </div>
+    </div>
+    <div class="kpis" id="kpis" style="margin-bottom:22px"></div>
+    <div id="riepBlocks"></div>
+    <div id="riepTravDetail" class="riep-detail" style="display:none"></div>
+    <h2 class="sec" style="margin-top:26px">Per categoria budget</h2>
+    <p class="sec-desc">Come queste stime si mappano sulle categorie del budget (staff / no-staff), nel periodo selezionato sopra.</p>
+    <div class="card scroll"><table id="byCat"></table></div>
   </section>
 
   <!-- CALENDARIO -->
   <section class="panel" id="panel-calendario">
-    <h2 class="sec">Calendario stime · luglio → giugno</h2>
-    <p class="sec-desc">Distribuzione per <b>mese di servizio</b> (competenza). Le voci con servizio nei mesi trascorsi rispetto alla data di riferimento contano come <b>speso stima</b>, quelle future come <b>allocato stima</b>. Tutto resta stima finché non riconciliato con l'actual.</p>
-    <div class="card pad">
-      <div style="display:flex;gap:16px;margin-bottom:10px;font-size:12px">
-        <span><span class="catdot" style="background:var(--speso)"></span>Speso stima</span>
-        <span><span class="catdot" style="background:var(--allocato)"></span>Allocato stima</span>
+    <div class="cal-head">
+      <h2 class="sec" id="calMonthLabel" style="margin:0"></h2>
+      <div class="cal-nav" style="margin-left:auto;display:flex;gap:4px">
+        <button class="btn ghost small" id="calToday">Oggi</button>
+        <button class="btn ghost small" id="calPrev">←</button>
+        <button class="btn ghost small" id="calNext">→</button>
       </div>
-      <div id="calRows"></div>
     </div>
+    <div class="cal-filters">
+      <button type="button" class="chip" data-stato="prenotato">Prenotate</button>
+      <button type="button" class="chip" data-stato="svolto">Svolte</button>
+      <button type="button" class="chip" data-stato="annullato">Annullate</button>
+    </div>
+    <div class="cal-dow"><div>Dom</div><div>Lun</div><div>Mar</div><div>Mer</div><div>Gio</div><div>Ven</div><div>Sab</div></div>
+    <div class="cal-grid" id="calGrid"></div>
   </section>
 
   <!-- IMPOSTAZIONI -->
@@ -375,6 +483,19 @@ tfoot td.l{text-align:left}
       <div class="sp"></div>
       <button class="btn ghost" id="iCancel">Annulla</button>
       <button class="btn" id="iSave">Salva voce</button>
+    </div>
+  </div>
+</div>
+
+<!-- ANTEPRIMA RAPIDA (click su una voce dal Calendario) -->
+<div class="overlay" id="calPreviewOverlay">
+  <div class="modal" style="max-width:380px">
+    <div class="mhead"><h3 id="calPreviewTitle">Voce</h3><button class="iconx" id="calPreviewClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mbody" id="calPreviewBody"></div>
+    <div class="mfoot">
+      <div class="sp"></div>
+      <button class="btn ghost" id="calPreviewClose2">Chiudi</button>
+      <button class="btn" id="calPreviewOpen">Apri</button>
     </div>
   </div>
 </div>
@@ -472,10 +593,10 @@ function seed(){
   ];
   const trips=[];
   const items=[];
-  return {fyStart:2026, refDate:todayISO(), view:"ALL", ivaDef:22, appUsers:{}, tabVisibility:{}, previewAs:null, localIdentity:null, travelers:T, trips, items};
+  return {fyStart:2026, refDate:todayISO(), view:"ALL", ivaDef:22, appUsers:{}, tabVisibility:{}, previewAs:null, localIdentity:null, travelers:T, trips, items, riepMonths:[], riepTravs:[], riepTipi:[]};
 }
 function load(){
-  try{ const s=JSON.parse(localStorage.getItem(LS_KEY)||"null"); if(s&&s.trips&&s.travelers){ if(!s.view)s.view="ALL"; if(s.ivaDef==null)s.ivaDef=22; if(!s.appUsers)s.appUsers={}; if(!s.tabVisibility)s.tabVisibility={}; if(s.previewAs===undefined)s.previewAs=null; if(s.localIdentity===undefined)s.localIdentity=null; s.travelers.forEach(t=>{ if(t.email===undefined)t.email=""; }); return s; } }catch(e){}
+  try{ const s=JSON.parse(localStorage.getItem(LS_KEY)||"null"); if(s&&s.trips&&s.travelers){ if(!s.view)s.view="ALL"; if(s.ivaDef==null)s.ivaDef=22; if(!s.appUsers)s.appUsers={}; if(!s.tabVisibility)s.tabVisibility={}; if(s.previewAs===undefined)s.previewAs=null; if(s.localIdentity===undefined)s.localIdentity=null; s.travelers.forEach(t=>{ if(t.email===undefined)t.email=""; }); if(!s.riepMonths)s.riepMonths=[]; if(!s.riepTravs)s.riepTravs=[]; if(!s.riepTipi)s.riepTipi=[]; return s; } }catch(e){}
   return seed();
 }
 let STATE=load();
@@ -483,10 +604,29 @@ function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(STATE)); }catc
 function travById(id){ return STATE.travelers.find(t=>t.id===id)||{nome:"—",staff:false}; }
 function tripItems(tid){ return STATE.items.filter(i=>i.trip_id===tid); }
 function fyMonths(){ const out=[]; for(let i=0;i<12;i++){ const m=(6+i)%12; const y=STATE.fyStart+(6+i>=12?1:0); out.push({m,y}); } return out; }
+function fyMonthYMList(){ return fyMonths().map(mm=>`${mm.y}-${String(mm.m+1).padStart(2,'0')}`); }
 function monthOf(it){ const d=(it.comp_da||it.data_acquisto||"").slice(0,7); if(!d) return null; const [y,m]=d.split("-").map(Number); return {y,m:m-1}; }
 function inFY(y,m){ const k=y*12+m; return k>=STATE.fyStart*12+6 && k<=(STATE.fyStart+1)*12+5; }
+function itemMonthYM(it){ return (it.comp_da||it.data_acquisto||"").slice(0,7); }
+function todayMonth(){ return todayISO().slice(0,7); }
+function prevMonth(ym){ const [y,m]=ym.split('-').map(Number); const d=new Date(y,m-2,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
+function daysLeftInMonth(){ const now=new Date(); const last=new Date(now.getFullYear(),now.getMonth()+1,0).getDate(); return last-now.getDate(); }
 function visibleTrips(){ const f=myFilter(); return f?STATE.trips.filter(t=>t.traveler_id===f):STATE.trips; }
 function visibleItems(){ const tset=new Set(visibleTrips().map(t=>t.id)); return STATE.items.filter(i=>tset.has(i.trip_id)); }
+function countVoci(items){ return new Set(items.map(it=>it.gruppo_id||it.id)).size; }
+function vociLabel(n){ return n===1?'1 voce':`${n} voci`; }
+function rigaLabel(n){ return n===1?'1 riga':`${n} righe`; }
+// filtri Viaggiatore/Tipologia del Riepilogo (indipendenti da mese/FY) — stesso pattern di
+// riepActivities() in Docenti, usato solo dall'albero/KPI del Riepilogo
+function riepItems(){
+  const travSel=STATE.riepTravs||[], tipiSel=STATE.riepTipi||[];
+  return visibleItems().filter(it=>{
+    if(tipiSel.length && !tipiSel.includes(it.tipo)) return false;
+    if(travSel.length){ const tp=STATE.trips.find(t=>t.id===it.trip_id); if(!tp||!travSel.includes(tp.traveler_id)) return false; }
+    return true;
+  });
+}
+function monthHasItems(monthYM){ return riepItems().some(it=>itemMonthYM(it)===monthYM && it.stato!=='annullato'); }
 
 /* ---- ruoli / identità ---- */
 let CURRENT={role:'admin',travelerId:null,preview:false,email:null,name:null};
@@ -597,6 +737,9 @@ function fillSelects(){
   document.getElementById("iTipo").innerHTML=TIPI.map(t=>`<option>${t}</option>`).join("");
   document.getElementById("refDate").value=STATE.refDate;
   document.getElementById("ivaDef").value=STATE.ivaDef;
+  renderRiepMonthChips();
+  renderRiepTravChips();
+  renderRiepTipoChips();
 }
 function impactBadge(it){
   const imp=impactOf(it);
@@ -605,6 +748,30 @@ function impactBadge(it){
   if(imp==="ACTUAL") return `<span class="badge ok">svolta${it.actual_ref?' · '+esc(it.actual_ref):''}</span>`;
   const b=itemBudget(it);
   return b.bucket==="speso"?`<span class="badge speso">speso stima</span>`:`<span class="badge alloc">allocato stima</span>`;
+}
+function itemRowHtml(it){
+  const tp=STATE.trips.find(t=>t.id===it.trip_id)||{};
+  const tv=travById(tp.traveler_id);
+  const cls = it.stato==="annullato"?'item-row annull':'item-row';
+  // stessi pulsanti rapidi ✓/✗ dell'elenco Attività in Docenti, solo finché la voce è ancora
+  // "prenotato" — una volta svolta o annullata si cambia stato solo riaprendola dal modale
+  const quick = it.stato==='prenotato' ? `<span class="item-acts" data-id="${it.gruppo_id||it.id}" data-trip="${tp.id}">
+      <button class="rowbtn item-done" title="Segna come svolta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></button>
+      <button class="rowbtn item-cancel" title="Annulla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+    </span>` : '';
+  return `<div class="${cls} item-edit" data-id="${it.id}" data-trip="${tp.id}" style="cursor:pointer">
+    <span class="ty">${esc(it.tipo)}</span>
+    <span class="cat">${it.tipo==="Spese in fattura"?'<span class="meta">tracciata · esclusa dal budget</span>':`<span class="tag">${mapCat(it.tipo,tv.staff)}</span>`}</span>
+    <span class="dt">${fmtD(it.comp_da)||fmtD(it.data_acquisto)}</span>
+    ${impactBadge(it)}
+    <span class="amt">${eur2(it.importo)}</span>
+    ${quick}
+  </div>`;
+}
+function wireItemRows(list){
+  list.querySelectorAll(".item-edit").forEach(b=>b.onclick=()=>openItem(b.dataset.trip,b.dataset.id));
+  list.querySelectorAll(".item-done").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const w=b.closest(".item-acts"); quickSetItemStato(w.dataset.trip,w.dataset.id,'svolto'); });
+  list.querySelectorAll(".item-cancel").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(confirm("Annullare questa voce?")){ const w=b.closest(".item-acts"); quickSetItemStato(w.dataset.trip,w.dataset.id,'annullato'); } });
 }
 function renderTrips(){
   const list=document.getElementById("tripsList");
@@ -627,23 +794,7 @@ function renderTrips(){
         <button class="btn ghost small trip-edit" data-id="${tp.id}">Modifica</button>
       </div>
       <div style="padding:6px 16px 12px">
-        ${its.length? its.map(it=>{
-          const cls = it.stato==="annullato"?'item-row annull':'item-row';
-          // stessi pulsanti rapidi ✓/✗ dell'elenco Attività in Docenti, solo finché la voce è ancora
-          // "prenotato" — una volta svolta o annullata si cambia stato solo riaprendola dal modale
-          const quick = it.stato==='prenotato' ? `<span class="item-acts" data-id="${it.gruppo_id||it.id}" data-trip="${tp.id}">
-              <button class="rowbtn item-done" title="Segna come svolta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></button>
-              <button class="rowbtn item-cancel" title="Annulla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-            </span>` : '';
-          return `<div class="${cls} item-edit" data-id="${it.id}" data-trip="${tp.id}" style="cursor:pointer">
-            <span class="ty">${esc(it.tipo)}</span>
-            <span class="cat">${it.tipo==="Spese in fattura"?'<span class="meta">tracciata · esclusa dal budget</span>':`<span class="tag">${mapCat(it.tipo,tv.staff)}</span>`}</span>
-            <span class="dt">${fmtD(it.comp_da)||fmtD(it.data_acquisto)}</span>
-            ${impactBadge(it)}
-            <span class="amt">${eur2(it.importo)}</span>
-            ${quick}
-          </div>`;
-        }).join("") : `<div class="meta" style="padding:8px 0">Nessuna voce.</div>`}
+        ${its.length? its.map(it=>itemRowHtml(it)).join("") : `<div class="meta" style="padding:8px 0">Nessuna voce.</div>`}
         <button class="btn ghost small add-item" data-trip="${tp.id}" style="margin-top:10px">+ Aggiungi voce</button>
       </div>
     </div>`;
@@ -651,14 +802,166 @@ function renderTrips(){
   list.innerHTML=h;
   list.querySelectorAll(".trip-edit").forEach(b=>b.onclick=e=>{ e.stopPropagation(); openTrip(b.dataset.id); });
   list.querySelectorAll(".add-item").forEach(b=>b.onclick=e=>{ e.stopPropagation(); openItem(b.dataset.trip,null); });
-  list.querySelectorAll(".item-edit").forEach(b=>b.onclick=()=>openItem(b.dataset.trip,b.dataset.id));
-  list.querySelectorAll(".item-done").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const w=b.closest(".item-acts"); quickSetItemStato(w.dataset.trip,w.dataset.id,'svolto'); });
-  list.querySelectorAll(".item-cancel").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(confirm("Annullare questa voce?")){ const w=b.closest(".item-acts"); quickSetItemStato(w.dataset.trip,w.dataset.id,'annullato'); } });
+  wireItemRows(list);
+}
+
+/* ---- Riepilogo: chip mese/viaggiatore/tipologia + albero mese->viaggiatore (stessa struttura di
+   Docenti: renderRiepMonthChips/renderRiepAreaChips->renderRiepTravChips/renderMonthCard/
+   renderDocenteDetail->renderTravelerDetail), qui su bdg_travel_items invece di bdg_teacher_activities ---- */
+const TWISTY_ICON=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg>`;
+let riepFiltersToggled=false; // true appena l'utente (o l'apertura automatica coi filtri attivi) ha toccato il toggle una volta
+function renderRiepMonthChips(){
+  const months=fyMonthYMList();
+  const sel=STATE.riepMonths||[];
+  let h=months.map(m=>{ const [y,mo]=m.split('-').map(Number); return `<button class="chip ${sel.includes(m)?'on':''}" data-m="${m}">${MESI[mo-1]} '${String(y).slice(2)}</button>`; }).join("");
+  if(sel.length) h+=`<button class="chip reset" id="riepMonthsReset">✕ azzera mesi</button>`;
+  document.getElementById("riepMonthChips").innerHTML=h;
+  document.querySelectorAll("#riepMonthChips .chip[data-m]").forEach(b=>b.onclick=()=>{
+    const m=b.dataset.m, i=STATE.riepMonths.indexOf(m);
+    if(i>=0) STATE.riepMonths.splice(i,1); else STATE.riepMonths.push(m);
+    save(); renderRiepMonthChips(); renderRiepilogo();
+  });
+  const rb=document.getElementById("riepMonthsReset"); if(rb) rb.onclick=()=>{ STATE.riepMonths=[]; save(); renderRiepMonthChips(); renderRiepilogo(); };
+}
+function updateRiepFiltersToggle(){
+  const btn=document.getElementById("riepFiltersToggle");
+  if(!btn) return;
+  const n=(STATE.riepTravs||[]).length + (STATE.riepTipi||[]).length;
+  document.getElementById("riepFiltersLabel").textContent = n ? `Filtri per viaggiatore e tipologia (${n} attiv${n===1?'o':'i'})` : "Filtri per viaggiatore e tipologia";
+  btn.classList.toggle("active", n>0);
+  if(n>0 && !riepFiltersToggled){ document.getElementById("riepFiltersPanel").style.display=""; btn.classList.add("open"); riepFiltersToggled=true; }
+}
+function renderRiepTravChips(){
+  const sel=STATE.riepTravs||[];
+  let h=STATE.travelers.map(t=>`<button class="chip ${sel.includes(t.id)?'on':''}" data-tid="${t.id}">${esc(t.nome)}</button>`).join("");
+  if(sel.length) h+=`<button class="chip reset" id="riepTravReset">✕ azzera</button>`;
+  document.getElementById("riepTravChips").innerHTML=h || `<span class="hint">Nessun viaggiatore configurato.</span>`;
+  document.querySelectorAll("#riepTravChips .chip[data-tid]").forEach(b=>b.onclick=()=>{
+    const id=b.dataset.tid, i=STATE.riepTravs.indexOf(id);
+    if(i>=0) STATE.riepTravs.splice(i,1); else STATE.riepTravs.push(id);
+    save(); renderRiepTravChips(); renderRiepilogo();
+  });
+  const rb=document.getElementById("riepTravReset"); if(rb) rb.onclick=()=>{ STATE.riepTravs=[]; save(); renderRiepTravChips(); renderRiepilogo(); };
+  updateRiepFiltersToggle();
+}
+function renderRiepTipoChips(){
+  const sel=STATE.riepTipi||[];
+  let h=TIPI.map(t=>`<button class="chip ${sel.includes(t)?'on':''}" data-t="${esc(t)}">${esc(t)}</button>`).join("");
+  if(sel.length) h+=`<button class="chip reset" id="riepTipiReset">✕ azzera</button>`;
+  document.getElementById("riepTipoChips").innerHTML=h;
+  document.querySelectorAll("#riepTipoChips .chip[data-t]").forEach(b=>b.onclick=()=>{
+    const t=b.dataset.t, i=STATE.riepTipi.indexOf(t);
+    if(i>=0) STATE.riepTipi.splice(i,1); else STATE.riepTipi.push(t);
+    save(); renderRiepTipoChips(); renderRiepilogo();
+  });
+  const rb=document.getElementById("riepTipiReset"); if(rb) rb.onclick=()=>{ STATE.riepTipi=[]; save(); renderRiepTipoChips(); renderRiepilogo(); };
+  updateRiepFiltersToggle();
+}
+function computeRiepStats(months){
+  const its=riepItems().filter(it=>months.includes(itemMonthYM(it)));
+  const svolte=its.filter(it=>it.stato==='svolto'), prenotate=its.filter(it=>it.stato==='prenotato');
+  return {
+    svolte:svolte.length, svolteVoci:countVoci(svolte), importo:svolte.reduce((s,it)=>s+(Number(it.importo)||0),0),
+    prenotate:prenotate.length, prenotateVoci:countVoci(prenotate), importoPrenotate:prenotate.reduce((s,it)=>s+(Number(it.importo)||0),0),
+    annullate:its.filter(it=>it.stato==='annullato').length
+  };
+}
+// aggrega le voci del mese per viaggiatore, separando prenotato/svolto (le annullate non contano
+// qui: si vedono comunque nel dettaglio viaggiatore sotto l'albero)
+function travelerBreakdownForMonth(monthYM){
+  const its=riepItems().filter(it=>itemMonthYM(it)===monthYM && it.stato!=='annullato');
+  const byTrav={};
+  its.forEach(it=>{
+    const tp=STATE.trips.find(t=>t.id===it.trip_id); if(!tp) return;
+    const tv=travById(tp.traveler_id);
+    if(!byTrav[tp.traveler_id]) byTrav[tp.traveler_id]={nome:tv.nome, prenotato:{n:0,importo:0,groups:new Set()}, svolto:{n:0,importo:0,groups:new Set()}};
+    const bucket=byTrav[tp.traveler_id][it.stato];
+    if(!bucket) return;
+    bucket.n++; bucket.importo+=Number(it.importo)||0; bucket.groups.add(it.gruppo_id||it.id);
+  });
+  return byTrav;
+}
+function riepStatsHtml(prog,done){
+  const pV=prog.groups?prog.groups.size:(prog.voci||0), dV=done.groups?done.groups.size:(done.voci||0);
+  return `<div class="riep-stats">
+    <div class="riep-stat prog"><span class="rl">Prenotate</span><span class="rv">${vociLabel(pV)} · ${rigaLabel(prog.n)} · ${eur2(prog.importo)}</span></div>
+    <div class="riep-stat done"><span class="rl">Svolte</span><span class="rv">${vociLabel(dV)} · ${rigaLabel(done.n)} · ${eur2(done.importo)}</span></div>
+  </div>`;
+}
+function renderMonthCard(monthYM,alertMsg,isCurrent){
+  const its=riepItems().filter(it=>itemMonthYM(it)===monthYM);
+  const svolte=its.filter(it=>it.stato==='svolto'), prenotate=its.filter(it=>it.stato==='prenotato'), annullate=its.filter(it=>it.stato==='annullato');
+  const doneTot={n:svolte.length, voci:countVoci(svolte), importo:svolte.reduce((s,it)=>s+(Number(it.importo)||0),0)};
+  const progTot={n:prenotate.length, voci:countVoci(prenotate), importo:prenotate.reduce((s,it)=>s+(Number(it.importo)||0),0)};
+  const [y,m]=monthYM.split('-').map(Number);
+  const travs=travelerBreakdownForMonth(monthYM);
+  const travIds=Object.keys(travs).sort((x,y2)=>(travs[y2].svolto.importo+travs[y2].prenotato.importo)-(travs[x].svolto.importo+travs[x].prenotato.importo));
+  const nodeId='m_'+monthYM;
+  return `<div class="node${isCurrent?' current-month':''}" data-node="${nodeId}">
+    <div class="node-row">
+      <span class="twisty">${TWISTY_ICON}</span>
+      <div><div class="node-title month-title">${MESI_LONG[m-1]} ${y}</div><div class="node-sub">${travIds.length} viaggiator${travIds.length===1?'e':'i'} coinvolt${travIds.length===1?'o':'i'}</div></div>
+      <div class="node-meta">
+        ${alertMsg?`<span class="node-alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>${esc(alertMsg)}</span>`:''}
+        ${annullate.length?`<span class="badge rev">${annullate.length} annullata</span>`:''}
+        ${riepStatsHtml(progTot,doneTot)}
+      </div>
+    </div>
+    ${travIds.length?`<div class="node-children"><div class="node-children-inner">
+      ${travIds.map(tid=>{
+        const tr=travs[tid];
+        return `<div class="docente-row" data-trav="${tid}" data-month="${monthYM}">
+          <div class="docente-line">
+            <div class="node-title">${esc(tr.nome)}</div>
+            ${riepStatsHtml(tr.prenotato,tr.svolto)}
+          </div>
+        </div>`;
+      }).join('')}
+    </div></div>`:''}
+  </div>`;
+}
+// dettaglio del viaggiatore selezionato nell'albero: tipologia con calcoli (voci svolte) + voci
+// singole (con gli stessi tastini ✓/✗ dell'elenco Trasferte) per quel viaggiatore in quel mese
+let RIEP_SELECTED=null; // {travelerId, monthYM}
+function renderTravelerDetail(){
+  const el=document.getElementById("riepTravDetail");
+  if(!el) return;
+  if(!RIEP_SELECTED){ el.style.display="none"; el.innerHTML=""; return; }
+  const {travelerId,monthYM}=RIEP_SELECTED;
+  const tv=STATE.travelers.find(t=>t.id===travelerId);
+  if(!tv){ RIEP_SELECTED=null; el.style.display="none"; el.innerHTML=""; return; }
+  const [y,m]=monthYM.split('-').map(Number);
+  const its=riepItems().filter(it=>{ const tp=STATE.trips.find(t=>t.id===it.trip_id); return tp && tp.traveler_id===travelerId && itemMonthYM(it)===monthYM; });
+  const svolte=its.filter(it=>it.stato==='svolto');
+  const perT={};
+  svolte.forEach(it=>{ perT[it.tipo]=perT[it.tipo]||{n:0,imp:0}; perT[it.tipo].n++; perT[it.tipo].imp+=Number(it.importo)||0; });
+  let tipoHtml=`<thead><tr><th class="l">Tipologia</th><th>Voci</th><th>Importo</th></tr></thead><tbody>`;
+  TIPI.forEach(tp=>{ if(!perT[tp]) return; const r=perT[tp]; tipoHtml+=`<tr><td class="l">${tp}</td><td>${r.n}</td><td><b>${eur2(r.imp)}</b></td></tr>`; });
+  if(!Object.keys(perT).length) tipoHtml+=`<tr><td colspan="3"><div class="empty">Nessuna voce svolta in questo mese.</div></td></tr>`;
+  tipoHtml+=`</tbody>`;
+  const rowsHtml = its.length ? its.slice().sort((a,b)=>String(b.comp_da||b.data_acquisto||'').localeCompare(String(a.comp_da||a.data_acquisto||''))).map(it=>itemRowHtml(it)).join('') : `<div class="empty">Nessuna voce in questo mese.</div>`;
+  el.style.display="";
+  el.innerHTML=`
+    <div class="riep-detail-h">
+      <h3>${esc(tv.nome)} · ${MESI_LONG[m-1]} ${y}</h3>
+      <button class="iconx" id="riepDetailClose" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="riep-detail-body">
+      <div class="card scroll" style="margin-bottom:14px"><table>${tipoHtml}</table></div>
+      <div class="card scroll"><div id="riepDetailItems"></div></div>
+    </div>`;
+  document.getElementById("riepDetailItems").innerHTML=rowsHtml;
+  wireItemRows(document.getElementById("riepDetailItems"));
+  document.getElementById("riepDetailClose").onclick=()=>{ RIEP_SELECTED=null; renderRiepilogo(); };
 }
 function renderRiepilogo(){
-  const its=visibleItems();
+  const allMonths=fyMonthYMList();
+  const selected=(STATE.riepMonths||[]).filter(m=>allMonths.includes(m));
+  const scope=selected.length?selected:allMonths;
+  const its=riepItems().filter(it=>{ const ym=itemMonthYM(it); return ym && scope.includes(ym); });
+
   let speso=0, alloc=0, trace=0;
-  its.forEach(it=>{ const b=itemBudget(it); if(!b.mo||!inFY(b.mo.y,b.mo.m)) return; if(b.trace){trace+=b.amount;return;} if(!b.counts)return; if(b.bucket==="speso")speso+=b.amount; else alloc+=b.amount; });
+  its.forEach(it=>{ const b=itemBudget(it); if(!b.mo) return; if(b.trace){trace+=b.amount;return;} if(!b.counts)return; if(b.bucket==="speso")speso+=b.amount; else alloc+=b.amount; });
   const tot=speso+alloc;
   document.getElementById("kpis").innerHTML=`
     <div class="kpi" style="--bar:var(--ink-mute)"><div class="l"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Totale stima</span></div><div class="v">${eur(tot)}</div><div class="sub">AF ${STATE.fyStart}–${(STATE.fyStart+1)%100} · IVA esclusa</div></div>
@@ -666,44 +969,157 @@ function renderRiepilogo(){
     <div class="kpi" style="--bar:var(--warn)"><div class="l"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Allocato stima</span></div><div class="v">${eur(alloc)}</div><div class="sub">mesi futuri</div></div>
     <div class="kpi" style="--bar:var(--info-ink)"><div class="l"><span class="sw" style="background:var(--info-ink)"></span><span class="eyebrow">Spese in fattura</span></div><div class="v">${eur(trace)}</div><div class="sub">tracciate · escluse (via RDA)</div></div>`;
 
-  const perP={};
-  its.forEach(it=>{ const b=itemBudget(it); const tp=STATE.trips.find(t=>t.id===it.trip_id)||{}; const nm=travById(tp.traveler_id).nome; perP[nm]=perP[nm]||{stima:0,trace:0,voci:0,staff:travById(tp.traveler_id).staff}; perP[nm].voci++; if(b.trace)perP[nm].trace+=b.amount; else if(b.counts)perP[nm].stima+=b.amount; });
-  let hp=`<thead><tr><th class="l">Viaggiatore</th><th class="l">Tipo</th><th>Voci</th><th>Stima budget</th><th>In fattura</th></tr></thead><tbody>`;
-  Object.keys(perP).sort((a,b)=>perP[b].stima-perP[a].stima).forEach(nm=>{ const r=perP[nm];
-    hp+=`<tr><td class="l">${esc(nm)}</td><td class="l"><span class="tag">${r.staff?'staff':'no-staff'}</span></td><td>${r.voci}</td><td><b>${eur2(r.stima)}</b></td><td><span class="meta">${eur2(r.trace)}</span></td></tr>`; });
-  hp+=`</tbody>`; document.getElementById("byPerson").innerHTML=hp;
+  const box=document.getElementById("riepBlocks");
+  let html="";
+  if(!selected.length){
+    const cur=todayMonth();
+    if(allMonths.includes(cur)){
+      const daysLeft=daysLeftInMonth();
+      const curPendingCount=riepItems().filter(it=>itemMonthYM(it)===cur && it.stato==='prenotato').length;
+      const alertMsg = (daysLeft<=5 && curPendingCount>0) ? `⚠ Mancano ${daysLeft} giorn${daysLeft===1?'o':'i'} alla fine del mese: conferma le ${curPendingCount} voci ancora "prenotato".` : "";
+      // il mese corrente si vede sempre, anche senza voci; successivi/precedenti solo se hanno
+      // almeno una voce prenotata/svolta (altrimenti l'elenco si riempie di mesi vuoti)
+      html+=`<h2 class="sec" style="margin-top:22px">Mese in corso</h2><div class="tree">${renderMonthCard(cur,alertMsg,true)}</div>`;
+      const prev=prevMonth(cur);
+      const futuri=allMonths.filter(m=>m>cur && monthHasItems(m)).sort();
+      if(futuri.length){
+        html+=`<h2 class="sec" style="margin-top:26px">Mesi successivi</h2><div class="tree">`;
+        futuri.forEach(m=>{ html+=renderMonthCard(m); });
+        html+=`</div>`;
+      }
+      const passati=allMonths.filter(m=>m<cur && monthHasItems(m)).sort().reverse();
+      if(passati.length){
+        html+=`<h2 class="sec" style="margin-top:26px">Mesi precedenti</h2><div class="tree">`;
+        passati.forEach(m=>{
+          const prevAlert = m===prev && riepItems().some(it=>itemMonthYM(it)===prev && it.stato==='prenotato') ? "Mese precedente, da confermare prima possibile." : "";
+          html+=renderMonthCard(m,prevAlert);
+        });
+        html+=`</div>`;
+      }
+    } else {
+      html+=`<h2 class="sec" style="margin-top:22px">Mesi</h2><div class="tree">`;
+      allMonths.slice().reverse().forEach(m=>{ html+=renderMonthCard(m); });
+      html+=`</div>`;
+    }
+  } else {
+    html+=`<h2 class="sec" style="margin-top:22px">Mesi selezionati</h2><div class="tree">`;
+    selected.slice().sort().reverse().forEach(m=>{ html+=renderMonthCard(m); });
+    html+=`</div>`;
+  }
+  box.innerHTML=html;
+  box.querySelectorAll(".node-row").forEach(row=>{ row.onclick=()=>row.parentElement.classList.toggle("open"); });
+  // il mese corrente parte già esploso sui viaggiatori; gli altri mesi restano raggruppati/chiusi finché non si clicca
+  const curNode=box.querySelector('.node.current-month');
+  if(curNode) curNode.classList.add('open');
+  // click su un viaggiatore: mostra sotto l'albero la sua tipologia con calcoli e le singole voci
+  box.querySelectorAll(".docente-row").forEach(row=>{
+    row.onclick=()=>{
+      RIEP_SELECTED={travelerId:row.dataset.trav, monthYM:row.dataset.month};
+      box.querySelectorAll(".docente-row.selected").forEach(r=>r.classList.remove("selected"));
+      row.classList.add("selected");
+      renderTravelerDetail();
+    };
+  });
+  if(RIEP_SELECTED){
+    const match=box.querySelector(`.docente-row[data-trav="${RIEP_SELECTED.travelerId}"][data-month="${RIEP_SELECTED.monthYM}"]`);
+    if(match) match.classList.add("selected");
+  }
+  renderTravelerDetail();
 
   const perC={};
   its.forEach(it=>{ const b=itemBudget(it); if(!b.counts||!b.cat)return; perC[b.cat]=(perC[b.cat]||0)+b.amount; });
   let hc=`<thead><tr><th class="l">Categoria budget</th><th>Stima</th></tr></thead><tbody>`;
-  CATS.forEach(c=>{ if(perC[c]) hc+=`<tr><td class="l"><span class="catdot" style="background:${CAT_COLOR[c]}"></span>${c}</td><td><b>${eur2(perC[c])}</b></td></tr>`; });
+  let anyCat=false;
+  CATS.forEach(c=>{ if(perC[c]){ anyCat=true; hc+=`<tr><td class="l"><span class="catdot" style="background:${CAT_COLOR[c]}"></span>${c}</td><td><b>${eur2(perC[c])}</b></td></tr>`; } });
+  if(!anyCat) hc+=`<tr><td colspan="2"><div class="empty">Nessuna voce nel periodo selezionato.</div></td></tr>`;
   hc+=`</tbody>`; document.getElementById("byCat").innerHTML=hc;
+}
 
-  const perT={};
-  its.forEach(it=>{ perT[it.tipo]=perT[it.tipo]||{n:0,amt:0,trace:it.tipo==="Spese in fattura"}; perT[it.tipo].n++; perT[it.tipo].amt+=Number(it.importo)||0; });
-  let ht=`<thead><tr><th class="l">Tipologia</th><th>Voci</th><th>Importo</th><th class="l">Impatto</th></tr></thead><tbody>`;
-  TIPI.forEach(t=>{ if(!perT[t])return; const r=perT[t];
-    ht+=`<tr><td class="l">${t}</td><td>${r.n}</td><td>${eur2(r.amt)}</td><td class="l">${r.trace?'<span class="badge trace">tracciata</span>':'<span class="badge alloc">stima budget</span>'}</td></tr>`; });
-  ht+=`</tbody>`; document.getElementById("byType").innerHTML=ht;
+/* ---- Calendario: griglia mensile reale (stessa struttura di renderCalendario/openCalPreview/
+   openCalDayList in Docenti), su bdg_travel_items invece di bdg_teacher_activities — sostituisce
+   la vecchia vista a barre "distribuzione per mese", che restava solo un grafico non un vero
+   calendario (Luigi, 2026-09-25: "calendario ... come per docenti, copia la struttura") ---- */
+let calMonth=null;
+let calStatoFilter=[]; // vuoto = nessun filtro, mostra tutte; altrimenti solo gli stati selezionati
+function calItemDate(it){ return it.comp_da || it.data_acquisto || ""; }
+// icona di stato invece del semplice pallino colorato, stesso significato di Docenti: verde=svolta,
+// ambra=prenotata, grigio=annullata
+function calStatoIcon(stato){
+  if(stato==='svolto') return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--accent)"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  if(stato==='annullato') return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--ink-mute)"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+  return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--warn)"/><rect x="11" y="6.5" width="2" height="7" rx="1" fill="#fff"/><rect x="11" y="15.5" width="2" height="2" rx="1" fill="#fff"/></svg>`;
 }
+function calItemLabel(it){ const tp=STATE.trips.find(t=>t.id===it.trip_id); const tv=tp?travById(tp.traveler_id):null; return (tv?tv.nome:'?') + (it.tipo?' · '+it.tipo:''); }
+function calShift(delta){
+  const [y,m]=calMonth.split('-').map(Number);
+  const d=new Date(y, m-1+delta, 1);
+  calMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
+  renderCalendario();
+}
+function calPassesFilter(it){ return !calStatoFilter.length || calStatoFilter.includes(it.stato); }
+function monthLabel(ym){ const [y,m]=ym.split('-').map(Number); return `${MESI_LONG[m-1]} ${y}`; }
 function renderCalendario(){
-  const its=visibleItems();
-  const months=fyMonths();
-  const data=months.map(()=>({speso:0,alloc:0}));
-  its.forEach(it=>{ const b=itemBudget(it); if(!b.counts||!b.mo)return; const idx=months.findIndex(mm=>mm.y===b.mo.y&&mm.m===b.mo.m); if(idx<0)return; if(b.bucket==="speso")data[idx].speso+=b.amount; else data[idx].alloc+=b.amount; });
-  const max=Math.max(1,...data.map(d=>d.speso+d.alloc));
-  let h="";
-  months.forEach((mm,i)=>{ const d=data[i]; const tot=d.speso+d.alloc;
-    h+=`<div style="display:flex;align-items:center;gap:12px;margin:7px 0">
-      <div style="width:64px;font-size:12px;color:var(--ink-soft)">${MESI[mm.m]} ${String(mm.y).slice(2)}</div>
-      <div style="flex:1;height:22px;background:#F1F0EB;border-radius:5px;overflow:hidden;display:flex">
-        <div style="width:${d.speso/max*100}%;background:var(--speso)"></div>
-        <div style="width:${d.alloc/max*100}%;background:var(--allocato)"></div>
-      </div>
-      <div style="width:90px;text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:13px">${tot?eur2(tot):'—'}</div>
-    </div>`; });
-  document.getElementById("calRows").innerHTML=h;
+  const label=document.getElementById('calMonthLabel'); if(!label) return;
+  if(!calMonth) calMonth=todayMonth();
+  label.textContent=monthLabel(calMonth);
+  document.querySelectorAll('.cal-filters .chip').forEach(c=>c.classList.toggle('on', calStatoFilter.includes(c.dataset.stato)));
+  const [y,m]=calMonth.split('-').map(Number);
+  const startDow=new Date(y,m-1,1).getDay(); // 0=domenica, come le colonne Dom..Sab
+  const daysInMonth=new Date(y,m,0).getDate();
+  const todayStr=todayISO();
+  const byDay={};
+  visibleItems().forEach(it=>{ const d=calItemDate(it); if(d.slice(0,7)!==calMonth || !calPassesFilter(it)) return; (byDay[d]=byDay[d]||[]).push(it); });
+  let cells='';
+  for(let i=0;i<startDow;i++) cells+=`<div class="cal-cell cal-blank"></div>`;
+  for(let d=1; d<=daysInMonth; d++){
+    const dateStr=`${calMonth}-${String(d).padStart(2,'0')}`;
+    const dayItems=(byDay[dateStr]||[]).slice();
+    const isToday=dateStr===todayStr;
+    const shown=dayItems.slice(0,3), extra=dayItems.length-shown.length;
+    const entries=shown.map(it=>`<div class="cal-entry${it.stato==='annullato'?' cal-entry-muted':''}" data-id="${it.id}" title="${esc(calItemLabel(it))}">${calStatoIcon(it.stato)}${esc(calItemLabel(it))}</div>`).join("");
+    cells+=`<div class="cal-cell">
+      <div class="cal-daynum">${isToday?`<span class="cal-daynum-today">${d}</span>`:d}</div>
+      <div class="cal-entries">${entries}${extra>0?`<div class="cal-more" data-date="${dateStr}">+${extra} altr${extra===1?'a':'e'}</div>`:''}</div>
+    </div>`;
+  }
+  const trailing=(7-((startDow+daysInMonth)%7))%7;
+  for(let i=0;i<trailing;i++) cells+=`<div class="cal-cell cal-blank"></div>`;
+  document.getElementById('calGrid').innerHTML=cells;
+  document.querySelectorAll('#calGrid .cal-entry').forEach(el=>el.onclick=()=>openCalPreview(el.dataset.id));
+  document.querySelectorAll('#calGrid .cal-more').forEach(el=>el.onclick=()=>openCalDayList(el.dataset.date));
 }
+let calPreviewId=null;
+function openCalPreview(id){
+  const it=STATE.items.find(x=>x.id===id); if(!it) return;
+  calPreviewId=id;
+  const tp=STATE.trips.find(t=>t.id===it.trip_id)||{};
+  const tv=travById(tp.traveler_id);
+  const stLabel=it.stato==='svolto'?'Svolta':it.stato==='annullato'?'Annullata':'Prenotata';
+  document.getElementById('calPreviewTitle').textContent=it.tipo||'Voce';
+  document.getElementById('calPreviewBody').innerHTML=`
+    <div class="field"><label>Viaggiatore</label><div>${esc(tv.nome)}</div></div>
+    <div class="field"><label>Data</label><div>${esc(fmtD(calItemDate(it))||'—')}</div></div>
+    <div class="field"><label>Stato</label><div>${esc(stLabel)}</div></div>
+    <div class="field"><label>Importo</label><div>${eur2(it.importo)}</div></div>
+    ${it.note?`<div class="field"><label>Note</label><div>${esc(it.note)}</div></div>`:''}
+  `;
+  document.getElementById('calPreviewOpen').style.display='';
+  document.getElementById('calPreviewOverlay').classList.add('on');
+}
+function openCalDayList(dateStr){
+  calPreviewId=null;
+  const its=visibleItems().filter(it=>calItemDate(it)===dateStr && calPassesFilter(it));
+  document.getElementById('calPreviewTitle').textContent=dateStr;
+  document.getElementById('calPreviewBody').innerHTML = its.map(it=>`
+    <div class="cal-daylist-row${it.stato==='annullato'?' cal-entry-muted':''}" data-id="${it.id}">
+      ${calStatoIcon(it.stato)}
+      <span style="flex:1">${esc(calItemLabel(it))}</span>
+    </div>`).join("") || `<div class="hint">Nessuna voce.</div>`;
+  document.querySelectorAll('#calPreviewBody .cal-daylist-row').forEach(row=>row.onclick=()=>openCalPreview(row.dataset.id));
+  document.getElementById('calPreviewOpen').style.display='none';
+  document.getElementById('calPreviewOverlay').classList.add('on');
+}
+function closeCalPreview(){ document.getElementById('calPreviewOverlay').classList.remove('on'); calPreviewId=null; }
 function renderImpostazioni(){
   // "Gruppo": chi condivide lo stesso testo qui può inserire trasferte anche per gli altri membri,
   // non solo per sé (Luigi, 2026-09-26 — es. Corrado/Ilaria/Andrea Arrigoni, Greta Mangano, Fabrizio
@@ -1037,7 +1453,26 @@ function renderCloudModal(){
 /* ============================ WIRING + BOOT ============================ */
 function toast(m,type){ const t=document.getElementById("toast"); t.textContent=m; t.className="on"+(type==='err'?' err':''); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),type==='err'?6000:2200); }
 document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on")); document.getElementById("panel-"+b.dataset.tab).classList.add("on"); });
-document.getElementById("fySel").onchange=e=>{ STATE.fyStart=+e.target.value; save(); renderAll(); };
+document.getElementById("fySel").onchange=e=>{ STATE.fyStart=+e.target.value; STATE.riepMonths=[]; save(); renderRiepMonthChips(); renderAll(); };
+document.getElementById("riepFiltersToggle").onclick=()=>{
+  riepFiltersToggled=true;
+  const panel=document.getElementById("riepFiltersPanel");
+  const open=panel.style.display==="none";
+  panel.style.display = open ? "" : "none";
+  document.getElementById("riepFiltersToggle").classList.toggle("open", open);
+};
+document.getElementById("calToday").onclick=()=>{ calMonth=todayMonth(); renderCalendario(); };
+document.getElementById("calPrev").onclick=()=>calShift(-1);
+document.getElementById("calNext").onclick=()=>calShift(1);
+document.querySelectorAll(".cal-filters .chip").forEach(c=>c.onclick=()=>{
+  const s=c.dataset.stato, i=calStatoFilter.indexOf(s);
+  if(i>=0) calStatoFilter.splice(i,1); else calStatoFilter.push(s);
+  renderCalendario();
+});
+document.getElementById("calPreviewClose").onclick=closeCalPreview;
+document.getElementById("calPreviewClose2").onclick=closeCalPreview;
+document.getElementById("calPreviewOpen").onclick=()=>{ const id=calPreviewId; closeCalPreview(); if(id){ const it=STATE.items.find(x=>x.id===id); if(it) openItem(it.trip_id,it.id); } };
+document.getElementById("calPreviewOverlay").onclick=e=>{ if(e.target.id==="calPreviewOverlay") e.currentTarget.classList.remove("on"); };
 document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); };
 document.getElementById("refDate").onchange=e=>{ STATE.refDate=e.target.value; save(); renderAll(); };
 document.getElementById("ivaDef").onchange=e=>{ STATE.ivaDef=parseFloat(e.target.value)||0; save(); };
