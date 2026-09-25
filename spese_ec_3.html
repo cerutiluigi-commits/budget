@@ -194,6 +194,17 @@ tfoot td.l{text-align:left}
 .cloud-state .b{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px;font-weight:700}
 .cloud-state .b.on{background:var(--accent-soft);color:var(--accent)}.cloud-state .b.off{background:var(--surface-mute);color:var(--ink-soft)}
 
+/* righe multiple per una voce (stessa regola già in uso in Docenti per le date di un'attività):
+   i campi comuni (tipologia/fornitore/iva/stato) restano una volta sola, ogni riga aggiunge solo
+   importo + date + rif. prenotazione — utile per volo andata/ritorno, più notti in hotel diversi, ecc. */
+.item-rows{display:flex;flex-direction:column;gap:10px;margin-top:4px}
+.item-row-line{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-mute)}
+.item-row-line .field{margin-bottom:0}
+.item-row-line label{font-size:10.5px}
+.item-row-del{align-self:end}
+.item-total{display:flex;justify-content:flex-end;gap:8px;font-weight:700;padding:6px 4px;font-variant-numeric:tabular-nums}
+@media(max-width:700px){ .item-row-line{grid-template-columns:1fr 1fr} .item-row-del{grid-column:span 2;justify-self:end}}
+
 @media(max-width:600px){
   header{position:static;flex-direction:column;align-items:stretch;gap:10px;padding:10px 12px}
   .hctl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
@@ -345,14 +356,14 @@ tfoot td.l{text-align:left}
       <div class="grid2">
         <div class="field"><label>Tipologia <span class="req">*</span></label><select id="iTipo"></select></div>
         <div class="field"><label>Fornitore</label><input type="text" id="iForn" placeholder="es. Uvet"></div>
-        <div class="field"><label>Importo € <span class="req">*</span></label><input type="number" id="iImp" step="0.01" placeholder="0,00"></div>
         <div class="field"><label>IVA %</label><input type="number" id="iIva" step="0.5"></div>
-        <div class="field"><label>Data acquisto</label><input type="date" id="iAcq"></div>
-        <div class="field"><label>Rif. prenotazione</label><input type="text" id="iRif" placeholder="facoltativo"></div>
         <div class="field"><label>Stato</label><select id="iStato"><option value="prenotato">prenotato</option><option value="riconciliato">riconciliato (actual)</option><option value="annullato">annullato</option><option value="bozza">bozza</option></select></div>
-        <div class="field"><label>Rif. actual (RDA/fattura)</label><input type="text" id="iActualRef" placeholder="es. RDA 2026-045"></div>
-        <div class="field"><label>Servizio da (competenza)</label><input type="date" id="iCda"></div>
-        <div class="field"><label>Servizio a</label><input type="date" id="iCa"></div>
+        <div class="field"><label>Rif. actual (fattura/nota spese)</label><input type="text" id="iActualRef" placeholder="es. fattura 2026-045"></div>
+      </div>
+      <div class="item-rows" id="iRows"></div>
+      <button type="button" class="btn ghost small" id="iAddRow" style="margin-top:2px">+ aggiungi riga</button>
+      <div class="item-total" id="iTotal"></div>
+      <div class="grid2" style="margin-top:14px">
         <div class="field full"><label>Note</label><textarea id="iNote" rows="2"></textarea></div>
         <div class="field full"><div class="mapinfo" id="iMap"></div></div>
       </div>
@@ -759,7 +770,13 @@ function renderTabVisTable(){
 }
 
 /* ============================ MODALI ============================ */
-let editTripId=null, editItemId=null, editItemTrip=null;
+let editTripId=null, editItemGroupId=null, editItemTrip=null;
+// righe della voce aperta nella modale — stessa regola già in uso in Docenti per le date di
+// un'attività (Luigi, 2026-09-25): i campi comuni (tipologia/fornitore/iva/stato/note) valgono per
+// l'intera voce, ogni riga porta solo importo+date+rif. prenotazione (volo andata/ritorno, notti in
+// hotel diversi, ecc. — non solo Hotel, vale per qualunque tipologia)
+let iRows=[];
+function newItemRow(rowId,importo,dataAcquisto,rifPrenotazione,compDa,compA){ return {rowId:rowId||null, importo:(importo==null?'':importo), dataAcquisto:dataAcquisto||'', rifPrenotazione:rifPrenotazione||'', compDa:compDa||'', compA:compA||''}; }
 function openTrip(id){
   editTripId=id||null;
   const t=id?STATE.trips.find(x=>x.id===id):null;
@@ -802,7 +819,11 @@ function itemMapPreview(){
   const st=document.getElementById("iStato").value;
   const trip=STATE.trips.find(t=>t.id===editItemTrip)||{};
   const staff=travById(trip.traveler_id).staff;
-  const fake={tipo:tip,stato:st,comp_da:document.getElementById("iCda").value,data_acquisto:document.getElementById("iAcq").value,importo:0};
+  // l'anteprima categoria/impatto dipende solo da tipologia/stato/mese di servizio, non dall'importo:
+  // usa la prima riga come rappresentativa, corretta anche quando le righe hanno date diverse (es.
+  // volo andata a settembre e ritorno a ottobre finiscono comunque nello stesso "tipo" di impatto)
+  const r0=iRows[0]||{};
+  const fake={tipo:tip,stato:st,comp_da:r0.compDa,data_acquisto:r0.dataAcquisto,importo:0};
   const cat=mapCat(tip,staff), imp=impactOf(fake);
   const box=document.getElementById("iMap");
   if(tip==="Spese in fattura"){ box.innerHTML=`<b>Spese in fattura</b> → impatto <b>TRACE_ONLY</b>: tracciata ma <b>esclusa</b> dal budget (entra già via RDA).`; return; }
@@ -813,44 +834,86 @@ function itemMapPreview(){
   if(imp==="ACTUAL") html+=`<div style="margin-top:6px;color:var(--warn,#B4563A)">⚠ Da qui in poi non conta più come stima nel Budget. Registra prima il movimento reale nel tool Budget (o verifica che ci sia già), altrimenti questa spesa sparisce dal tracciamento invece di essere sostituita.</div>`;
   box.innerHTML=html;
 }
+// una riga per importo+date+rif. prenotazione (rimuovibile se ce n'è più di una), stesso pattern di
+// renderDateRows() in Docenti — tipologia/fornitore/iva/stato/note restano comuni a tutte le righe
+function renderItemRows(){
+  const wrap=document.getElementById("iRows");
+  wrap.innerHTML = iRows.map((r,i)=>`
+    <div class="item-row-line" data-i="${i}">
+      <div class="field"><label>Importo € <span class="req">*</span></label><input type="number" step="0.01" placeholder="0,00" class="ir-imp"></div>
+      <div class="field"><label>Data acquisto</label><input type="date" class="ir-acq"></div>
+      <div class="field"><label>Rif. prenotazione</label><input type="text" placeholder="facoltativo" class="ir-rif"></div>
+      <div class="field"><label>Servizio da</label><input type="date" class="ir-cda"></div>
+      <div class="field"><label>Servizio a</label><input type="date" class="ir-ca"></div>
+      ${iRows.length>1?`<button type="button" class="rowbtn item-row-del" title="Rimuovi riga"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`:'<span></span>'}
+    </div>`).join("");
+  wrap.querySelectorAll(".item-row-line").forEach((row,i)=>{
+    const impEl=row.querySelector(".ir-imp"), acqEl=row.querySelector(".ir-acq"), rifEl=row.querySelector(".ir-rif"), cdaEl=row.querySelector(".ir-cda"), caEl=row.querySelector(".ir-ca"), delBtn=row.querySelector(".item-row-del");
+    impEl.value=iRows[i].importo; acqEl.value=iRows[i].dataAcquisto; rifEl.value=iRows[i].rifPrenotazione; cdaEl.value=iRows[i].compDa; caEl.value=iRows[i].compA;
+    impEl.oninput=()=>{ iRows[i].importo=impEl.value; updateItemTotal(); };
+    acqEl.onchange=()=>{ iRows[i].dataAcquisto=acqEl.value; if(i===0) itemMapPreview(); };
+    rifEl.oninput=()=>{ iRows[i].rifPrenotazione=rifEl.value; };
+    cdaEl.onchange=()=>{ iRows[i].compDa=cdaEl.value; if(i===0) itemMapPreview(); };
+    caEl.onchange=()=>{ iRows[i].compA=caEl.value; };
+    if(delBtn) delBtn.onclick=()=>{ iRows.splice(i,1); renderItemRows(); };
+  });
+  updateItemTotal();
+}
+function updateItemTotal(){
+  const tot=iRows.reduce((s,r)=>s+(parseFloat(r.importo)||0),0);
+  document.getElementById("iTotal").textContent = iRows.length>1 ? `Totale: ${eur2(tot)}` : "";
+}
 function openItem(tripId,itemId){
-  editItemTrip=tripId; editItemId=itemId||null;
+  editItemTrip=tripId;
   const it=itemId?STATE.items.find(x=>x.id===itemId):null;
+  // stessa nozione di "gruppo" di Docenti: cliccando una qualsiasi riga si apre l'intera voce
+  editItemGroupId = it ? (it.gruppo_id||it.id) : null;
+  const groupRows = editItemGroupId ? STATE.items.filter(x=>(x.gruppo_id||x.id)===editItemGroupId && x.trip_id===tripId) : [];
+  const rep = groupRows[0]||null; // riga rappresentativa per i campi comuni
   document.getElementById("itemTitle").textContent=itemId?"Modifica voce":"Nuova voce";
-  document.getElementById("iTipo").value=it?it.tipo:"Volo";
-  document.getElementById("iForn").value=it?it.fornitore||"":(FORNITORE_DEFAULT[document.getElementById("iTipo").value]||"");
-  document.getElementById("iImp").value=it?it.importo:"";
-  document.getElementById("iIva").value=it?(it.iva==null?STATE.ivaDef:it.iva):STATE.ivaDef;
-  document.getElementById("iAcq").value=it?it.data_acquisto||"":"";
-  document.getElementById("iRif").value=it?it.rif_prenotazione||"":"";
-  document.getElementById("iStato").value=it?it.stato:"prenotato";
-  document.getElementById("iActualRef").value=it?it.actual_ref||"":"";
-  document.getElementById("iCda").value=it?it.comp_da||"":"";
-  document.getElementById("iCa").value=it?it.comp_a||"":"";
-  document.getElementById("iNote").value=it?it.note||"":"";
+  document.getElementById("iTipo").value=rep?rep.tipo:"Volo";
+  document.getElementById("iForn").value=rep?rep.fornitore||"":(FORNITORE_DEFAULT[document.getElementById("iTipo").value]||"");
+  document.getElementById("iIva").value=rep?(rep.iva==null?STATE.ivaDef:rep.iva):STATE.ivaDef;
+  document.getElementById("iStato").value=rep?rep.stato:"prenotato";
+  document.getElementById("iActualRef").value=rep?rep.actual_ref||"":"";
+  document.getElementById("iNote").value=rep?rep.note||"":"";
   document.getElementById("iDelete").style.display=itemId?"inline-flex":"none";
+  iRows = groupRows.length
+    ? groupRows.slice().sort((x,y)=>String(x.data_acquisto||'').localeCompare(String(y.data_acquisto||''))).map(x=>newItemRow(x.id,x.importo,x.data_acquisto,x.rif_prenotazione,x.comp_da,x.comp_a))
+    : [newItemRow(null,'','','','','')];
+  renderItemRows();
   itemMapPreview();
   document.getElementById("itemOverlay").classList.add("on");
 }
 function saveItem(){
-  const imp=parseFloat(document.getElementById("iImp").value);
-  if(isNaN(imp)){ toast("Inserisci l'importo"); return; }
+  if(!iRows.length){ toast("Aggiungi almeno una riga"); return; }
+  for(const r of iRows){ if(r.importo===''||isNaN(parseFloat(r.importo))){ toast("Inserisci l'importo per ogni riga"); return; } }
   const stato=document.getElementById("iStato").value;
   const actualRef=document.getElementById("iActualRef").value.trim();
-  if(stato==="riconciliato" && !actualRef && !confirm("Stai segnando la voce come riconciliata senza indicare un riferimento actual (RDA/fattura), e senza aver verificato che il movimento reale sia già registrato nel Budget: da questo momento smette di contare come stima e, se il movimento reale non c'è, la spesa sparisce dal tracciamento. Continuare comunque?")) return;
-  const o={ trip_id:editItemTrip, tipo:document.getElementById("iTipo").value, fornitore:document.getElementById("iForn").value.trim(), importo:imp, iva:parseFloat(document.getElementById("iIva").value)||0, data_acquisto:document.getElementById("iAcq").value||null, rif_prenotazione:document.getElementById("iRif").value.trim(), stato, comp_da:document.getElementById("iCda").value||null, comp_a:document.getElementById("iCa").value||null, note:document.getElementById("iNote").value.trim(), actual_ref:actualRef };
-  let saved;
-  if(editItemId){ const it=STATE.items.find(x=>x.id===editItemId); Object.assign(it,o); saved=it; toast("Voce aggiornata"); }
-  else { o.id=uuid(); STATE.items.unshift(o); saved=o; toast("Voce aggiunta"); }
+  if(stato==="riconciliato" && !actualRef && !confirm("Stai segnando la voce come riconciliata senza indicare un riferimento actual (fattura/nota spese), e senza aver verificato che il movimento reale sia già registrato nel Budget: da questo momento smette di contare come stima e, se il movimento reale non c'è, la spesa sparisce dal tracciamento. Continuare comunque?")) return;
+  const tipo=document.getElementById("iTipo").value, fornitore=document.getElementById("iForn").value.trim(), iva=parseFloat(document.getElementById("iIva").value)||0, note=document.getElementById("iNote").value.trim();
+  const groupId = editItemGroupId || uuid();
+  const groupRowsBefore = editItemGroupId ? STATE.items.filter(x=>(x.gruppo_id||x.id)===editItemGroupId && x.trip_id===editItemTrip) : [];
+  const keptIds = new Set(iRows.filter(r=>r.rowId).map(r=>r.rowId));
+  groupRowsBefore.filter(x=>!keptIds.has(x.id)).forEach(x=>{ STATE.items=STATE.items.filter(y=>y.id!==x.id); cloudDeleteItem(x.id); });
+  const touched=[];
+  iRows.forEach(r=>{
+    const base={ trip_id:editItemTrip, tipo, fornitore, iva, stato, actual_ref:actualRef, note, importo:parseFloat(r.importo)||0, data_acquisto:r.dataAcquisto||null, rif_prenotazione:r.rifPrenotazione, comp_da:r.compDa||null, comp_a:r.compA||null };
+    if(r.rowId){ const existing=STATE.items.find(x=>x.id===r.rowId); if(existing){ Object.assign(existing, base); touched.push(existing); } }
+    else { const created=Object.assign({ id:uuid(), gruppo_id:groupId }, base); STATE.items.unshift(created); touched.push(created); }
+  });
   document.getElementById("itemOverlay").classList.remove("on");
-  renderAll(); cloudUpsertItem(saved);
+  renderAll();
+  touched.forEach(x=>cloudUpsertItem(x));
+  toast(editItemGroupId?"Voce aggiornata":"Voce aggiunta");
 }
 function deleteItem(){
-  if(!editItemId) return;
-  const id=editItemId;
-  STATE.items=STATE.items.filter(i=>i.id!==id);
+  if(!editItemGroupId) return;
+  if(!confirm("Eliminare l'intera voce, comprese tutte le righe collegate?")) return;
+  const ids=STATE.items.filter(x=>(x.gruppo_id||x.id)===editItemGroupId && x.trip_id===editItemTrip).map(x=>x.id);
+  STATE.items=STATE.items.filter(x=>!ids.includes(x.id));
   document.getElementById("itemOverlay").classList.remove("on");
-  renderAll(); cloudDeleteItem(id); toast("Voce eliminata");
+  renderAll(); ids.forEach(id=>cloudDeleteItem(id)); toast("Voce eliminata");
 }
 
 /* ============================ BACKUP ============================ */
@@ -878,7 +941,7 @@ function travRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,staff:!!t.s
 // voce, la cancellazione dell'intero viaggio si fa con "Elimina") ma restano nella tabella per non
 // perdere lo storico di chi le aveva già valorizzate: qui si scrive solo quanto già presente in t.
 function tripRow(t){ return {id:t.id,traveler_id:t.traveler_id,inseritore:t.inseritore||null,scopo:t.scopo||null,destinazione:t.destinazione||null,data_inizio:t.data_inizio||null,data_fine:t.data_fine||null,scuola_evento:t.scuola_evento||null,stato:t.stato||'prenotato',note:t.note||null}; }
-function itemRow(it){ const trip=STATE.trips.find(t=>t.id===it.trip_id)||{}; const staff=travById(trip.traveler_id).staff; return {id:it.id,trip_id:it.trip_id,tipo:it.tipo,fornitore:it.fornitore||null,data_acquisto:it.data_acquisto||null,comp_da:it.comp_da||null,comp_a:it.comp_a||null,importo:Number(it.importo)||0,iva:it.iva==null?null:Number(it.iva),rif_prenotazione:it.rif_prenotazione||null,categoria:mapCat(it.tipo,staff),impact_mode:impactOf(it),stato:it.stato||'prenotato',actual_ref:it.actual_ref||null,note:it.note||null}; }
+function itemRow(it){ const trip=STATE.trips.find(t=>t.id===it.trip_id)||{}; const staff=travById(trip.traveler_id).staff; return {id:it.id,trip_id:it.trip_id,gruppo_id:it.gruppo_id||null,tipo:it.tipo,fornitore:it.fornitore||null,data_acquisto:it.data_acquisto||null,comp_da:it.comp_da||null,comp_a:it.comp_a||null,importo:Number(it.importo)||0,iva:it.iva==null?null:Number(it.iva),rif_prenotazione:it.rif_prenotazione||null,categoria:mapCat(it.tipo,staff),impact_mode:impactOf(it),stato:it.stato||'prenotato',actual_ref:it.actual_ref||null,note:it.note||null}; }
 
 async function cloudInit(){ const cfg=cloudCfg(); if(!cfg||!window.supabase){ cloudSetDot('off'); return; } try{ sb=window.supabase.createClient(cfg.url,cfg.anonKey); const {data}=await sb.auth.getSession(); cloudSession=data.session||null; if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else cloudSetDot('off'); }catch(e){ console.error(e); cloudSetDot('err'); } }
 async function cloudLogin(email,pw){ if(!sb){ toast("Configura prima il progetto"); return; } if(!email||!pw){ toast("Inserisci email e password"); return; } const {data,error}=await sb.auth.signInWithPassword({email,password:pw}); if(error){ toast("Accesso fallito: "+error.message); cloudSetDot('err'); return; } cloudSession=data.session; forceLogin=false; cloudSetDot('on'); toast("Connesso"); renderCloudModal(); await cloudPullAll(false); }
@@ -891,7 +954,7 @@ async function cloudPullAll(silent){
     const {data:it,error:e3}=await sb.from('bdg_travel_items').select('*'); if(e3) throw e3;
     if(tv&&tv.length) STATE.travelers=tv.map(x=>({id:x.id,nome:x.nome,email:x.email||"",staff:!!x.staff,attivo:x.attivo!==false}));
     STATE.trips=(tp||[]).map(x=>({id:x.id,traveler_id:x.traveler_id,inseritore:x.inseritore||"",scopo:x.scopo||"",destinazione:x.destinazione||"",data_inizio:x.data_inizio,data_fine:x.data_fine,scuola_evento:x.scuola_evento||"",stato:x.stato||'prenotato',note:x.note||""}));
-    STATE.items=(it||[]).map(x=>({id:x.id,trip_id:x.trip_id,tipo:x.tipo,fornitore:x.fornitore||"",data_acquisto:x.data_acquisto,comp_da:x.comp_da,comp_a:x.comp_a,importo:Number(x.importo)||0,iva:x.iva,rif_prenotazione:x.rif_prenotazione||"",stato:x.stato||'prenotato',actual_ref:x.actual_ref||"",note:x.note||""}));
+    STATE.items=(it||[]).map(x=>({id:x.id,trip_id:x.trip_id,gruppo_id:x.gruppo_id||null,tipo:x.tipo,fornitore:x.fornitore||"",data_acquisto:x.data_acquisto,comp_da:x.comp_da,comp_a:x.comp_a,importo:Number(x.importo)||0,iva:x.iva,rif_prenotazione:x.rif_prenotazione||"",stato:x.stato||'prenotato',actual_ref:x.actual_ref||"",note:x.note||""}));
     await cloudFetchRoles();
     save(); fillSelects(); renderAll(); gate(); cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud"); cloudRealtimeSubscribe();
   }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore sync: "+(e.message||e)); }
@@ -955,11 +1018,12 @@ document.getElementById("itemClose").onclick=()=>document.getElementById("itemOv
 document.getElementById("iCancel").onclick=()=>document.getElementById("itemOverlay").classList.remove("on");
 document.getElementById("iSave").onclick=saveItem;
 document.getElementById("iDelete").onclick=deleteItem;
-["iTipo","iStato","iCda","iAcq"].forEach(id=>document.getElementById(id).addEventListener("change",itemMapPreview));
+document.getElementById("iAddRow").onclick=()=>{ iRows.push(newItemRow(null,'','','','','')); renderItemRows(); };
+["iTipo","iStato"].forEach(id=>document.getElementById(id).addEventListener("change",itemMapPreview));
 // aggiorna il suggerimento fornitore al cambio tipologia — solo su una voce nuova, e solo se il campo
 // è vuoto o è ancora uno dei suggerimenti (mai sovrascrive un fornitore digitato a mano dall'utente)
 document.getElementById("iTipo").addEventListener("change",()=>{
-  if(editItemId) return;
+  if(editItemGroupId) return;
   const forn=document.getElementById("iForn");
   const known=new Set(Object.values(FORNITORE_DEFAULT));
   if(!forn.value || known.has(forn.value)) forn.value=FORNITORE_DEFAULT[document.getElementById("iTipo").value]||"";
