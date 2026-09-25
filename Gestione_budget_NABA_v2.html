@@ -2040,7 +2040,12 @@ async function cloudPullAll(silent){
     await cloudFetchTravelEstimates();
     await cloudFetchDocentiEstimates();
     await cloudFetchRoles();
-    sb.rpc('bdg_touch_last_seen').catch(()=>{}); // "ultimo accesso" per la schermata Utenti del Portale — richiede la migrazione backend_utenti, non blocca nulla se manca
+    // "ultimo accesso" per la schermata Utenti del Portale — richiede la migrazione backend_utenti;
+    // try/catch DOPPIO (sincrono + .catch sulla promise) perché sb.rpc(...) su alcune versioni del
+    // client Supabase torna un builder senza .catch finché non lo si avvolge in una vera Promise — se
+    // qui si lancia un'eccezione non gestita, salta anche il gate()/renderAll() qui sotto e l'utente
+    // resta bloccato su ruolo "none" (bug reale, Luigi 2026-09-25)
+    try{ Promise.resolve(sb.rpc('bdg_touch_last_seen')).catch(()=>{}); }catch(e){}
     save(); initFY(); document.getElementById("refDate").value=STATE.refDate; renderCalChips(); renderAll();
     cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud");
     cloudRealtimeSubscribe();
