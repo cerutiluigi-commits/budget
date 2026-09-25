@@ -129,9 +129,14 @@ tfoot td.l{text-align:left}
 .item-row .dt{color:var(--ink-mute);font-size:12px;font-family:'JetBrains Mono',monospace}
 .item-row .amt{font-family:'JetBrains Mono',monospace;font-weight:700;min-width:90px;text-align:right;font-variant-numeric:tabular-nums}
 .item-row.annull{opacity:.5;text-decoration:line-through}
+.item-acts{display:flex;gap:6px;margin-left:auto}
 .rowbtn{background:none;border:1px solid var(--line);border-radius:7px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft)}
 .rowbtn:hover{border-color:var(--ink-mute);color:var(--ink)}
 .rowbtn svg{width:15px;height:15px}
+.rowbtn.item-done{color:var(--accent);border-color:var(--accent-soft)}
+.rowbtn.item-done:hover{background:var(--accent-soft)}
+.rowbtn.item-cancel{color:var(--over);border-color:var(--over-soft)}
+.rowbtn.item-cancel:hover{background:var(--over-soft)}
 
 .btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:0;border-radius:9px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif}
 .btn:hover{filter:brightness(1.08)}
@@ -357,18 +362,13 @@ tfoot td.l{text-align:left}
     <div class="mbody">
       <div class="grid2">
         <div class="field"><label>Tipologia <span class="req">*</span></label><select id="iTipo"></select></div>
-        <div class="field"><label>Fornitore</label><input type="text" id="iForn" placeholder="es. Uvet"></div>
-        <div class="field"><label>IVA %</label><input type="number" id="iIva" step="0.5"></div>
-        <div class="field"><label>Stato</label><select id="iStato"><option value="prenotato">prenotato</option><option value="riconciliato">riconciliato (actual)</option><option value="annullato">annullato</option><option value="bozza">bozza</option></select></div>
-        <div class="field"><label>Rif. actual (fattura/nota spese)</label><input type="text" id="iActualRef" placeholder="es. fattura 2026-045"></div>
+        <div class="field"><label>Fornitore</label><select id="iForn"></select></div>
+        <div class="field full"><label>Rif. actual (fattura/nota spese)</label><input type="text" id="iActualRef" placeholder="es. fattura 2026-045"></div>
       </div>
       <div class="item-rows" id="iRows"></div>
       <button type="button" class="btn ghost small" id="iAddRow" style="margin-top:2px">+ aggiungi riga</button>
       <div class="item-total" id="iTotal"></div>
-      <div class="grid2" style="margin-top:14px">
-        <div class="field full"><label>Note</label><textarea id="iNote" rows="2"></textarea></div>
-        <div class="field full"><div class="mapinfo" id="iMap"></div></div>
-      </div>
+      <div class="field full" style="margin-top:14px"><label>Note</label><textarea id="iNote" rows="2"></textarea></div>
     </div>
     <div class="mfoot">
       <button class="btn danger" id="iDelete" style="display:none">Elimina</button>
@@ -453,7 +453,7 @@ function mapCat(tipo,staff){
 function impactOf(it){
   if(it.stato==="annullato") return "REVERSED";
   if(it.tipo==="Spese in fattura") return "TRACE_ONLY";
-  if(it.stato==="riconciliato") return "ACTUAL";
+  if(it.stato==="svolto") return "ACTUAL";
   return "ALLOCATED";
 }
 function eur(v){ return "€ "+Math.round(v||0).toLocaleString("it-IT"); }
@@ -601,8 +601,8 @@ function fillSelects(){
 function impactBadge(it){
   const imp=impactOf(it);
   if(imp==="TRACE_ONLY") return `<span class="badge trace">tracciata</span>`;
-  if(imp==="REVERSED") return `<span class="badge rev">stornata</span>`;
-  if(imp==="ACTUAL") return `<span class="badge ok">riconciliata${it.actual_ref?' · '+esc(it.actual_ref):''}</span>`;
+  if(imp==="REVERSED") return `<span class="badge rev">annullata</span>`;
+  if(imp==="ACTUAL") return `<span class="badge ok">svolta${it.actual_ref?' · '+esc(it.actual_ref):''}</span>`;
   const b=itemBudget(it);
   return b.bucket==="speso"?`<span class="badge speso">speso stima</span>`:`<span class="badge alloc">allocato stima</span>`;
 }
@@ -629,12 +629,19 @@ function renderTrips(){
       <div style="padding:6px 16px 12px">
         ${its.length? its.map(it=>{
           const cls = it.stato==="annullato"?'item-row annull':'item-row';
+          // stessi pulsanti rapidi ✓/✗ dell'elenco Attività in Docenti, solo finché la voce è ancora
+          // "prenotato" — una volta svolta o annullata si cambia stato solo riaprendola dal modale
+          const quick = it.stato==='prenotato' ? `<span class="item-acts" data-id="${it.gruppo_id||it.id}" data-trip="${tp.id}">
+              <button class="rowbtn item-done" title="Segna come svolta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></button>
+              <button class="rowbtn item-cancel" title="Annulla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
+            </span>` : '';
           return `<div class="${cls} item-edit" data-id="${it.id}" data-trip="${tp.id}" style="cursor:pointer">
             <span class="ty">${esc(it.tipo)}</span>
             <span class="cat">${it.tipo==="Spese in fattura"?'<span class="meta">tracciata · esclusa dal budget</span>':`<span class="tag">${mapCat(it.tipo,tv.staff)}</span>`}</span>
             <span class="dt">${fmtD(it.comp_da)||fmtD(it.data_acquisto)}</span>
             ${impactBadge(it)}
             <span class="amt">${eur2(it.importo)}</span>
+            ${quick}
           </div>`;
         }).join("") : `<div class="meta" style="padding:8px 0">Nessuna voce.</div>`}
         <button class="btn ghost small add-item" data-trip="${tp.id}" style="margin-top:10px">+ Aggiungi voce</button>
@@ -645,6 +652,8 @@ function renderTrips(){
   list.querySelectorAll(".trip-edit").forEach(b=>b.onclick=e=>{ e.stopPropagation(); openTrip(b.dataset.id); });
   list.querySelectorAll(".add-item").forEach(b=>b.onclick=e=>{ e.stopPropagation(); openItem(b.dataset.trip,null); });
   list.querySelectorAll(".item-edit").forEach(b=>b.onclick=()=>openItem(b.dataset.trip,b.dataset.id));
+  list.querySelectorAll(".item-done").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const w=b.closest(".item-acts"); quickSetItemStato(w.dataset.trip,w.dataset.id,'svolto'); });
+  list.querySelectorAll(".item-cancel").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(confirm("Annullare questa voce?")){ const w=b.closest(".item-acts"); quickSetItemStato(w.dataset.trip,w.dataset.id,'annullato'); } });
 }
 function renderRiepilogo(){
   const its=visibleItems();
@@ -834,28 +843,20 @@ function deleteTrip(){
   document.getElementById("tripOverlay").classList.remove("on");
   renderAll(); cloudDeleteTrip(id); toast("Viaggio eliminato");
 }
-function itemMapPreview(){
-  const tip=document.getElementById("iTipo").value;
-  const st=document.getElementById("iStato").value;
-  const trip=STATE.trips.find(t=>t.id===editItemTrip)||{};
-  const staff=travById(trip.traveler_id).staff;
-  // l'anteprima categoria/impatto dipende solo da tipologia/stato/mese di servizio, non dall'importo:
-  // usa la prima riga come rappresentativa, corretta anche quando le righe hanno date diverse (es.
-  // volo andata a settembre e ritorno a ottobre finiscono comunque nello stesso "tipo" di impatto)
-  const r0=iRows[0]||{};
-  const fake={tipo:tip,stato:st,comp_da:r0.compDa,data_acquisto:r0.dataAcquisto,importo:0};
-  const cat=mapCat(tip,staff), imp=impactOf(fake);
-  const box=document.getElementById("iMap");
-  if(tip==="Spese in fattura"){ box.innerHTML=`<b>Spese in fattura</b> → impatto <b>TRACE_ONLY</b>: tracciata ma <b>esclusa</b> dal budget (entra già via RDA).`; return; }
-  let impLabel = imp==="REVERSED"?"REVERSED (stornata, non conteggiata)": imp==="ACTUAL"?"ACTUAL (riconciliata)":"ALLOCATED (stima)";
-  const mo=monthOf(fake);
-  let bucket = mo? ((mo.y*12+mo.m)<=refKey()?"speso stima":"allocato stima") : "—";
-  let html=`Categoria budget: <b>${cat}</b> (${staff?'staff':'no-staff'}) · impatto <b>${impLabel}</b> · a budget come <b>${bucket}</b> nel mese di servizio.`;
-  if(imp==="ACTUAL") html+=`<div style="margin-top:6px;color:var(--warn,#B4563A)">⚠ Da qui in poi non conta più come stima nel Budget. Registra prima il movimento reale nel tool Budget (o verifica che ci sia già), altrimenti questa spesa sparisce dal tracciamento invece di essere sostituita.</div>`;
-  box.innerHTML=html;
+// fornitori già usati in passato (nessuna tabella dedicata: si "imparano" dalle voci salvate, stesso
+// spirito di FORNITORE_DEFAULT) — usati per popolare il menu Fornitore con un'opzione per aggiungerne
+// uno nuovo al volo, invece di lasciarlo come campo libero (Luigi, 2026-09-26)
+function knownFornitori(){ return [...new Set(STATE.items.map(i=>i.fornitore).filter(Boolean))].sort((a,b)=>a.localeCompare(b)); }
+function fornitoreOptionsHtml(current){
+  const known=knownFornitori();
+  const opts=new Set(known); if(current) opts.add(current);
+  return [...opts].sort((a,b)=>a.localeCompare(b)).map(f=>`<option ${f===current?'selected':''}>${esc(f)}</option>`).join("")
+    + `<option value="__new__">+ Aggiungi nuovo fornitore…</option>`;
 }
 // una riga per importo+date+rif. prenotazione (rimuovibile se ce n'è più di una), stesso pattern di
-// renderDateRows() in Docenti — tipologia/fornitore/iva/stato/note restano comuni a tutte le righe
+// renderDateRows() in Docenti — tipologia/fornitore/note restano comuni a tutte le righe (IVA non si
+// chiede più: resta sempre implicita sull'aliquota di categoria, e lo Stato si imposta solo dopo il
+// salvataggio dai pulsanti rapidi nell'elenco, mai dal modale — Luigi, 2026-09-26)
 function renderItemRows(){
   const wrap=document.getElementById("iRows");
   wrap.innerHTML = iRows.map((r,i)=>`
@@ -871,9 +872,9 @@ function renderItemRows(){
     const impEl=row.querySelector(".ir-imp"), acqEl=row.querySelector(".ir-acq"), rifEl=row.querySelector(".ir-rif"), cdaEl=row.querySelector(".ir-cda"), caEl=row.querySelector(".ir-ca"), delBtn=row.querySelector(".item-row-del");
     impEl.value=iRows[i].importo; acqEl.value=iRows[i].dataAcquisto; rifEl.value=iRows[i].rifPrenotazione; cdaEl.value=iRows[i].compDa; caEl.value=iRows[i].compA;
     impEl.oninput=()=>{ iRows[i].importo=impEl.value; updateItemTotal(); };
-    acqEl.onchange=()=>{ iRows[i].dataAcquisto=acqEl.value; if(i===0) itemMapPreview(); };
+    acqEl.onchange=()=>{ iRows[i].dataAcquisto=acqEl.value; };
     rifEl.oninput=()=>{ iRows[i].rifPrenotazione=rifEl.value; };
-    cdaEl.onchange=()=>{ iRows[i].compDa=cdaEl.value; if(i===0) itemMapPreview(); };
+    cdaEl.onchange=()=>{ iRows[i].compDa=cdaEl.value; };
     caEl.onchange=()=>{ iRows[i].compA=caEl.value; };
     if(delBtn) delBtn.onclick=()=>{ iRows.splice(i,1); renderItemRows(); };
   });
@@ -892,9 +893,9 @@ function openItem(tripId,itemId){
   const rep = groupRows[0]||null; // riga rappresentativa per i campi comuni
   document.getElementById("itemTitle").textContent=itemId?"Modifica voce":"Nuova voce";
   document.getElementById("iTipo").value=rep?rep.tipo:"Volo";
-  document.getElementById("iForn").value=rep?rep.fornitore||"":(FORNITORE_DEFAULT[document.getElementById("iTipo").value]||"");
-  document.getElementById("iIva").value=rep?(rep.iva==null?STATE.ivaDef:rep.iva):STATE.ivaDef;
-  document.getElementById("iStato").value=rep?rep.stato:"prenotato";
+  const fornCurrent = rep ? (rep.fornitore||"") : (FORNITORE_DEFAULT[document.getElementById("iTipo").value]||"");
+  document.getElementById("iForn").innerHTML=fornitoreOptionsHtml(fornCurrent);
+  document.getElementById("iForn").value=fornCurrent;
   document.getElementById("iActualRef").value=rep?rep.actual_ref||"":"";
   document.getElementById("iNote").value=rep?rep.note||"":"";
   document.getElementById("iDelete").style.display=itemId?"inline-flex":"none";
@@ -902,23 +903,24 @@ function openItem(tripId,itemId){
     ? groupRows.slice().sort((x,y)=>String(x.data_acquisto||'').localeCompare(String(y.data_acquisto||''))).map(x=>newItemRow(x.id,x.importo,x.data_acquisto,x.rif_prenotazione,x.comp_da,x.comp_a))
     : [newItemRow(null,'','','','','')];
   renderItemRows();
-  itemMapPreview();
   document.getElementById("itemOverlay").classList.add("on");
 }
 function saveItem(){
   if(!iRows.length){ toast("Aggiungi almeno una riga"); return; }
   for(const r of iRows){ if(r.importo===''||isNaN(parseFloat(r.importo))){ toast("Inserisci l'importo per ogni riga"); return; } }
-  const stato=document.getElementById("iStato").value;
-  const actualRef=document.getElementById("iActualRef").value.trim();
-  if(stato==="riconciliato" && !actualRef && !confirm("Stai segnando la voce come riconciliata senza indicare un riferimento actual (fattura/nota spese), e senza aver verificato che il movimento reale sia già registrato nel Budget: da questo momento smette di contare come stima e, se il movimento reale non c'è, la spesa sparisce dal tracciamento. Continuare comunque?")) return;
-  const tipo=document.getElementById("iTipo").value, fornitore=document.getElementById("iForn").value.trim(), iva=parseFloat(document.getElementById("iIva").value)||0, note=document.getElementById("iNote").value.trim();
+  const tipo=document.getElementById("iTipo").value, fornitore=document.getElementById("iForn").value.trim(), actualRef=document.getElementById("iActualRef").value.trim(), note=document.getElementById("iNote").value.trim();
   const groupId = editItemGroupId || uuid();
   const groupRowsBefore = editItemGroupId ? STATE.items.filter(x=>(x.gruppo_id||x.id)===editItemGroupId && x.trip_id===editItemTrip) : [];
+  // lo Stato non si tocca da qui: si imposta solo dai pulsanti rapidi nell'elenco (quickSetItemStato) —
+  // una voce nuova nasce sempre "prenotato", una esistente mantiene lo stato che aveva già
+  const stato = groupRowsBefore[0] ? groupRowsBefore[0].stato : 'prenotato';
   const keptIds = new Set(iRows.filter(r=>r.rowId).map(r=>r.rowId));
   groupRowsBefore.filter(x=>!keptIds.has(x.id)).forEach(x=>{ STATE.items=STATE.items.filter(y=>y.id!==x.id); cloudDeleteItem(x.id); });
   const touched=[];
   iRows.forEach(r=>{
-    const base={ trip_id:editItemTrip, tipo, fornitore, iva, stato, actual_ref:actualRef, note, importo:parseFloat(r.importo)||0, data_acquisto:r.dataAcquisto||null, rif_prenotazione:r.rifPrenotazione, comp_da:r.compDa||null, comp_a:r.compA||null };
+    // IVA non è più chiesta nel modale (Luigi, 2026-09-26): resta sempre implicita sull'aliquota di
+    // categoria, mai un override per riga — null qui equivale a "usa il default", vedi itemRow()/mapCat
+    const base={ trip_id:editItemTrip, tipo, fornitore, iva:null, stato, actual_ref:actualRef, note, importo:parseFloat(r.importo)||0, data_acquisto:r.dataAcquisto||null, rif_prenotazione:r.rifPrenotazione, comp_da:r.compDa||null, comp_a:r.compA||null };
     if(r.rowId){ const existing=STATE.items.find(x=>x.id===r.rowId); if(existing){ Object.assign(existing, base); touched.push(existing); } }
     else { const created=Object.assign({ id:uuid(), gruppo_id:groupId }, base); STATE.items.unshift(created); touched.push(created); }
   });
@@ -926,6 +928,16 @@ function saveItem(){
   renderAll();
   touched.forEach(x=>cloudUpsertItem(x));
   toast(editItemGroupId?"Voce aggiornata":"Voce aggiunta");
+}
+// stessa regola dei pulsanti rapidi ✓/✗ nell'elenco Attività di Docenti: nessuna conferma per "svolto",
+// conferma per "annullato" — si applica a tutte le righe della voce insieme (stesso gruppo_id)
+function quickSetItemStato(tripId,groupId,stato){
+  const ids=STATE.items.filter(x=>(x.gruppo_id||x.id)===groupId && x.trip_id===tripId);
+  if(!ids.length) return;
+  ids.forEach(x=>x.stato=stato);
+  save(); renderAll();
+  ids.forEach(x=>cloudUpsertItem(x));
+  toast(stato==='svolto'?"Voce confermata come svolta":"Voce annullata");
 }
 function deleteItem(){
   if(!editItemGroupId) return;
@@ -1039,15 +1051,29 @@ document.getElementById("iCancel").onclick=()=>document.getElementById("itemOver
 document.getElementById("iSave").onclick=saveItem;
 document.getElementById("iDelete").onclick=deleteItem;
 document.getElementById("iAddRow").onclick=()=>{ iRows.push(newItemRow(null,'','','','','')); renderItemRows(); };
-["iTipo","iStato"].forEach(id=>document.getElementById(id).addEventListener("change",itemMapPreview));
-// aggiorna il suggerimento fornitore al cambio tipologia — solo su una voce nuova, e solo se il campo
-// è vuoto o è ancora uno dei suggerimenti (mai sovrascrive un fornitore digitato a mano dall'utente)
+// aggiorna il suggerimento fornitore al cambio tipologia — solo su una voce nuova, e solo se il valore
+// attuale è ancora uno dei suggerimenti di default (mai sovrascrive una scelta fatta a mano dall'utente)
 document.getElementById("iTipo").addEventListener("change",()=>{
   if(editItemGroupId) return;
   const forn=document.getElementById("iForn");
   const known=new Set(Object.values(FORNITORE_DEFAULT));
-  if(!forn.value || known.has(forn.value)) forn.value=FORNITORE_DEFAULT[document.getElementById("iTipo").value]||"";
+  if(!forn.value || known.has(forn.value)){
+    const sugg=FORNITORE_DEFAULT[document.getElementById("iTipo").value]||"";
+    forn.innerHTML=fornitoreOptionsHtml(sugg);
+    forn.value=sugg;
+  }
 });
+// "+ Aggiungi nuovo fornitore…": chiede il nome, lo seleziona subito (diventerà un'opzione permanente
+// non appena la voce viene salvata, dato che i fornitori si "imparano" da quelli già usati)
+document.getElementById("iForn").addEventListener("change",()=>{
+  const sel=document.getElementById("iForn");
+  if(sel.value!=='__new__') return;
+  const n=(prompt("Nome del nuovo fornitore:")||"").trim();
+  if(!n){ sel.value=sel.dataset.last||""; return; }
+  sel.innerHTML=fornitoreOptionsHtml(n);
+  sel.value=n;
+});
+document.getElementById("iForn").addEventListener("focus",()=>{ document.getElementById("iForn").dataset.last=document.getElementById("iForn").value; });
 document.getElementById("btnAddTrav").onclick=()=>{ const n=prompt("Nome viaggiatore:"); if(!n)return; const staff=confirm("È staff? (OK = staff, Annulla = no-staff)"); const t={id:uuid(),nome:n.trim(),staff,attivo:true}; STATE.travelers.push(t); save(); fillSelects(); renderAll(); cloudUpsertTraveler(t); };
 document.getElementById("btnSnap").onclick=exportSnap;
 document.getElementById("btnSnapR").onclick=()=>document.getElementById("snapIn").click();
