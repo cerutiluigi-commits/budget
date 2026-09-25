@@ -532,19 +532,7 @@ tfoot td.l{text-align:left}
   <div class="modal" style="max-width:720px">
     <div class="mhead"><h3>Pannello Admin</h3><button class="iconx" id="adminClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="mbody">
-      <div class="eyebrow" style="margin-bottom:8px">Utenti &amp; ruoli</div>
-      <p class="hint" style="margin-bottom:10px">Ruolo per email di login, condiviso con Gestione Budget. Un orientatore va anche collegato a un viaggiatore (email) in Impostazioni.</p>
-      <div class="card scroll" style="margin-bottom:10px"><table id="usersTable"></table></div>
-      <div style="display:flex;gap:8px;margin-bottom:26px;flex-wrap:wrap">
-        <input type="email" id="newUserEmail" placeholder="email@naba.it" style="flex:1;min-width:180px">
-        <select id="newUserRole"><option value="admin">Admin</option><option value="orientatore" selected>Orientatore</option><option value="docente">Docente</option></select>
-        <button class="btn ghost small" id="btnAddUser">+ Aggiungi</button>
-      </div>
-
-      <div class="eyebrow" style="margin-bottom:8px">Visibilità sezioni per ruolo</div>
-      <p class="hint" style="margin-bottom:10px">Condivisa tra i due strumenti: le modifiche qui valgono anche per Gestione Budget. Admin vede sempre tutto.</p>
-      <div class="card scroll" style="margin-bottom:26px"><table id="tabVisTable"></table></div>
-
+      <p class="hint" style="margin-bottom:10px">Utenti, ruoli e visibilità delle sezioni si gestiscono ora dalla schermata "Utenti" nel Backend del Portale (dati condivisi con Gestione Budget e Docenti).</p>
       <div class="eyebrow" style="margin-bottom:8px">Anteprima ruolo (solo per test)</div>
       <select id="previewAs"></select>
       <p class="hint" style="margin-top:8px">Simula localmente la vista di un viaggiatore, senza bisogno del suo login.</p>
@@ -671,6 +659,14 @@ function tabVisible(tool,tabKey,role){
   if(cfg && Object.prototype.hasOwnProperty.call(cfg,role)) return !!cfg[role];
   return role==='admin';
 }
+// ruolo principale + eventuali "tag" extra (bdg_app_users.extra_roles, es. un orientatore reso
+// anche docente) — la visibilità di una tab è l'unione tra tutti questi ruoli, gestiti dalla
+// schermata "Utenti" nel Backend del Portale
+function effectiveRoles(){
+  const email=(CURRENT.email||'').toLowerCase();
+  const u=email && (STATE.appUsers||{})[email];
+  return [CURRENT.role, ...((u && u.extra_roles) || [])].filter(Boolean);
+}
 let forceLogin=false;
 let cloudChecked=false;
 // il Portale (Portale_NABA.html) legge questa funzione per sapere se il ruolo è già stato verificato
@@ -719,8 +715,9 @@ function applyRole(){
   const vg=document.getElementById('viewSel').closest('.hgroup'); if(vg) vg.style.display=isAdmin?'':'none';
   const active=document.querySelector('nav.tabs button.on');
   let anyVisible=false, firstBtn=null, activeHidden=false;
+  const roles=effectiveRoles();
   document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>{
-    const vis=tabVisible('spese_ec',b.dataset.tab,CURRENT.role);
+    const vis=roles.some(r=>tabVisible('spese_ec',b.dataset.tab,r));
     b.style.display=vis?'':'none';
     if(vis){ anyVisible=true; if(!firstBtn) firstBtn=b; } else if(b===active) activeHidden=true;
   });
@@ -1176,55 +1173,10 @@ function renderPreviewAs(){
 }
 function renderAll(){ renderTrips(); renderRiepilogo(); renderCalendario(); renderImpostazioni(); save(); }
 
-/* ---- pannello Admin: utenti/ruoli + visibilità tab (tabelle condivise col budget) ---- */
-const TOOL_TABS={
-  spese_ec:[["trasferte","Trasferte"],["riepilogo","Riepilogo"],["calendario","Calendario"],["impostazioni","Impostazioni"]],
-  budget:[["riepilogo","Riepilogo"],["calendario","Calendario"],["movimenti","Movimenti"],["budget","Budget annuale"],["finance","Finance"],["registro","Registro"]],
-  docenti:[["riepilogo","Riepilogo"],["attivita","Attività"],["scuole","Scuole"],["chiusura","Chiusura mensile"]]
-};
-function openAdmin(){ renderUsersTable(); renderTabVisTable(); renderPreviewAs(); document.getElementById("adminOverlay").classList.add("on"); }
-function renderUsersTable(){
-  const rows=Object.entries(STATE.appUsers||{});
-  let h=`<thead><tr><th class="l">Email</th><th class="l">Ruolo</th><th>Attivo</th><th></th></tr></thead><tbody>`;
-  if(!rows.length) h+=`<tr><td colspan="4"><div class="empty">Nessun utente configurato.</div></td></tr>`;
-  rows.forEach(([email,u])=>{ h+=`<tr>
-    <td class="l">${esc(email)}</td>
-    <td class="l"><select class="uRole" data-email="${esc(email)}">
-      <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
-      <option value="orientatore" ${u.role==='orientatore'?'selected':''}>Orientatore</option>
-      <option value="docente" ${u.role==='docente'?'selected':''}>Docente</option>
-    </select></td>
-    <td><input type="checkbox" class="uAttivo" data-email="${esc(email)}" ${u.attivo!==false?'checked':''}></td>
-    <td><button class="rowbtn uDel" data-email="${esc(email)}" title="Rimuovi">✕</button></td>
-  </tr>`; });
-  h+=`</tbody>`; document.getElementById("usersTable").innerHTML=h;
-  document.querySelectorAll(".uRole").forEach(s=>s.onchange=()=>{ const email=s.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.role=s.value; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
-  document.querySelectorAll(".uAttivo").forEach(c=>c.onchange=()=>{ const email=c.dataset.email,u=STATE.appUsers[email]; if(!u)return; u.attivo=c.checked; save(); applyRole(); cloudUpsertAppUser(email,u.role,u.attivo); });
-  document.querySelectorAll(".uDel").forEach(b=>b.onclick=async()=>{ const email=b.dataset.email; if(!confirm(`Rimuovere l'utente ${email}?`))return; delete STATE.appUsers[email]; save(); renderUsersTable(); applyRole(); if(cloudReady()){ const {error}=await sb.from('bdg_app_users').delete().eq('email',email); error?cloudErr('utente',error):flashSynced(); } });
-}
-function renderTabVisTable(){
-  let h=`<thead><tr><th class="l">Strumento</th><th class="l">Sezione</th><th>Admin</th><th>Orientatore</th><th>Docente</th></tr></thead><tbody>`;
-  Object.keys(TOOL_TABS).forEach(tool=>{
-    TOOL_TABS[tool].forEach(([key,label])=>{
-      const get=role=>{ const cfg=STATE.tabVisibility[tool]&&STATE.tabVisibility[tool][key]; return cfg&&Object.prototype.hasOwnProperty.call(cfg,role)?!!cfg[role]:false; };
-      h+=`<tr>
-        <td class="l">${tool==='budget'?'Gestione Budget':tool==='docenti'?'Docenti':'Spese EC'}</td>
-        <td class="l">${esc(label)}</td>
-        <td><input type="checkbox" checked disabled title="Admin vede sempre tutto"></td>
-        <td><input type="checkbox" class="tvChk" data-tool="${tool}" data-tab="${key}" data-role="orientatore" ${get('orientatore')?'checked':''}></td>
-        <td><input type="checkbox" class="tvChk" data-tool="${tool}" data-tab="${key}" data-role="docente" ${get('docente')?'checked':''}></td>
-      </tr>`;
-    });
-  });
-  h+=`</tbody>`; document.getElementById("tabVisTable").innerHTML=h;
-  document.querySelectorAll(".tvChk").forEach(c=>c.onchange=()=>{
-    const tool=c.dataset.tool,tab=c.dataset.tab,role=c.dataset.role,visible=c.checked;
-    if(!STATE.tabVisibility[tool])STATE.tabVisibility[tool]={};
-    if(!STATE.tabVisibility[tool][tab])STATE.tabVisibility[tool][tab]={};
-    STATE.tabVisibility[tool][tab][role]=visible;
-    save(); applyRole(); cloudSetTabVisible(tool,tab,role,visible);
-  });
-}
+// Pannello Admin: "Utenti & ruoli"/"Visibilità" rimossi da qui (2026-09-25, erano dati condivisi
+// triplicati identici nei 3 tool) — ora vivono nella schermata "Utenti" del Backend del Portale.
+// Resta solo "Anteprima ruolo", specifica di questo tool.
+function openAdmin(){ renderPreviewAs(); document.getElementById("adminOverlay").classList.add("on"); }
 
 /* ============================ MODALI ============================ */
 let editTripId=null, editItemGroupId=null, editItemTrip=null;
@@ -1429,6 +1381,7 @@ async function cloudPullAll(silent){
     STATE.trips=(tp||[]).map(x=>({id:x.id,traveler_id:x.traveler_id,inseritore:x.inseritore||"",scopo:x.scopo||"",destinazione:x.destinazione||"",data_inizio:x.data_inizio,data_fine:x.data_fine,scuola_evento:x.scuola_evento||"",stato:x.stato||'prenotato',note:x.note||""}));
     STATE.items=(it||[]).map(x=>({id:x.id,trip_id:x.trip_id,gruppo_id:x.gruppo_id||null,tipo:x.tipo,fornitore:x.fornitore||"",data_acquisto:x.data_acquisto,comp_da:x.comp_da,comp_a:x.comp_a,importo:Number(x.importo)||0,iva:x.iva,rif_prenotazione:x.rif_prenotazione||"",stato:x.stato||'prenotato',actual_ref:x.actual_ref||"",note:x.note||""}));
     await cloudFetchRoles();
+    sb.rpc('bdg_touch_last_seen').catch(()=>{}); // "ultimo accesso" per la schermata Utenti del Portale — richiede la migrazione backend_utenti, non blocca nulla se manca
     save(); fillSelects(); renderAll(); gate(); cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud"); cloudRealtimeSubscribe();
   }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore sync: "+(e.message||e)); }
 }
@@ -1440,13 +1393,11 @@ async function cloudFetchRoles(){
   try{
     const {data:au,error:eu}=await sb.from('bdg_app_users').select('*'); if(eu) throw eu;
     const {data:tvz,error:et}=await sb.from('bdg_tab_visibility').select('*'); if(et) throw et;
-    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false}; });
+    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,extra_roles:r.extra_roles||[],last_seen_at:r.last_seen_at||null}; });
     const vis={}; (tvz||[]).forEach(r=>{ if(!vis[r.tool])vis[r.tool]={}; if(!vis[r.tool][r.tab_key])vis[r.tool][r.tab_key]={}; vis[r.tool][r.tab_key][r.role]=!!r.visible; });
     STATE.appUsers=users; STATE.tabVisibility=vis;
   }catch(e){ console.error('roles fetch',e); }
 }
-function cloudUpsertAppUser(email,role,attivo){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_app_users').upsert({email:String(email||'').toLowerCase(),role,attivo:attivo!==false}).then(({error})=>{ error?cloudErr('utente',error):flashSynced(); return {error}; }); }
-function cloudSetTabVisible(tool,tabKey,role,visible){ if(!cloudReady())return Promise.resolve(); return sb.from('bdg_tab_visibility').upsert({tool,tab_key:tabKey,role,visible}).then(({error})=>{ error?cloudErr('visibilità tab',error):flashSynced(); return {error}; }); }
 async function cloudPushAll(){
   if(!cloudReady()) return;
   const ans=prompt("ATTENZIONE: sovrascrive i dati sul cloud con quelli locali.\nScrivi SOVRASCRIVI per continuare:");
@@ -1553,14 +1504,6 @@ document.getElementById("cloudPush").onclick=cloudPushAll;
 document.getElementById("btnAdmin").onclick=openAdmin;
 document.getElementById("adminClose").onclick=()=>document.getElementById("adminOverlay").classList.remove("on");
 document.getElementById("adminOverlay").onclick=e=>{ if(e.target.id==="adminOverlay") e.currentTarget.classList.remove("on"); };
-document.getElementById("btnAddUser").onclick=()=>{
-  const email=(document.getElementById("newUserEmail").value||"").trim().toLowerCase();
-  const role=document.getElementById("newUserRole").value;
-  if(!email||!/^[^@]+@[^@]+\.[^@]+$/.test(email)){ toast("Inserisci un'email valida"); return; }
-  STATE.appUsers[email]={role,attivo:true}; save(); renderUsersTable(); applyRole();
-  document.getElementById("newUserEmail").value="";
-  cloudUpsertAppUser(email,role,true);
-};
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ ["tripOverlay","itemOverlay","cloudOverlay","adminOverlay"].forEach(id=>document.getElementById(id).classList.remove("on")); } });
 
 fillSelects();

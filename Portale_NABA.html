@@ -89,6 +89,26 @@ input,select{font-family:inherit;font-size:14px}
 .frames{flex:1;position:relative;min-height:0}
 .frames iframe{position:absolute;inset:0;width:100%;height:100%;border:0;background:var(--paper);display:none}
 .frames iframe.on{display:block}
+
+/* ---- utenti (backend) ---- */
+#screenUtenti{align-items:flex-start;justify-content:center;padding:40px 24px;overflow:auto}
+.utenti-wrap{width:100%;max-width:1140px;margin:0 auto}
+.utenti-wrap input,.utenti-wrap select{border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px;background:var(--surface)}
+.ucard{background:var(--surface);border:1px solid var(--line-strong);border-radius:16px;box-shadow:var(--shadow);overflow:hidden;margin-bottom:18px}
+.ucard.pad{padding:18px 22px}
+.utable{width:100%;border-collapse:collapse;font-size:13px}
+.utable th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);padding:10px 12px;border-bottom:1px solid var(--line-strong);white-space:nowrap}
+.utable td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
+.utable tr:last-child>td{border-bottom:0}
+.uchip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line-strong);background:var(--surface);border-radius:16px;padding:4px 10px;font-size:11px;font-weight:600;color:var(--ink-soft);cursor:pointer}
+.uchip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+.uwarn{color:var(--over);font-size:12px;font-weight:600}
+.uok{color:var(--accent);font-size:12.5px}
+.usub{font-size:11px;color:var(--ink-mute);margin-top:2px}
+.urowbtn{background:none;border:1px solid var(--line-strong);border-radius:7px;padding:6px 9px;display:inline-flex;align-items:center;gap:5px;cursor:pointer;color:var(--ink-soft);font-size:11.5px;font-weight:600}
+.urowbtn:hover{border-color:var(--ink);color:var(--ink)}
+.urowbtn.danger{color:var(--over);border-color:var(--over)}
+.urowbtn.danger:hover{background:#FBEDE8}
 </style>
 </head>
 <body>
@@ -207,6 +227,46 @@ input,select{font-family:inherit;font-size:14px}
   </div>
 </div>
 
+<!-- UTENTI (backend): unico posto per ruolo/visibilità/tag/ultimo accesso/reset password, condiviso
+     tra Budget, Spese EC e Docenti — sostituisce le 3 tabelle "Utenti & ruoli"/"Visibilità" che erano
+     duplicate identiche nel Pannello Admin di ognuno dei 3 tool (Luigi, 2026-09-25) -->
+<div class="screen" id="screenUtenti">
+  <div class="landing-wrap utenti-wrap">
+    <h1>Utenti</h1>
+    <p class="sub">Ruolo, entità collegata (docente/interfaccia o orientatore/viaggiatore), visibilità e ultimo accesso.</p>
+    <div class="ucard"><table class="utable" id="utentiTable"></table></div>
+    <div class="ucard pad">
+      <div class="eyebrow" style="margin-bottom:10px">Aggiungi utente</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input type="email" id="uNewEmail" placeholder="email@naba.it" style="flex:1;min-width:220px">
+        <select id="uNewRole">
+          <option value="admin">Admin</option>
+          <option value="superuser">Superuser</option>
+          <option value="orientatore" selected>Orientatore</option>
+          <option value="docente">Docente</option>
+        </select>
+        <button class="btn ghost" id="uAddBtn" style="width:auto">+ Aggiungi</button>
+      </div>
+      <p class="hint" style="margin-top:10px">Crea solo la riga di ruolo: la persona deve comunque registrarsi (o essere invitata) con la stessa email per poter accedere.</p>
+    </div>
+    <p class="hint" id="utentiLoadHint"></p>
+  </div>
+</div>
+
+<!-- NUOVA PASSWORD (dopo il click sul link di reset ricevuto via email) -->
+<div class="screen" id="screenNewPw">
+  <div class="login-card">
+    <div class="brand-lg">
+      <span class="dot"></span>
+      <div><div class="t">NABA · Suite</div><div class="s">Nuova password</div></div>
+    </div>
+    <p class="hint" style="margin-bottom:14px">Scegli una nuova password per il tuo account.</p>
+    <div class="field"><label>Nuova password</label><input type="password" id="newPw1" autocomplete="new-password"></div>
+    <div class="field"><label>Conferma password</label><input type="password" id="newPw2" autocomplete="new-password"></div>
+    <button class="btn" id="newPwSave">Salva nuova password</button>
+  </div>
+</div>
+
 <!-- APP (iframe) -->
 <div class="screen" id="screenApp">
   <div class="frames" id="frames">
@@ -232,6 +292,7 @@ let currentApp=null;          // 'budget' | 'spese'
 let prevBeforeBackend=null;   // {screen, app} da ripristinare alla chiusura del pannello Admin
 
 function get(id){ return document.getElementById(id).value; }
+function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function toast(msg){ const t=document.getElementById("toast"); t.textContent=msg; t.classList.add("on"); clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove("on"),2200); }
 function cloudCfg(){
   try{ const s=JSON.parse(localStorage.getItem("naba_cloud_cfg")||"null"); if(s&&s.url&&s.anonKey) return s; }catch(e){}
@@ -240,11 +301,18 @@ function cloudCfg(){
 function cloudReady(){ return !!(sb && cloudSession); }
 function cloudUser(){ return (cloudSession&&cloudSession.user&&cloudSession.user.email)||null; }
 
+// true dal momento in cui Supabase segnala che la sessione corrente viene da un link di reset
+// password (evento PASSWORD_RECOVERY), finché l'utente non ha salvato la nuova password — in quella
+// finestra routeAfterAuth() non deve instradare come un login normale (vedi più sotto)
+let inRecovery=false;
 async function cloudInit(){
   const cfg=cloudCfg();
   if(!cfg||!window.supabase){ setConfigOpen(true); renderLoginState(); routeAfterAuth(); return; }
   try{
     sb=window.supabase.createClient(cfg.url, cfg.anonKey);
+    sb.auth.onAuthStateChange((event,session)=>{
+      if(event==='PASSWORD_RECOVERY'){ inRecovery=true; cloudSession=session; showScreen('newpw'); }
+    });
     const {data}=await sb.auth.getSession();
     cloudSession=data.session||null;
     setConfigOpen(false);
@@ -299,6 +367,29 @@ document.getElementById("cloudSignupBtn").onclick=()=>cloudSignup(get("cloudEmai
 document.getElementById("cloudPw").addEventListener("keydown",e=>{ if(e.key==="Enter") cloudLogin(get("cloudEmail"),get("cloudPw")); });
 document.getElementById("btnLogout").onclick=cloudLogout;
 document.getElementById("btnHome").onclick=()=>showScreen('landing');
+document.getElementById("uAddBtn").onclick=()=>{
+  const email=(get("uNewEmail")||"").trim().toLowerCase();
+  const role=get("uNewRole");
+  if(!email||!/^[^@]+@[^@]+\.[^@]+$/.test(email)){ toast("Inserisci un'email valida"); return; }
+  if(UTENTI_DATA.users[email]){ toast("Esiste già un utente con questa email"); return; }
+  const u={role,attivo:true,extra_roles:[],scope:role==='superuser'?{tipologia:[],area:[]}:null};
+  UTENTI_DATA.users[email]=u;
+  document.getElementById("uNewEmail").value="";
+  renderUtentiTable();
+  upsertAppUser(email,u);
+};
+document.getElementById("newPwSave").onclick=async()=>{
+  const p1=get("newPw1"), p2=get("newPw2");
+  if(!p1||p1.length<6){ toast("La password deve avere almeno 6 caratteri"); return; }
+  if(p1!==p2){ toast("Le due password non coincidono"); return; }
+  const {error}=await sb.auth.updateUser({password:p1});
+  if(error){ toast("Errore: "+error.message); return; }
+  inRecovery=false;
+  document.getElementById("newPw1").value=""; document.getElementById("newPw2").value="";
+  toast("Password aggiornata");
+  showScreen('landing');
+  routeAfterAuth();
+};
 
 /* ---- iframe (sempre in caricamento in background, mai mostrati prima del login) ---- */
 const frameBudget=document.getElementById("frameBudget");
@@ -352,8 +443,10 @@ function showScreen(name){
   document.getElementById('screenLogin').style.display = name==='login' ? 'flex' : 'none';
   document.getElementById('screenLanding').style.display = name==='landing' ? 'flex' : 'none';
   document.getElementById('screenBackend').style.display = name==='backend' ? 'flex' : 'none';
+  document.getElementById('screenUtenti').style.display = name==='utenti' ? 'flex' : 'none';
+  document.getElementById('screenNewPw').style.display = name==='newpw' ? 'flex' : 'none';
   document.getElementById('screenApp').style.display = name==='app' ? 'flex' : 'none';
-  document.getElementById('btnHome').style.display = (name==='app'||name==='backend') ? '' : 'none';
+  document.getElementById('btnHome').style.display = (name==='app'||name==='backend'||name==='utenti') ? '' : 'none';
 }
 function showApp(app){
   currentApp=app;
@@ -363,6 +456,7 @@ function showApp(app){
   showScreen('app');
 }
 function routeAfterAuth(){
+  if(inRecovery){ showScreen('newpw'); return; }
   if(!cloudReady()){
     document.getElementById('whoami').style.display='none';
     document.getElementById('btnLogout').style.display='none';
@@ -409,6 +503,166 @@ function recheck(){ if(cloudReady() && screen==='landing') updateLanding(); }
 function recheckSoon(){
   _landingRetries=0;
   recheck();
+}
+
+/* ============================================================
+   SCHERMATA "UTENTI" — unico posto per ruolo/tag di visibilità/entità
+   collegata/ultimo accesso/reset password, letto e scritto direttamente
+   dal Portale (stesso client sb già usato per il proprio login), senza
+   passare dagli iframe. Sostituisce le 3 copie di "Utenti & ruoli" +
+   "Visibilità" che vivevano duplicate identiche nel Pannello Admin di
+   Budget/Spese EC/Docenti (Luigi, 2026-09-25).
+   ============================================================ */
+const TIPI_DOCENTI=["Workshop","Open Day","NabaIncontra","NabaExperience","Webinar","Test","Altro"]; // stessa lista di docenti.html, per l'ambito Superuser
+let UTENTI_DATA=null; // {users:{email:{...}}, travelers:[], interfaces:[], teachers:[]}
+async function loadUtentiScreen(){
+  const hint=document.getElementById('utentiLoadHint');
+  if(!cloudReady()){ if(hint) hint.textContent='Non connesso al cloud.'; return; }
+  document.getElementById('utentiTable').innerHTML='';
+  if(hint) hint.textContent='Caricamento…';
+  try{
+    const [au,tv,ifc,tc]=await Promise.all([
+      sb.from('bdg_app_users').select('*'),
+      sb.from('bdg_travelers').select('id,nome,email,gruppo'),
+      sb.from('bdg_orientamento_interfaces').select('id,nome,email,aree'),
+      sb.from('bdg_teachers').select('id,nome,interface_id')
+    ]);
+    if(au.error) throw au.error;
+    if(tv.error) throw tv.error;
+    if(ifc.error) throw ifc.error;
+    if(tc.error) throw tc.error;
+    const users={}; (au.data||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,scope:r.scope||null,extra_roles:r.extra_roles||[],last_seen_at:r.last_seen_at||null}; });
+    UTENTI_DATA={ users, travelers:tv.data||[], interfaces:ifc.data||[], teachers:tc.data||[] };
+    renderUtentiTable();
+    if(hint) hint.textContent='';
+  }catch(e){
+    console.error(e);
+    // la migrazione backend_utenti (extra_roles/last_seen_at/bdg_touch_last_seen) potrebbe non essere
+    // ancora stata eseguita: select('*') su bdg_app_users funziona comunque, qui è solo un errore reale
+    if(hint) hint.textContent='Errore nel caricamento: '+(e.message||e);
+  }
+}
+function findTravelerByEmail(email){ return UTENTI_DATA.travelers.find(t=>(t.email||'').toLowerCase()===email)||null; }
+function findInterfaceByEmailPortale(email){ return UTENTI_DATA.interfaces.find(i=>(i.email||'').toLowerCase()===email)||null; }
+function teachersForInterface(ifaceId){ return UTENTI_DATA.teachers.filter(t=>t.interface_id===ifaceId); }
+function allKnownAreasPortale(){ return [...new Set(UTENTI_DATA.interfaces.flatMap(i=>i.aree||[]))].sort((a,b)=>a.localeCompare(b)); }
+function fmtLastSeen(ts){
+  if(!ts) return 'mai';
+  const d=new Date(ts);
+  if(isNaN(d)) return 'mai';
+  return d.toLocaleDateString('it-IT',{day:'2-digit',month:'short',year:'numeric'})+' · '+d.toLocaleTimeString('it-IT',{hour:'2-digit',minute:'2-digit'});
+}
+// mostra a chi è davvero collegata questa email (traveler/interfaccia), o avvisa se manca il
+// collegamento — l'unico modo prima era aprire due schermate diverse e confrontare a mano le email
+function linkedEntityHtml(email,role,extraRoles){
+  const roles=[role,...(extraRoles||[])];
+  const parts=[];
+  if(roles.includes('orientatore')){
+    const t=findTravelerByEmail(email);
+    parts.push(t ? `<div class="uok">Viaggiatore: <b>${esc(t.nome)}</b>${t.gruppo?' · gruppo '+esc(t.gruppo):''}</div>`
+                 : `<div class="uwarn">⚠ nessun viaggiatore collegato — Spese EC → Impostazioni → Viaggiatori</div>`);
+  }
+  if(roles.includes('docente')){
+    const i=findInterfaceByEmailPortale(email);
+    if(i){ const ts=teachersForInterface(i.id); parts.push(`<div class="uok">Interfaccia: <b>${esc(i.nome)}</b><div class="usub">${ts.length} docent${ts.length===1?'e':'i'} collegat${ts.length===1?'o':'i'}${ts.length?': '+ts.map(t=>esc(t.nome)).join(', '):''}</div></div>`); }
+    else parts.push(`<div class="uwarn">⚠ nessuna interfaccia collegata — Docenti → Admin → Interfacce</div>`);
+  }
+  if(!parts.length) parts.push(`<span class="usub">—</span>`);
+  return parts.join('');
+}
+function superuserScopeRowHtml(email,u){
+  const sc=u.scope||{tipologia:[],area:[]};
+  const tipChips=TIPI_DOCENTI.map(t=>`<button type="button" class="uchip uScopeTipo ${sc.tipologia&&sc.tipologia.includes(t)?'on':''}" data-email="${esc(email)}" data-v="${esc(t)}">${esc(t)}</button>`).join(' ');
+  const areas=allKnownAreasPortale();
+  const areaChips=areas.length ? areas.map(a=>`<button type="button" class="uchip uScopeArea ${sc.area&&sc.area.includes(a)?'on':''}" data-email="${esc(email)}" data-v="${esc(a)}">${esc(a)}</button>`).join(' ') : `<span class="usub">Nessun corso configurato.</span>`;
+  return `<tr><td colspan="7" style="background:var(--paper)">
+    <div style="font-size:11px;font-weight:700;color:var(--ink-mute);margin-bottom:6px">AMBITO SUPERUSER (Docenti) — nessuna selezione su una riga = nessuna restrizione</div>
+    <div class="usub" style="margin-bottom:4px">Tipologia</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${tipChips}</div>
+    <div class="usub" style="margin-bottom:4px">Corso/Area</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">${areaChips}</div>
+  </td></tr>`;
+}
+function renderUtentiTable(){
+  const rows=Object.entries(UTENTI_DATA.users).sort((a,b)=>a[0].localeCompare(b[0]));
+  let h=`<thead><tr><th>Email</th><th>Ruolo</th><th>Tag extra</th><th>Entità collegata</th><th>Attivo</th><th>Ultimo accesso</th><th></th></tr></thead><tbody>`;
+  if(!rows.length) h+=`<tr><td colspan="7"><div class="hint" style="padding:16px 0">Nessun utente configurato.</div></td></tr>`;
+  rows.forEach(([email,u])=>{
+    const extra=u.extra_roles||[];
+    const tagChips=['orientatore','docente'].filter(r=>r!==u.role).map(r=>`<button type="button" class="uchip ${extra.includes(r)?'on':''}" data-email="${esc(email)}" data-tag="${r}">${r==='orientatore'?'Orientatore':'Docente'}</button>`).join(' ');
+    h+=`<tr>
+      <td><b>${esc(email)}</b></td>
+      <td><select class="uRoleSel" data-email="${esc(email)}">
+        <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+        <option value="superuser" ${u.role==='superuser'?'selected':''}>Superuser</option>
+        <option value="orientatore" ${u.role==='orientatore'?'selected':''}>Orientatore</option>
+        <option value="docente" ${u.role==='docente'?'selected':''}>Docente</option>
+      </select></td>
+      <td>${tagChips||'<span class="usub">—</span>'}</td>
+      <td>${linkedEntityHtml(email,u.role,extra)}</td>
+      <td style="text-align:center"><input type="checkbox" class="uAttivoChk" data-email="${esc(email)}" ${u.attivo!==false?'checked':''}></td>
+      <td class="usub">${fmtLastSeen(u.last_seen_at)}</td>
+      <td style="white-space:nowrap">
+        <button type="button" class="urowbtn" data-reset="${esc(email)}" title="Invia email per impostare una nuova password">Invia link reset</button>
+        <button type="button" class="urowbtn danger" data-del="${esc(email)}" title="Rimuovi">Elimina</button>
+      </td>
+    </tr>`;
+    if(u.role==='superuser') h+=superuserScopeRowHtml(email,u);
+  });
+  h+=`</tbody>`;
+  document.getElementById('utentiTable').innerHTML=h;
+  wireUtentiTable();
+}
+function upsertAppUser(email,u){
+  sb.from('bdg_app_users').upsert({ email:email.toLowerCase(), role:u.role, attivo:u.attivo!==false, scope:u.scope||null, extra_roles:u.extra_roles||[] })
+    .then(({error})=>{ if(error){ console.error(error); toast('Errore salvataggio: '+error.message); } });
+}
+function wireUtentiTable(){
+  document.querySelectorAll('.uRoleSel').forEach(s=>s.onchange=()=>{
+    const email=s.dataset.email, u=UTENTI_DATA.users[email]; if(!u) return;
+    u.role=s.value;
+    if(u.role==='superuser' && !u.scope) u.scope={tipologia:[],area:[]};
+    u.extra_roles=(u.extra_roles||[]).filter(r=>r!==u.role); // il ruolo primario non resta anche come tag
+    renderUtentiTable();
+    upsertAppUser(email,u);
+  });
+  document.querySelectorAll('.uAttivoChk').forEach(c=>c.onchange=()=>{
+    const email=c.dataset.email, u=UTENTI_DATA.users[email]; if(!u) return;
+    u.attivo=c.checked; upsertAppUser(email,u);
+  });
+  document.querySelectorAll('.uchip[data-tag]').forEach(b=>b.onclick=()=>{
+    const email=b.dataset.email, u=UTENTI_DATA.users[email]; if(!u) return;
+    const tag=b.dataset.tag; u.extra_roles=u.extra_roles||[];
+    const i=u.extra_roles.indexOf(tag);
+    if(i>=0) u.extra_roles.splice(i,1); else u.extra_roles.push(tag);
+    renderUtentiTable();
+    upsertAppUser(email,u);
+  });
+  document.querySelectorAll('.uScopeTipo,.uScopeArea').forEach(b=>b.onclick=()=>{
+    const email=b.dataset.email, u=UTENTI_DATA.users[email]; if(!u) return;
+    if(!u.scope) u.scope={tipologia:[],area:[]};
+    const dim=b.classList.contains('uScopeTipo')?'tipologia':'area';
+    if(!u.scope[dim]) u.scope[dim]=[];
+    const i=u.scope[dim].indexOf(b.dataset.v);
+    if(i>=0) u.scope[dim].splice(i,1); else u.scope[dim].push(b.dataset.v);
+    renderUtentiTable();
+    upsertAppUser(email,u);
+  });
+  document.querySelectorAll('[data-del]').forEach(b=>b.onclick=async()=>{
+    const email=b.dataset.del;
+    if(!confirm(`Rimuovere l'utente ${email}?`)) return;
+    delete UTENTI_DATA.users[email];
+    renderUtentiTable();
+    const {error}=await sb.from('bdg_app_users').delete().eq('email',email);
+    if(error){ console.error(error); toast('Errore: '+error.message); } else toast('Utente rimosso');
+  });
+  document.querySelectorAll('[data-reset]').forEach(b=>b.onclick=async()=>{
+    const email=b.dataset.reset;
+    if(!confirm(`Inviare l'email per reimpostare la password a ${email}?`)) return;
+    const redirectTo=location.origin+location.pathname.replace(/[^/]*$/,'')+'Portale_NABA.html';
+    const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
+    if(error){ console.error(error); toast('Errore: '+error.message); } else toast('Email di reset inviata a '+email);
+  });
 }
 
 document.querySelectorAll('.app-card[data-app]').forEach(card=>{
@@ -467,7 +721,7 @@ function openBackendAdmin(frame,appName){
 document.querySelectorAll('.app-card[data-backend]').forEach(card=>{
   card.onclick=()=>{
     const action=card.dataset.backend;
-    if(action==='users') openBackendAdmin(frameSpese,'spese');
+    if(action==='users'){ showScreen('utenti'); loadUtentiScreen(); }
     else if(action==='budget-annuale') openBudgetTab('budget');
     else if(action==='registro') openBudgetTab('registro');
     else if(action==='import') triggerBudgetAction('btnImport');
