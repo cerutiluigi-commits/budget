@@ -194,16 +194,18 @@ tfoot td.l{text-align:left}
 .cloud-state .b{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px;font-weight:700}
 .cloud-state .b.on{background:var(--accent-soft);color:var(--accent)}.cloud-state .b.off{background:var(--surface-mute);color:var(--ink-soft)}
 
-/* righe multiple per una voce (stessa regola già in uso in Docenti per le date di un'attività):
-   i campi comuni (tipologia/fornitore/iva/stato) restano una volta sola, ogni riga aggiunge solo
-   importo + date + rif. prenotazione — utile per volo andata/ritorno, più notti in hotel diversi, ecc. */
-.item-rows{display:flex;flex-direction:column;gap:10px;margin-top:4px}
-.item-row-line{display:grid;grid-template-columns:1fr 1fr 1fr 1fr 1fr auto;gap:8px;align-items:end;padding:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-mute)}
+/* righe multiple per una voce — stessa struttura/dimensioni di .date-row in Docenti (Luigi,
+   2026-09-26): niente riquadro/sfondo, colonne a larghezza fissa (non 1fr uguali, altrimenti nel
+   modale stretto si schiacciano), stesso pulsante Rimuovi 30px. I campi comuni (tipologia/fornitore/
+   iva/stato) restano una volta sola sopra; ogni riga aggiunge solo importo + date + rif. prenotazione
+   — utile per volo andata/ritorno, più notti in hotel diversi, ecc. */
+#itemOverlay .modal{max-width:780px}
+.item-rows{display:flex;flex-direction:column;gap:10px;margin-bottom:8px}
+.item-row-line{display:grid;grid-template-columns:90px 130px 1fr 130px 130px 30px;gap:10px;align-items:end}
 .item-row-line .field{margin-bottom:0}
-.item-row-line label{font-size:10.5px}
 .item-row-del{align-self:end}
-.item-total{display:flex;justify-content:flex-end;gap:8px;font-weight:700;padding:6px 4px;font-variant-numeric:tabular-nums}
-@media(max-width:700px){ .item-row-line{grid-template-columns:1fr 1fr} .item-row-del{grid-column:span 2;justify-self:end}}
+.item-total{text-align:right;font-weight:700;font-size:14px;margin-bottom:8px}
+@media(max-width:600px){ .item-row-line{grid-template-columns:1fr} }
 
 @media(max-width:600px){
   header{position:static;flex-direction:column;align-items:stretch;gap:10px;padding:10px 12px}
@@ -694,16 +696,21 @@ function renderCalendario(){
   document.getElementById("calRows").innerHTML=h;
 }
 function renderImpostazioni(){
-  let ht=`<thead><tr><th class="l">Nome</th><th class="l">Email (login)</th><th class="l">Tipo</th><th></th></tr></thead><tbody>`;
+  // "Gruppo": chi condivide lo stesso testo qui può inserire trasferte anche per gli altri membri,
+  // non solo per sé (Luigi, 2026-09-26 — es. Corrado/Ilaria/Andrea Arrigoni, Greta Mangano, Fabrizio
+  // Brancato nello stesso gruppo; chi non ha un gruppo, o è l'unico col suo nome, inserisce solo per sé)
+  let ht=`<thead><tr><th class="l">Nome</th><th class="l">Email (login)</th><th class="l">Tipo</th><th class="l">Gruppo</th><th></th></tr></thead><tbody>`;
   STATE.travelers.forEach(t=>{ ht+=`<tr>
     <td class="l">${esc(t.nome)}</td>
     <td class="l"><button class="tag trav-email" data-id="${t.id}" style="cursor:pointer;border:0;text-transform:none;letter-spacing:0">${t.email?esc(t.email):'imposta email'}</button></td>
     <td class="l"><button class="tag trav-toggle" data-id="${t.id}" style="cursor:pointer;border:0">${t.staff?'staff':'no-staff'}</button></td>
+    <td class="l"><button class="tag trav-gruppo" data-id="${t.id}" style="cursor:pointer;border:0;text-transform:none;letter-spacing:0">${t.gruppo?esc(t.gruppo):'nessun gruppo'}</button></td>
     <td><button class="rowbtn trav-del" data-id="${t.id}" title="Rimuovi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button></td>
   </tr>`; });
   ht+=`</tbody>`; document.getElementById("travTable").innerHTML=ht;
   document.querySelectorAll(".trav-toggle").forEach(b=>b.onclick=()=>{ const t=STATE.travelers.find(x=>x.id===b.dataset.id); if(t){ t.staff=!t.staff; save(); renderAll(); cloudUpsertTraveler(t); } });
   document.querySelectorAll(".trav-email").forEach(b=>b.onclick=()=>{ const t=STATE.travelers.find(x=>x.id===b.dataset.id); if(!t)return; const v=prompt("Email di login per "+t.nome+":", t.email||""); if(v===null)return; t.email=v.trim(); save(); renderImpostazioni(); cloudUpsertTraveler(t); });
+  document.querySelectorAll(".trav-gruppo").forEach(b=>b.onclick=()=>{ const t=STATE.travelers.find(x=>x.id===b.dataset.id); if(!t)return; const v=prompt("Gruppo di "+t.nome+" (stesso nome = possono inserire viaggi l'uno per l'altro; vuoto = nessun gruppo, solo per sé):", t.gruppo||""); if(v===null)return; t.gruppo=v.trim(); save(); renderImpostazioni(); cloudUpsertTraveler(t); });
   document.querySelectorAll(".trav-del").forEach(b=>b.onclick=()=>{ if(confirm("Rimuovere il viaggiatore? (le trasferte collegate restano)")){ STATE.travelers=STATE.travelers.filter(x=>x.id!==b.dataset.id); save(); fillSelects(); renderAll(); } });
 
   const rows=[["Volo","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Treno","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Noleggio auto","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Rimborso km","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Hotel","ALBERGHI RIST. (staff/no-staff)","ALLOCATED"],["Spese in fattura","— (nessuna)","TRACE_ONLY · esclusa"]];
@@ -781,10 +788,23 @@ function openTrip(id){
   editTripId=id||null;
   const t=id?STATE.trips.find(x=>x.id===id):null;
   document.getElementById("tripTitle").textContent=id?"Modifica viaggio":"Nuovo viaggio";
-  document.getElementById("tTrav").innerHTML=STATE.travelers.map(v=>`<option value="${v.id}">${esc(v.nome)}</option>`).join("");
   const travField=document.getElementById("tTrav").closest(".field");
-  if(CURRENT.role==="orientatore"){ travField.style.display="none"; document.getElementById("tTrav").value=t?t.traveler_id:CURRENT.travelerId; }
-  else { travField.style.display=""; document.getElementById("tTrav").value=t?t.traveler_id:(STATE.travelers[0]&&STATE.travelers[0].id); }
+  const travSel=document.getElementById("tTrav");
+  if(CURRENT.role==="orientatore"){
+    const me=STATE.travelers.find(x=>x.id===CURRENT.travelerId);
+    // chi condivide un "gruppo" con altri viaggiatori può inserire trasferte anche per loro, non solo
+    // per sé (Luigi, 2026-09-26 — stessa idea già applicata al multi-riga: estesa a tutti gli
+    // elementi, qui alla scelta del viaggiatore); senza gruppo, o da soli nel proprio gruppo, il campo
+    // resta nascosto e forzato su di sé come sempre
+    const peers = (me && me.gruppo) ? STATE.travelers.filter(x=>x.gruppo===me.gruppo) : (me?[me]:[]);
+    if(peers.length>1){ travField.style.display=""; travSel.innerHTML=peers.map(v=>`<option value="${v.id}">${esc(v.nome)}</option>`).join(""); }
+    else { travField.style.display="none"; travSel.innerHTML=STATE.travelers.map(v=>`<option value="${v.id}">${esc(v.nome)}</option>`).join(""); }
+    travSel.value=t?t.traveler_id:CURRENT.travelerId;
+  } else {
+    travField.style.display="";
+    travSel.innerHTML=STATE.travelers.map(v=>`<option value="${v.id}">${esc(v.nome)}</option>`).join("");
+    travSel.value=t?t.traveler_id:(STATE.travelers[0]&&STATE.travelers[0].id);
+  }
   // "inseritore" (chi prenota, non necessariamente il viaggiatore — es. Greta prenota per Corrado):
   // di default chi ha fatto login, modificabile; su un viaggio esistente resta quello già salvato.
   document.getElementById("tInseritore").value=t?(t.inseritore||""):(CURRENT.name||CURRENT.email||"");
@@ -935,7 +955,7 @@ function cloudUser(){ return (cloudSession&&cloudSession.user&&cloudSession.user
 function cloudSetDot(s){ const d=document.getElementById("cloudDot"),l=document.getElementById("cloudLbl"); if(!d)return; d.className="cloud-dot "+s; l.textContent=s==='on'?'Sincronizzato':s==='sync'?'Sync…':s==='err'?'Errore':'Cloud'; }
 function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clearTimeout(flashSynced._t); flashSynced._t=setTimeout(()=>{ if(cloudReady())cloudSetDot('on'); },600); }
 function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toast("Errore salvataggio cloud ("+ctx+"): "+(error&&error.message?error.message:'riprova')+" — dato solo in locale",'err'); }
-function travRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,staff:!!t.staff,attivo:t.attivo!==false}; }
+function travRow(t){ return {id:t.id,nome:t.nome,email:t.email||null,staff:!!t.staff,attivo:t.attivo!==false,gruppo:t.gruppo||null}; }
 // destinazione/scuola_evento/stato non sono più raccolte dal modale (2026-09-23, riunione Luigi/
 // Sofia/Stefano: a livello di macro-viaggio non servono — lo stato che conta è quello per singola
 // voce, la cancellazione dell'intero viaggio si fa con "Elimina") ma restano nella tabella per non
@@ -952,7 +972,7 @@ async function cloudPullAll(silent){
     const {data:tv,error:e1}=await sb.from('bdg_travelers').select('*'); if(e1) throw e1;
     const {data:tp,error:e2}=await sb.from('bdg_travel_trips').select('*'); if(e2) throw e2;
     const {data:it,error:e3}=await sb.from('bdg_travel_items').select('*'); if(e3) throw e3;
-    if(tv&&tv.length) STATE.travelers=tv.map(x=>({id:x.id,nome:x.nome,email:x.email||"",staff:!!x.staff,attivo:x.attivo!==false}));
+    if(tv&&tv.length) STATE.travelers=tv.map(x=>({id:x.id,nome:x.nome,email:x.email||"",staff:!!x.staff,attivo:x.attivo!==false,gruppo:x.gruppo||""}));
     STATE.trips=(tp||[]).map(x=>({id:x.id,traveler_id:x.traveler_id,inseritore:x.inseritore||"",scopo:x.scopo||"",destinazione:x.destinazione||"",data_inizio:x.data_inizio,data_fine:x.data_fine,scuola_evento:x.scuola_evento||"",stato:x.stato||'prenotato',note:x.note||""}));
     STATE.items=(it||[]).map(x=>({id:x.id,trip_id:x.trip_id,gruppo_id:x.gruppo_id||null,tipo:x.tipo,fornitore:x.fornitore||"",data_acquisto:x.data_acquisto,comp_da:x.comp_da,comp_a:x.comp_a,importo:Number(x.importo)||0,iva:x.iva,rif_prenotazione:x.rif_prenotazione||"",stato:x.stato||'prenotato',actual_ref:x.actual_ref||"",note:x.note||""}));
     await cloudFetchRoles();
