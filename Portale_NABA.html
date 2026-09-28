@@ -109,6 +109,8 @@ input,select{font-family:inherit;font-size:14px}
 .urowbtn:hover{border-color:var(--ink);color:var(--ink)}
 .urowbtn.danger{color:var(--over);border-color:var(--over)}
 .urowbtn.danger:hover{background:#FBEDE8}
+.ulink{background:none;border:0;padding:2px 0;color:var(--over);font-size:11.5px;font-weight:700;text-decoration:underline;cursor:pointer}
+.ulink:hover{color:var(--ink)}
 </style>
 </head>
 <body>
@@ -233,7 +235,7 @@ input,select{font-family:inherit;font-size:14px}
 <div class="screen" id="screenUtenti">
   <div class="landing-wrap utenti-wrap">
     <h1>Utenti</h1>
-    <p class="sub">Ruolo, entità collegata (docente/interfaccia o orientatore/viaggiatore), visibilità e ultimo accesso.</p>
+    <p class="sub">Ruolo, entità collegata (docente/interfaccia o orientatore/viaggiatore), visibilità e ultimo accesso. Il nome della persona si crea/modifica nella sua anagrafica (Spese EC → Viaggiatori, Docenti → Interfacce) — qui vedi solo se il collegamento con quell'email c'è o manca.</p>
     <div class="ucard"><table class="utable" id="utentiTable"></table></div>
     <div class="ucard pad">
       <div class="eyebrow" style="margin-bottom:10px">Aggiungi utente</div>
@@ -560,12 +562,12 @@ function linkedEntityHtml(email,role,extraRoles){
   if(roles.includes('orientatore')){
     const t=findTravelerByEmail(email);
     parts.push(t ? `<div class="uok">Viaggiatore: <b>${esc(t.nome)}</b>${t.gruppo?' · gruppo '+esc(t.gruppo):''}</div>`
-                 : `<div class="uwarn">⚠ nessun viaggiatore collegato — Spese EC → Impostazioni → Viaggiatori</div>`);
+                 : `<div class="uwarn">⚠ nessun viaggiatore collegato<br><button type="button" class="ulink" data-goto="spese-viaggiatori">Apri Spese EC → Impostazioni → Viaggiatori</button></div>`);
   }
   if(roles.includes('docente')){
     const i=findInterfaceByEmailPortale(email);
     if(i){ const ts=teachersForInterface(i.id); parts.push(`<div class="uok">Interfaccia: <b>${esc(i.nome)}</b><div class="usub">${ts.length} docent${ts.length===1?'e':'i'} collegat${ts.length===1?'o':'i'}${ts.length?': '+ts.map(t=>esc(t.nome)).join(', '):''}</div></div>`); }
-    else parts.push(`<div class="uwarn">⚠ nessuna interfaccia collegata — Docenti → Admin → Interfacce</div>`);
+    else parts.push(`<div class="uwarn">⚠ nessuna interfaccia collegata<br><button type="button" class="ulink" data-goto="docenti-interfacce">Apri Docenti → Admin → Interfacce</button></div>`);
   }
   if(!parts.length) parts.push(`<span class="usub">—</span>`);
   return parts.join('');
@@ -589,7 +591,11 @@ function renderUtentiTable(){
   if(!rows.length) h+=`<tr><td colspan="7"><div class="hint" style="padding:16px 0">Nessun utente configurato.</div></td></tr>`;
   rows.forEach(([email,u])=>{
     const extra=u.extra_roles||[];
-    const tagChips=['orientatore','docente'].filter(r=>r!==u.role).map(r=>`<button type="button" class="uchip ${extra.includes(r)?'on':''}" data-email="${esc(email)}" data-tag="${r}">${r==='orientatore'?'Orientatore':'Docente'}</button>`).join(' ');
+    const tagChips=['orientatore','docente'].filter(r=>r!==u.role).map(r=>{
+      const on=extra.includes(r);
+      const label=r==='orientatore'?'Orientatore':'Docente';
+      return `<button type="button" class="uchip ${on?'on':''}" data-email="${esc(email)}" data-tag="${r}" title="Clicca per ${on?'togliere':'aggiungere'} questo tag">${on?'✓ ':'+ '}${label}</button>`;
+    }).join(' ');
     h+=`<tr>
       <td><b>${esc(email)}</b></td>
       <td><select class="uRoleSel" data-email="${esc(email)}">
@@ -662,6 +668,13 @@ function wireUtentiTable(){
     const redirectTo=location.origin+location.pathname.replace(/[^/]*$/,'')+'Portale_NABA.html';
     const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo});
     if(error){ console.error(error); toast('Errore: '+error.message); } else toast('Email di reset inviata a '+email);
+  });
+  // "Apri Spese EC → Viaggiatori"/"Apri Docenti → Interfacce": il nome/email della persona si crea e
+  // si modifica in quelle anagrafiche, non qui — qui si vede solo se il collegamento c'è o manca
+  document.querySelectorAll('.ulink[data-goto]').forEach(b=>b.onclick=()=>{
+    const goto=b.dataset.goto;
+    if(goto==='spese-viaggiatori') openSpeseTab('impostazioni');
+    else if(goto==='docenti-interfacce') openBackendAdmin(frameDocenti,'docenti');
   });
 }
 
