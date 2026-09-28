@@ -1311,6 +1311,18 @@ function openItem(tripId,itemId){
 function saveItem(){
   if(!iRows.length){ toast("Aggiungi almeno una riga"); return; }
   for(const r of iRows){ if(r.importo===''||isNaN(parseFloat(r.importo))){ toast("Inserisci l'importo per ogni riga"); return; } }
+  // le date delle righe devono restare nel perimetro del viaggio, e non si può acquistare dopo che il
+  // viaggio è già finito (Luigi, 2026-09-28) — confronto su stringhe ISO yyyy-mm-dd, ordinabili così come sono
+  const trip=STATE.trips.find(x=>x.id===editItemTrip);
+  if(trip){
+    for(const r of iRows){
+      if(r.compDa && trip.data_inizio && r.compDa<trip.data_inizio){ toast(`"Servizio da" non può precedere l'inizio del viaggio (${fmtD(trip.data_inizio)})`); return; }
+      if(r.compDa && trip.data_fine && r.compDa>trip.data_fine){ toast(`"Servizio da" non può superare la fine del viaggio (${fmtD(trip.data_fine)})`); return; }
+      if(r.compA && trip.data_inizio && r.compA<trip.data_inizio){ toast(`"Servizio a" non può precedere l'inizio del viaggio (${fmtD(trip.data_inizio)})`); return; }
+      if(r.compA && trip.data_fine && r.compA>trip.data_fine){ toast(`"Servizio a" non può superare la fine del viaggio (${fmtD(trip.data_fine)})`); return; }
+      if(r.dataAcquisto && trip.data_fine && r.dataAcquisto>trip.data_fine){ toast(`La data di acquisto non può essere successiva alla fine del viaggio (${fmtD(trip.data_fine)})`); return; }
+    }
+  }
   const tipo=document.getElementById("iTipo").value, fornitore=document.getElementById("iForn").value.trim(), actualRef=document.getElementById("iActualRef").value.trim(), note=document.getElementById("iNote").value.trim();
   const groupId = editItemGroupId || uuid();
   const groupRowsBefore = editItemGroupId ? STATE.items.filter(x=>(x.gruppo_id||x.id)===editItemGroupId && x.trip_id===editItemTrip) : [];
