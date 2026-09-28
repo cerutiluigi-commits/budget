@@ -1934,9 +1934,18 @@ function tabVisible(tool,tabKey,role){
 // non finiva. Ora, se il cloud è configurato, si resta in stato "in verifica" (fail-closed, niente
 // mostrato) finché getSession() non ha risposto davvero — mai più un accesso pieno temporaneo.
 let cloudChecked=false;
+// true una volta che, oltre alla sessione, anche i DATI (bdg_app_users incluso) sono stati caricati
+// almeno una volta — o si sa già che non c'è nulla da caricare. Senza questo, tra "sessione confermata"
+// e "fine di cloudPullAll()" c'è una finestra in cui roleForEmail() legge ancora la cache locale
+// (potenzialmente vuota o non aggiornata) invece del ruolo reale: currentRole() diceva "pronto" un
+// istante troppo presto. Bug reale (Luigi, 2026-09-25 e 2026-09-28): il Portale, letto proprio in
+// quell'istante, mostrava solo il tasto Backend perché Docenti/Spese EC risultavano ancora "in
+// verifica" mentre Budget sembrava già pronto (o viceversa).
+let dataReady=false;
 function currentRole(){
   if(cloudCfg() && !cloudChecked) return null; // sessione cloud ancora in verifica: non decidere ancora
   if(!cloudReady()) return 'admin';
+  if(!dataReady) return null; // sessione confermata ma dati/ruolo non ancora caricati
   return roleForEmail(cloudUser()) || 'none';
 }
 function applyRole(){
@@ -1986,23 +1995,24 @@ function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toas
 
 async function cloudInit(){
   const cfg=cloudCfg();
-  if(!cfg||!window.supabase){ cloudSetDot('off'); cloudChecked=true; applyRole(); return; }
+  if(!cfg||!window.supabase){ cloudSetDot('off'); cloudChecked=true; dataReady=true; applyRole(); return; }
   try{
     sb=window.supabase.createClient(cfg.url, cfg.anonKey);
     const {data}=await sb.auth.getSession();
     cloudSession=data.session||null;
     cloudChecked=true;
-    // sessione trovata -> cloudPullAll() chiama renderAll()/applyRole() da sé a fine caricamento dati;
-    // nessuna sessione -> applyRole() qui, altrimenti la UI resterebbe bloccata sullo stato "in verifica"
-    if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else { cloudSetDot('off'); applyRole(); }
-  }catch(e){ console.error(e); cloudSetDot('err'); cloudChecked=true; applyRole(); }
+    // sessione trovata -> cloudPullAll() chiama renderAll()/applyRole() da sé a fine caricamento dati
+    // (e imposta dataReady=true prima di farlo); nessuna sessione -> applyRole() qui, altrimenti la UI
+    // resterebbe bloccata sullo stato "in verifica"
+    if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else { dataReady=true; cloudSetDot('off'); applyRole(); }
+  }catch(e){ console.error(e); cloudSetDot('err'); cloudChecked=true; dataReady=true; applyRole(); }
 }
 async function cloudLogin(email,pw){
   if(!sb){ toast("Configura prima il progetto"); return; }
   if(!email||!pw){ toast("Inserisci email e password"); return; }
   const {data,error}=await sb.auth.signInWithPassword({email,password:pw});
   if(error){ toast("Accesso fallito: "+error.message); cloudSetDot('err'); return; }
-  cloudSession=data.session; cloudSetDot('on'); toast("Connesso al cloud"); renderCloudModal(); await cloudPullAll(false);
+  cloudSession=data.session; dataReady=false; cloudSetDot('on'); toast("Connesso al cloud"); renderCloudModal(); await cloudPullAll(false);
 }
 async function cloudSignup(email,pw){
   if(!sb){ toast("Configura prima il progetto"); return; }
@@ -2012,7 +2022,7 @@ async function cloudSignup(email,pw){
   if(data.session){ cloudSession=data.session; cloudSetDot('on'); toast("Account creato e connesso"); renderCloudModal(); }
   else toast("Registrazione inviata: conferma dall'email, poi accedi.");
 }
-async function cloudLogout(){ if(sb) await sb.auth.signOut(); cloudSession=null; cloudRealtimeUnsubscribe(); cloudSetDot('off'); renderCloudModal(); applyRole(); toast("Disconnesso"); }
+async function cloudLogout(){ if(sb) await sb.auth.signOut(); cloudSession=null; dataReady=true; cloudRealtimeUnsubscribe(); cloudSetDot('off'); renderCloudModal(); applyRole(); toast("Disconnesso"); }
 
 async function cloudPullAll(silent){
   if(!cloudReady()) return;
@@ -2046,10 +2056,11 @@ async function cloudPullAll(silent){
     // qui si lancia un'eccezione non gestita, salta anche il gate()/renderAll() qui sotto e l'utente
     // resta bloccato su ruolo "none" (bug reale, Luigi 2026-09-25)
     try{ Promise.resolve(sb.rpc('bdg_touch_last_seen')).catch(()=>{}); }catch(e){}
+    dataReady=true;
     save(); initFY(); document.getElementById("refDate").value=STATE.refDate; renderCalChips(); renderAll();
     cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud");
     cloudRealtimeSubscribe();
-  }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore sync: "+(e.message||e)); applyRole(); }
+  }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore sync: "+(e.message||e)); dataReady=true; applyRole(); }
 }
 /* stime travel (Spese EC) dalla vista v_budget_allocations — sola lettura, non fatale se assente */
 async function cloudFetchTravelEstimates(){
