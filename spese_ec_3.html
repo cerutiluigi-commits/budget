@@ -89,7 +89,7 @@ main{max-width:1180px;margin:0 auto;padding:20px 20px 80px}
 .card.pad{padding:16px 18px}
 
 /* KPI */
-.kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:22px}
+.kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-bottom:22px}
 .kpi{background:var(--surface);border:1px solid var(--line);border-radius:var(--radius);padding:16px 18px;box-shadow:var(--shadow-sm);position:relative;overflow:hidden}
 .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bar,var(--accent))}
 .kpi .l{display:flex;align-items:center;gap:8px;margin-bottom:8px}
@@ -168,6 +168,9 @@ tfoot td.l{text-align:left}
 .field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:5px}
 .field input,.field select,.field textarea{width:100%;border:1px solid var(--line-strong);border-radius:9px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;background:var(--surface);color:var(--ink);outline:none}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.field{position:relative}
+.field.err input,.field.err select,.field.err textarea{border-color:var(--over)}
+.field-err-ic{position:absolute;top:0;right:0;width:15px;height:15px;border-radius:50%;background:var(--over);color:#fff;font-family:'Inter',sans-serif;font-size:10px;font-weight:800;display:flex;align-items:center;justify-content:center;cursor:help;line-height:1}
 .mapinfo{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--ink-soft)}
 .mapinfo b{color:var(--ink)}
 .role-banner{margin:0 20px;margin-top:14px;padding:10px 14px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink);font-size:13px;border:1px solid rgba(0,0,0,.05)}
@@ -339,7 +342,6 @@ tfoot td.l{text-align:left}
   </div>
   <div class="hctl">
     <div class="hgroup"><label>Anno fiscale</label><select id="fySel"></select></div>
-    <div class="hgroup"><label>Data rif.</label><input type="date" id="refDate"></div>
     <div class="hgroup"><label>Vista</label><select id="viewSel"></select></div>
     <button class="hbtn" id="btnCloud"><span id="cloudDot" class="cloud-dot off"></span><span id="cloudLbl">Cloud</span></button>
     <button class="hbtn" id="btnAdmin" title="Pannello amministrazione" style="display:none">Admin</button>
@@ -404,8 +406,8 @@ tfoot td.l{text-align:left}
       </div>
     </div>
     <div class="cal-filters">
-      <button type="button" class="chip" data-stato="prenotato">Prenotate</button>
-      <button type="button" class="chip" data-stato="svolto">Svolte</button>
+      <button type="button" class="chip" data-stato="allocato">Allocate</button>
+      <button type="button" class="chip" data-stato="speso">Spese</button>
       <button type="button" class="chip" data-stato="annullato">Annullate</button>
     </div>
     <div class="cal-dow"><div>Dom</div><div>Lun</div><div>Mar</div><div>Mer</div><div>Gio</div><div>Ven</div><div>Sab</div></div>
@@ -448,9 +450,9 @@ tfoot td.l{text-align:left}
       <div class="grid2">
         <div class="field"><label>Viaggiatore <span class="req">*</span></label><select id="tTrav"></select></div>
         <div class="field"><label>Inseritore</label><input type="text" id="tInseritore" placeholder="chi sta prenotando"></div>
-        <div class="field full"><label>Scopo</label><input type="text" id="tScopo" placeholder="es. Orientamento Puglia"></div>
-        <div class="field"><label>Data inizio</label><input type="date" id="tDa"></div>
-        <div class="field"><label>Data fine</label><input type="date" id="tA"></div>
+        <div class="field full"><label>Scopo <span class="req">*</span></label><input type="text" id="tScopo" placeholder="es. Orientamento Puglia"></div>
+        <div class="field"><label>Data inizio <span class="req">*</span></label><input type="date" id="tDa"></div>
+        <div class="field"><label>Data fine <span class="req">*</span></label><input type="date" id="tA"></div>
         <div class="field full"><label>Note</label><textarea id="tNote" rows="2"></textarea></div>
       </div>
     </div>
@@ -459,6 +461,20 @@ tfoot td.l{text-align:left}
       <div class="sp"></div>
       <button class="btn ghost" id="tCancel">Annulla</button>
       <button class="btn" id="tSave">Salva</button>
+    </div>
+  </div>
+</div>
+
+<!-- WARN CONFIRM (avvisi non bloccanti con scelta Modifica/Continua, es. data nel passato) -->
+<div class="overlay" id="warnOverlay">
+  <div class="modal" style="max-width:380px">
+    <div class="mbody" style="padding-top:24px">
+      <p id="warnMsg" style="margin:0;font-size:14px;color:var(--ink);line-height:1.45"></p>
+    </div>
+    <div class="mfoot">
+      <button class="btn ghost" id="warnEdit">Modifica</button>
+      <div class="sp"></div>
+      <button class="btn" id="warnContinue">Continua</button>
     </div>
   </div>
 </div>
@@ -545,9 +561,11 @@ tfoot td.l{text-align:left}
 /* ============================ SPESE EC ============================ */
 const CATS=["VIAGGI TRASF. STAFF","VIAGGI TRASF. ALTRI NO STAFF","ALBERGHI RIST. STAFF","ALBERGHI RIST. NO STAFF"];
 const CAT_COLOR={"VIAGGI TRASF. STAFF":"#1F7A8C","VIAGGI TRASF. ALTRI NO STAFF":"#2E9C8E","ALBERGHI RIST. STAFF":"#A87B4F","ALBERGHI RIST. NO STAFF":"#C99A5B"};
-const TIPI=["Volo","Treno","Noleggio auto","Hotel","Spese in fattura","Rimborso km","Altro"];
+// "Spese in fattura" rimossa dalla tipologia selezionabile e dal riepilogo (Luigi, 2026-09-29):
+// mapCat/impactOf mantengono comunque il ramo per le voci storiche già salvate con questo tipo
+const TIPI=["Volo","Treno","Noleggio auto","Hotel","Rimborso km","Altro"];
 // fornitori di default per tipologia (Sofia, riunione 2026-09-23): Volo/Noleggio auto/Hotel -> Uvet,
-// Treno -> Trenitalia; Spese in fattura/Rimborso km/Altro non hanno un fornitore fisso di riferimento.
+// Treno -> Trenitalia; Rimborso km/Altro non hanno un fornitore fisso di riferimento.
 // Solo un suggerimento di partenza: il campo Fornitore resta libero, non un menu chiuso.
 const FORNITORE_DEFAULT={"Volo":"Uvet","Noleggio auto":"Uvet","Hotel":"Uvet","Treno":"Trenitalia"};
 const MESI=["gen","feb","mar","apr","mag","giu","lug","ago","set","ott","nov","dic"];
@@ -559,16 +577,31 @@ function mapCat(tipo,staff){
   if(tipo==="Hotel") return staff?"ALBERGHI RIST. STAFF":"ALBERGHI RIST. NO STAFF";
   return staff?"VIAGGI TRASF. STAFF":"VIAGGI TRASF. ALTRI NO STAFF"; // Volo/Treno/Noleggio/Rimborso km/Altro
 }
+// "svolto" non è più un tasto manuale (Luigi, 2026-09-29): lo stato speso/allocato è sempre
+// automatico, per data (vedi itemBudget/itemEndDate) — qui resta solo l'annullamento, l'unica
+// cosa che ha senso decidere manualmente (una voce che non si farà più)
 function impactOf(it){
   if(it.stato==="annullato") return "REVERSED";
   if(it.tipo==="Spese in fattura") return "TRACE_ONLY";
-  if(it.stato==="svolto") return "ACTUAL";
   return "ALLOCATED";
 }
 function eur(v){ return "€ "+Math.round(v||0).toLocaleString("it-IT"); }
 function eur2(v){ return "€ "+(v||0).toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2}); }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 function fmtD(d){ if(!d) return "—"; const p=String(d).slice(0,10).split("-"); return p.length===3?`${p[2]}/${p[1]}/${p[0].slice(2)}`:d; }
+// errori di validazione: campo in rosso + iconcina "!" col motivo in tooltip al passaggio del
+// mouse, invece che solo via toast o testo fisso sotto il campo (Luigi, 2026-09-29) — inputEl è
+// l'<input>/<select>, l'icona va nel suo .field genitore
+function setFieldError(inputEl,msg){
+  const field=inputEl&&inputEl.closest(".field"); if(!field) return;
+  field.classList.add("err");
+  let ic=field.querySelector(".field-err-ic");
+  if(!ic){ ic=document.createElement("span"); ic.className="field-err-ic"; ic.textContent="!"; field.appendChild(ic); }
+  ic.title=msg;
+}
+function clearFieldErrors(root){
+  root.querySelectorAll(".field.err").forEach(f=>{ f.classList.remove("err"); const ic=f.querySelector(".field-err-ic"); if(ic) ic.remove(); });
+}
 function todayISO(){ return new Date().toISOString().slice(0,10); }
 function uuid(){ return (window.crypto&&crypto.randomUUID)?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);}); }
 function isUuid(s){ return typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s); }
@@ -581,7 +614,7 @@ function seed(){
   ];
   const trips=[];
   const items=[];
-  return {fyStart:2026, refDate:todayISO(), view:"ALL", ivaDef:22, appUsers:{}, tabVisibility:{}, previewAs:null, localIdentity:null, travelers:T, trips, items, riepMonths:[], riepTravs:[], riepTipi:[]};
+  return {fyStart:2026, view:"ALL", ivaDef:22, appUsers:{}, tabVisibility:{}, previewAs:null, localIdentity:null, travelers:T, trips, items, riepMonths:[], riepTravs:[], riepTipi:[]};
 }
 function load(){
   try{ const s=JSON.parse(localStorage.getItem(LS_KEY)||"null"); if(s&&s.trips&&s.travelers){ if(!s.view)s.view="ALL"; if(s.ivaDef==null)s.ivaDef=22; if(!s.appUsers)s.appUsers={}; if(!s.tabVisibility)s.tabVisibility={}; if(s.previewAs===undefined)s.previewAs=null; if(s.localIdentity===undefined)s.localIdentity=null; s.travelers.forEach(t=>{ if(t.email===undefined)t.email=""; }); if(!s.riepMonths)s.riepMonths=[]; if(!s.riepTravs)s.riepTravs=[]; if(!s.riepTipi)s.riepTipi=[]; return s; } }catch(e){}
@@ -598,7 +631,6 @@ function inFY(y,m){ const k=y*12+m; return k>=STATE.fyStart*12+6 && k<=(STATE.fy
 function itemMonthYM(it){ return (it.comp_da||it.data_acquisto||"").slice(0,7); }
 function todayMonth(){ return todayISO().slice(0,7); }
 function prevMonth(ym){ const [y,m]=ym.split('-').map(Number); const d=new Date(y,m-2,1); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`; }
-function daysLeftInMonth(){ const now=new Date(); const last=new Date(now.getFullYear(),now.getMonth()+1,0).getDate(); return last-now.getDate(); }
 function visibleTrips(){ const f=myFilter(); return f?STATE.trips.filter(t=>t.traveler_id===f):STATE.trips; }
 function visibleItems(){ const tset=new Set(visibleTrips().map(t=>t.id)); return STATE.items.filter(i=>tset.has(i.trip_id)); }
 function countVoci(items){ return new Set(items.map(it=>it.gruppo_id||it.id)).size; }
@@ -745,7 +777,11 @@ function applyRole(){
 }
 
 /* ---- calcoli budget ---- */
-function refKey(){ const [y,m]=STATE.refDate.split("-").map(Number); return y*12+(m-1); }
+// niente più "data rif." modificabile qui (era fonte di confusione: sembrava una simulazione ma
+// non lo era) — Spese EC divide speso/allocato sempre rispetto a oggi (Luigi, 2026-09-28)
+// una voce passa da allocato a speso quando la sua data di FINE è nel passato — "Servizio a" se
+// c'è, altrimenti "Servizio da", altrimenti la data di acquisto (Luigi, 2026-09-29)
+function itemEndDate(it){ return it.comp_a || it.comp_da || it.data_acquisto || null; }
 function itemBudget(it){ // {counts, alloc/speso bucket, cat, amount}
   const imp=impactOf(it);
   const counts = (imp==="ALLOCATED"||imp==="ACTUAL");
@@ -755,9 +791,13 @@ function itemBudget(it){ // {counts, alloc/speso bucket, cat, amount}
   const cat=mapCat(it.tipo,staff);
   const mo=monthOf(it);
   let bucket=null;
-  if(mo){ bucket = (mo.y*12+mo.m) <= refKey() ? "speso" : "allocato"; }
+  if(mo){ const end=itemEndDate(it); bucket = (end && end<=todayISO()) ? "speso" : "allocato"; }
   return {counts,trace,cat,imp,amount:Number(it.importo)||0,mo,bucket,staff};
 }
+// "prenotato/svolto" non esiste più come distinzione visibile (Luigi, 2026-09-29): allocato/speso
+// dipende solo dalla data (bucket sopra). "annullato" resta l'unico stato reale e manuale.
+function isSpeso(it){ return itemBudget(it).bucket==="speso"; }
+function calStatus(it){ return it.stato==="annullato" ? "annullato" : (isSpeso(it)?"speso":"allocato"); }
 
 /* ============================ RENDER ============================ */
 function fillSelects(){
@@ -767,7 +807,6 @@ function fillSelects(){
   vw.innerHTML=`<option value="ALL">Tutti i viaggiatori</option>`+STATE.travelers.map(t=>`<option value="${t.id}" ${STATE.view===t.id?'selected':''}>${esc(t.nome)}</option>`).join("");
   vw.value=STATE.view;
   document.getElementById("iTipo").innerHTML=TIPI.map(t=>`<option>${t}</option>`).join("");
-  document.getElementById("refDate").value=STATE.refDate;
   document.getElementById("ivaDef").value=STATE.ivaDef;
   renderRiepMonthChips();
   renderRiepTravChips();
@@ -777,7 +816,6 @@ function impactBadge(it){
   const imp=impactOf(it);
   if(imp==="TRACE_ONLY") return `<span class="badge trace">tracciata</span>`;
   if(imp==="REVERSED") return `<span class="badge rev">annullata</span>`;
-  if(imp==="ACTUAL") return `<span class="badge ok">svolta${it.actual_ref?' · '+esc(it.actual_ref):''}</span>`;
   const b=itemBudget(it);
   return b.bucket==="speso"?`<span class="badge speso">speso stima</span>`:`<span class="badge alloc">allocato stima</span>`;
 }
@@ -785,12 +823,14 @@ function itemRowHtml(it){
   const tp=STATE.trips.find(t=>t.id===it.trip_id)||{};
   const tv=travById(tp.traveler_id);
   const cls = it.stato==="annullato"?'item-row annull':'item-row';
-  // stessi pulsanti rapidi ✓/✗ dell'elenco Attività in Docenti, solo finché la voce è ancora
-  // "prenotato" — una volta svolta o annullata si cambia stato solo riaprendola dal modale
-  const quick = it.stato==='prenotato' ? `<span class="item-acts" data-id="${it.gruppo_id||it.id}" data-trip="${tp.id}">
-      <button class="rowbtn item-done" title="Segna come svolta"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg></button>
-      <button class="rowbtn item-cancel" title="Annulla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>
-    </span>` : '';
+  // niente più tasto "svolto": lo stato speso/allocato è automatico per data (impactBadge/itemBudget).
+  // Una volta inserita, sulla riga restano solo Annulla (finché non è già annullata) ed Elimina,
+  // sempre disponibile (Luigi, 2026-09-29)
+  const quick = `<span class="item-acts" data-id="${it.gruppo_id||it.id}" data-trip="${tp.id}">
+      <button class="rowbtn item-edit-btn" data-id="${it.id}" data-trip="${tp.id}" title="Modifica voce"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
+      ${it.stato!=='annullato' ? `<button class="rowbtn item-cancel" title="Annulla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>` : ''}
+      <button class="rowbtn item-del" title="Elimina voce"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+    </span>`;
   return `<div class="${cls} item-edit" data-id="${it.id}" data-trip="${tp.id}" style="cursor:pointer">
     <span class="ty">${esc(it.tipo)}</span>
     <span class="cat">${it.tipo==="Spese in fattura"?'<span class="meta">tracciata · esclusa dal budget</span>':`<span class="tag">${mapCat(it.tipo,tv.staff)}</span>`}</span>
@@ -800,10 +840,18 @@ function itemRowHtml(it){
     ${quick}
   </div>`;
 }
+function quickDeleteItem(tripId,groupId){
+  if(!confirm("Eliminare questa voce, comprese tutte le righe collegate?")) return;
+  const ids=STATE.items.filter(x=>(x.gruppo_id||x.id)===groupId && x.trip_id===tripId).map(x=>x.id);
+  if(!ids.length) return;
+  STATE.items=STATE.items.filter(x=>!ids.includes(x.id));
+  renderAll(); ids.forEach(id=>cloudDeleteItem(id)); toast("Voce eliminata");
+}
 function wireItemRows(list){
   list.querySelectorAll(".item-edit").forEach(b=>b.onclick=()=>openItem(b.dataset.trip,b.dataset.id));
-  list.querySelectorAll(".item-done").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const w=b.closest(".item-acts"); quickSetItemStato(w.dataset.trip,w.dataset.id,'svolto'); });
+  list.querySelectorAll(".item-edit-btn").forEach(b=>b.onclick=e=>{ e.stopPropagation(); openItem(b.dataset.trip,b.dataset.id); });
   list.querySelectorAll(".item-cancel").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(confirm("Annullare questa voce?")){ const w=b.closest(".item-acts"); quickSetItemStato(w.dataset.trip,w.dataset.id,'annullato'); } });
+  list.querySelectorAll(".item-del").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const w=b.closest(".item-acts"); quickDeleteItem(w.dataset.trip,w.dataset.id); });
 }
 function renderTrips(){
   const list=document.getElementById("tripsList");
@@ -823,7 +871,7 @@ function renderTrips(){
           <div class="meta">${esc(tp.scopo)||'—'} · ${fmtD(tp.data_inizio)}${tp.data_fine&&tp.data_fine!==tp.data_inizio?'→'+fmtD(tp.data_fine):''}${tp.inseritore?' · inserito da '+esc(tp.inseritore):''}</div>
         </div>
         <span class="tot">${eur2(tot)}${trace?` <span class="meta" style="font-weight:400">+ ${eur2(trace)} in fattura</span>`:''}</span>
-        <button class="btn ghost small trip-edit" data-id="${tp.id}">Modifica</button>
+        <button class="btn ghost small trip-edit" data-id="${tp.id}">Modifica scopo viaggio</button>
       </div>
       <div style="padding:6px 16px 12px">
         ${its.length? its.map(it=>itemRowHtml(it)).join("") : `<div class="meta" style="padding:8px 0">Nessuna voce.</div>`}
@@ -889,54 +937,44 @@ function renderRiepTipoChips(){
   const rb=document.getElementById("riepTipiReset"); if(rb) rb.onclick=()=>{ STATE.riepTipi=[]; save(); renderRiepTipoChips(); renderRiepilogo(); };
   updateRiepFiltersToggle();
 }
-function computeRiepStats(months){
-  const its=riepItems().filter(it=>months.includes(itemMonthYM(it)));
-  const svolte=its.filter(it=>it.stato==='svolto'), prenotate=its.filter(it=>it.stato==='prenotato');
-  return {
-    svolte:svolte.length, svolteVoci:countVoci(svolte), importo:svolte.reduce((s,it)=>s+(Number(it.importo)||0),0),
-    prenotate:prenotate.length, prenotateVoci:countVoci(prenotate), importoPrenotate:prenotate.reduce((s,it)=>s+(Number(it.importo)||0),0),
-    annullate:its.filter(it=>it.stato==='annullato').length
-  };
-}
-// aggrega le voci del mese per viaggiatore, separando prenotato/svolto (le annullate non contano
-// qui: si vedono comunque nel dettaglio viaggiatore sotto l'albero)
+// aggrega le voci del mese per viaggiatore, separando allocato/speso per data (le annullate non
+// contano qui: si vedono comunque nel dettaglio viaggiatore sotto l'albero) — Luigi, 2026-09-29:
+// "prenotato/svolto" non ha senso, solo allocato/speso in base alla data odierna
 function travelerBreakdownForMonth(monthYM){
   const its=riepItems().filter(it=>itemMonthYM(it)===monthYM && it.stato!=='annullato');
   const byTrav={};
   its.forEach(it=>{
     const tp=STATE.trips.find(t=>t.id===it.trip_id); if(!tp) return;
     const tv=travById(tp.traveler_id);
-    if(!byTrav[tp.traveler_id]) byTrav[tp.traveler_id]={nome:tv.nome, prenotato:{n:0,importo:0,groups:new Set()}, svolto:{n:0,importo:0,groups:new Set()}};
-    const bucket=byTrav[tp.traveler_id][it.stato];
-    if(!bucket) return;
+    if(!byTrav[tp.traveler_id]) byTrav[tp.traveler_id]={nome:tv.nome, allocato:{n:0,importo:0,groups:new Set()}, speso:{n:0,importo:0,groups:new Set()}};
+    const bucket=byTrav[tp.traveler_id][isSpeso(it)?'speso':'allocato'];
     bucket.n++; bucket.importo+=Number(it.importo)||0; bucket.groups.add(it.gruppo_id||it.id);
   });
   return byTrav;
 }
-function riepStatsHtml(prog,done){
-  const pV=prog.groups?prog.groups.size:(prog.voci||0), dV=done.groups?done.groups.size:(done.voci||0);
+function riepStatsHtml(alloc,speso){
+  const aV=alloc.groups?alloc.groups.size:(alloc.voci||0), sV=speso.groups?speso.groups.size:(speso.voci||0);
   return `<div class="riep-stats">
-    <div class="riep-stat prog"><span class="rl">Prenotate</span><span class="rv">${vociLabel(pV)} · ${rigaLabel(prog.n)} · ${eur2(prog.importo)}</span></div>
-    <div class="riep-stat done"><span class="rl">Svolte</span><span class="rv">${vociLabel(dV)} · ${rigaLabel(done.n)} · ${eur2(done.importo)}</span></div>
+    <div class="riep-stat prog"><span class="rl">Allocato</span><span class="rv">${vociLabel(aV)} · ${rigaLabel(alloc.n)} · ${eur2(alloc.importo)}</span></div>
+    <div class="riep-stat done"><span class="rl">Speso</span><span class="rv">${vociLabel(sV)} · ${rigaLabel(speso.n)} · ${eur2(speso.importo)}</span></div>
   </div>`;
 }
-function renderMonthCard(monthYM,alertMsg,isCurrent){
+function renderMonthCard(monthYM,isCurrent){
   const its=riepItems().filter(it=>itemMonthYM(it)===monthYM);
-  const svolte=its.filter(it=>it.stato==='svolto'), prenotate=its.filter(it=>it.stato==='prenotato'), annullate=its.filter(it=>it.stato==='annullato');
-  const doneTot={n:svolte.length, voci:countVoci(svolte), importo:svolte.reduce((s,it)=>s+(Number(it.importo)||0),0)};
-  const progTot={n:prenotate.length, voci:countVoci(prenotate), importo:prenotate.reduce((s,it)=>s+(Number(it.importo)||0),0)};
+  const speso=its.filter(it=>it.stato!=='annullato'&&isSpeso(it)), alloc=its.filter(it=>it.stato!=='annullato'&&!isSpeso(it)), annullate=its.filter(it=>it.stato==='annullato');
+  const spesoTot={n:speso.length, voci:countVoci(speso), importo:speso.reduce((s,it)=>s+(Number(it.importo)||0),0)};
+  const allocTot={n:alloc.length, voci:countVoci(alloc), importo:alloc.reduce((s,it)=>s+(Number(it.importo)||0),0)};
   const [y,m]=monthYM.split('-').map(Number);
   const travs=travelerBreakdownForMonth(monthYM);
-  const travIds=Object.keys(travs).sort((x,y2)=>(travs[y2].svolto.importo+travs[y2].prenotato.importo)-(travs[x].svolto.importo+travs[x].prenotato.importo));
+  const travIds=Object.keys(travs).sort((x,y2)=>(travs[y2].speso.importo+travs[y2].allocato.importo)-(travs[x].speso.importo+travs[x].allocato.importo));
   const nodeId='m_'+monthYM;
   return `<div class="node${isCurrent?' current-month':''}" data-node="${nodeId}">
     <div class="node-row">
       <span class="twisty">${TWISTY_ICON}</span>
       <div><div class="node-title month-title">${MESI_LONG[m-1]} ${y}</div><div class="node-sub">${travIds.length} viaggiator${travIds.length===1?'e':'i'} coinvolt${travIds.length===1?'o':'i'}</div></div>
       <div class="node-meta">
-        ${alertMsg?`<span class="node-alert"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 9v4M12 17h.01M10.3 3.9L1.8 18a2 2 0 001.7 3h17a2 2 0 001.7-3L13.7 3.9a2 2 0 00-3.4 0z"/></svg>${esc(alertMsg)}</span>`:''}
         ${annullate.length?`<span class="badge rev">${annullate.length} annullata</span>`:''}
-        ${riepStatsHtml(progTot,doneTot)}
+        ${riepStatsHtml(allocTot,spesoTot)}
       </div>
     </div>
     ${travIds.length?`<div class="node-children"><div class="node-children-inner">
@@ -945,7 +983,7 @@ function renderMonthCard(monthYM,alertMsg,isCurrent){
         return `<div class="docente-row" data-trav="${tid}" data-month="${monthYM}">
           <div class="docente-line">
             <div class="node-title">${esc(tr.nome)}</div>
-            ${riepStatsHtml(tr.prenotato,tr.svolto)}
+            ${riepStatsHtml(tr.allocato,tr.speso)}
           </div>
         </div>`;
       }).join('')}
@@ -964,12 +1002,12 @@ function renderTravelerDetail(){
   if(!tv){ RIEP_SELECTED=null; el.style.display="none"; el.innerHTML=""; return; }
   const [y,m]=monthYM.split('-').map(Number);
   const its=riepItems().filter(it=>{ const tp=STATE.trips.find(t=>t.id===it.trip_id); return tp && tp.traveler_id===travelerId && itemMonthYM(it)===monthYM; });
-  const svolte=its.filter(it=>it.stato==='svolto');
+  const speso=its.filter(it=>it.stato!=='annullato'&&isSpeso(it));
   const perT={};
-  svolte.forEach(it=>{ perT[it.tipo]=perT[it.tipo]||{n:0,imp:0}; perT[it.tipo].n++; perT[it.tipo].imp+=Number(it.importo)||0; });
+  speso.forEach(it=>{ perT[it.tipo]=perT[it.tipo]||{n:0,imp:0}; perT[it.tipo].n++; perT[it.tipo].imp+=Number(it.importo)||0; });
   let tipoHtml=`<thead><tr><th class="l">Tipologia</th><th>Voci</th><th>Importo</th></tr></thead><tbody>`;
   TIPI.forEach(tp=>{ if(!perT[tp]) return; const r=perT[tp]; tipoHtml+=`<tr><td class="l">${tp}</td><td>${r.n}</td><td><b>${eur2(r.imp)}</b></td></tr>`; });
-  if(!Object.keys(perT).length) tipoHtml+=`<tr><td colspan="3"><div class="empty">Nessuna voce svolta in questo mese.</div></td></tr>`;
+  if(!Object.keys(perT).length) tipoHtml+=`<tr><td colspan="3"><div class="empty">Nessuna voce già spesa in questo mese.</div></td></tr>`;
   tipoHtml+=`</tbody>`;
   const rowsHtml = its.length ? its.slice().sort((a,b)=>String(b.comp_da||b.data_acquisto||'').localeCompare(String(a.comp_da||a.data_acquisto||''))).map(it=>itemRowHtml(it)).join('') : `<div class="empty">Nessuna voce in questo mese.</div>`;
   el.style.display="";
@@ -997,22 +1035,19 @@ function renderRiepilogo(){
   const tot=speso+alloc;
   document.getElementById("kpis").innerHTML=`
     <div class="kpi" style="--bar:var(--ink-mute)"><div class="l"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Totale stima</span></div><div class="v">${eur(tot)}</div><div class="sub">AF ${STATE.fyStart}–${(STATE.fyStart+1)%100} · IVA esclusa</div></div>
-    <div class="kpi" style="--bar:var(--accent)"><div class="l"><span class="sw" style="background:var(--speso)"></span><span class="eyebrow">Speso stima</span></div><div class="v">${eur(speso)}</div><div class="sub">mesi ≤ data rif.</div></div>
-    <div class="kpi" style="--bar:var(--warn)"><div class="l"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Allocato stima</span></div><div class="v">${eur(alloc)}</div><div class="sub">mesi futuri</div></div>
-    <div class="kpi" style="--bar:var(--info-ink)"><div class="l"><span class="sw" style="background:var(--info-ink)"></span><span class="eyebrow">Spese in fattura</span></div><div class="v">${eur(trace)}</div><div class="sub">tracciate · escluse (via RDA)</div></div>`;
+    <div class="kpi" style="--bar:var(--accent)"><div class="l"><span class="sw" style="background:var(--speso)"></span><span class="eyebrow">Speso stima</span></div><div class="v">${eur(speso)}</div><div class="sub">mesi fino ad oggi</div></div>
+    <div class="kpi" style="--bar:var(--warn)"><div class="l"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Allocato stima</span></div><div class="v">${eur(alloc)}</div><div class="sub">mesi futuri</div></div>`;
 
   const box=document.getElementById("riepBlocks");
   let html="";
   if(!selected.length){
     const cur=todayMonth();
     if(allMonths.includes(cur)){
-      const daysLeft=daysLeftInMonth();
-      const curPendingCount=riepItems().filter(it=>itemMonthYM(it)===cur && it.stato==='prenotato').length;
-      const alertMsg = (daysLeft<=5 && curPendingCount>0) ? `⚠ Mancano ${daysLeft} giorn${daysLeft===1?'o':'i'} alla fine del mese: conferma le ${curPendingCount} voci ancora "prenotato".` : "";
       // il mese corrente si vede sempre, anche senza voci; successivi/precedenti solo se hanno
-      // almeno una voce prenotata/svolta (altrimenti l'elenco si riempie di mesi vuoti)
-      html+=`<h2 class="sec" style="margin-top:22px">Mese in corso</h2><div class="tree">${renderMonthCard(cur,alertMsg,true)}</div>`;
-      const prev=prevMonth(cur);
+      // almeno una voce allocata/spesa (altrimenti l'elenco si riempie di mesi vuoti). Nessun
+      // "da confermare": allocato/speso è automatico per data, non serve più un promemoria
+      // di fine mese (Luigi, 2026-09-29)
+      html+=`<h2 class="sec" style="margin-top:22px">Mese in corso</h2><div class="tree">${renderMonthCard(cur,true)}</div>`;
       const futuri=allMonths.filter(m=>m>cur && monthHasItems(m)).sort();
       if(futuri.length){
         html+=`<h2 class="sec" style="margin-top:26px">Mesi successivi</h2><div class="tree">`;
@@ -1022,10 +1057,7 @@ function renderRiepilogo(){
       const passati=allMonths.filter(m=>m<cur && monthHasItems(m)).sort().reverse();
       if(passati.length){
         html+=`<h2 class="sec" style="margin-top:26px">Mesi precedenti</h2><div class="tree">`;
-        passati.forEach(m=>{
-          const prevAlert = m===prev && riepItems().some(it=>itemMonthYM(it)===prev && it.stato==='prenotato') ? "Mese precedente, da confermare prima possibile." : "";
-          html+=renderMonthCard(m,prevAlert);
-        });
+        passati.forEach(m=>{ html+=renderMonthCard(m); });
         html+=`</div>`;
       }
     } else {
@@ -1074,10 +1106,11 @@ function renderRiepilogo(){
 let calMonth=null;
 let calStatoFilter=[]; // vuoto = nessun filtro, mostra tutte; altrimenti solo gli stati selezionati
 function calItemDate(it){ return it.comp_da || it.data_acquisto || ""; }
-// icona di stato invece del semplice pallino colorato, stesso significato di Docenti: verde=svolta,
-// ambra=prenotata, grigio=annullata
+// icona di stato invece del semplice pallino colorato, stesso significato di Docenti: verde=speso,
+// ambra=allocato, grigio=annullata — speso/allocato è automatico per data, non più un flag manuale
+// (Luigi, 2026-09-29). Prende in ingresso calStatus(it), non it.stato direttamente.
 function calStatoIcon(stato){
-  if(stato==='svolto') return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--accent)"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  if(stato==='speso') return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--accent)"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
   if(stato==='annullato') return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--ink-mute)"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>`;
   return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--warn)"/><rect x="11" y="6.5" width="2" height="7" rx="1" fill="#fff"/><rect x="11" y="15.5" width="2" height="2" rx="1" fill="#fff"/></svg>`;
 }
@@ -1088,7 +1121,7 @@ function calShift(delta){
   calMonth=`${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}`;
   renderCalendario();
 }
-function calPassesFilter(it){ return !calStatoFilter.length || calStatoFilter.includes(it.stato); }
+function calPassesFilter(it){ return !calStatoFilter.length || calStatoFilter.includes(calStatus(it)); }
 function monthLabel(ym){ const [y,m]=ym.split('-').map(Number); return `${MESI_LONG[m-1]} ${y}`; }
 function renderCalendario(){
   const label=document.getElementById('calMonthLabel'); if(!label) return;
@@ -1108,7 +1141,7 @@ function renderCalendario(){
     const dayItems=(byDay[dateStr]||[]).slice();
     const isToday=dateStr===todayStr;
     const shown=dayItems.slice(0,3), extra=dayItems.length-shown.length;
-    const entries=shown.map(it=>`<div class="cal-entry${it.stato==='annullato'?' cal-entry-muted':''}" data-id="${it.id}" title="${esc(calItemLabel(it))}">${calStatoIcon(it.stato)}${esc(calItemLabel(it))}</div>`).join("");
+    const entries=shown.map(it=>`<div class="cal-entry${it.stato==='annullato'?' cal-entry-muted':''}" data-id="${it.id}" title="${esc(calItemLabel(it))}">${calStatoIcon(calStatus(it))}${esc(calItemLabel(it))}</div>`).join("");
     cells+=`<div class="cal-cell">
       <div class="cal-daynum">${isToday?`<span class="cal-daynum-today">${d}</span>`:d}</div>
       <div class="cal-entries">${entries}${extra>0?`<div class="cal-more" data-date="${dateStr}">+${extra} altr${extra===1?'a':'e'}</div>`:''}</div>
@@ -1126,7 +1159,7 @@ function openCalPreview(id){
   calPreviewId=id;
   const tp=STATE.trips.find(t=>t.id===it.trip_id)||{};
   const tv=travById(tp.traveler_id);
-  const stLabel=it.stato==='svolto'?'Svolta':it.stato==='annullato'?'Annullata':'Prenotata';
+  const stLabel=it.stato==='annullato'?'Annullata':(isSpeso(it)?'Speso':'Allocato');
   document.getElementById('calPreviewTitle').textContent=it.tipo||'Voce';
   document.getElementById('calPreviewBody').innerHTML=`
     <div class="field"><label>Viaggiatore</label><div>${esc(tv.nome)}</div></div>
@@ -1144,7 +1177,7 @@ function openCalDayList(dateStr){
   document.getElementById('calPreviewTitle').textContent=dateStr;
   document.getElementById('calPreviewBody').innerHTML = its.map(it=>`
     <div class="cal-daylist-row${it.stato==='annullato'?' cal-entry-muted':''}" data-id="${it.id}">
-      ${calStatoIcon(it.stato)}
+      ${calStatoIcon(calStatus(it))}
       <span style="flex:1">${esc(calItemLabel(it))}</span>
     </div>`).join("") || `<div class="hint">Nessuna voce.</div>`;
   document.querySelectorAll('#calPreviewBody .cal-daylist-row').forEach(row=>row.onclick=()=>openCalPreview(row.dataset.id));
@@ -1170,7 +1203,7 @@ function renderImpostazioni(){
   document.querySelectorAll(".trav-gruppo").forEach(b=>b.onclick=()=>{ const t=STATE.travelers.find(x=>x.id===b.dataset.id); if(!t)return; const v=prompt("Gruppo di "+t.nome+" (stesso nome = possono inserire viaggi l'uno per l'altro; vuoto = nessun gruppo, solo per sé):", t.gruppo||""); if(v===null)return; t.gruppo=v.trim(); save(); renderImpostazioni(); cloudUpsertTraveler(t); });
   document.querySelectorAll(".trav-del").forEach(b=>b.onclick=()=>{ if(confirm("Rimuovere il viaggiatore? (le trasferte collegate restano)")){ STATE.travelers=STATE.travelers.filter(x=>x.id!==b.dataset.id); save(); fillSelects(); renderAll(); } });
 
-  const rows=[["Volo","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Treno","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Noleggio auto","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Rimborso km","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Hotel","ALBERGHI RIST. (staff/no-staff)","ALLOCATED"],["Spese in fattura","— (nessuna)","TRACE_ONLY · esclusa"]];
+  const rows=[["Volo","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Treno","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Noleggio auto","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Rimborso km","VIAGGI TRASF. (staff/no-staff)","ALLOCATED"],["Hotel","ALBERGHI RIST. (staff/no-staff)","ALLOCATED"]];
   let hm=`<thead><tr><th class="l">Tipologia</th><th class="l">Categoria budget</th><th class="l">Impatto</th></tr></thead><tbody>`;
   rows.forEach(r=>hm+=`<tr><td class="l">${r[0]}</td><td class="l">${r[1]}</td><td class="l"><span class="tag">${r[2]}</span></td></tr>`);
   hm+=`</tbody>`; document.getElementById("mapTable").innerHTML=hm;
@@ -1225,16 +1258,34 @@ function openTrip(id){
   document.getElementById("tA").value=t?t.data_fine||"":"";
   document.getElementById("tNote").value=t?t.note||"":"";
   document.getElementById("tDelete").style.display=id?"inline-flex":"none";
+  clearFieldErrors(document.getElementById("tripOverlay"));
   document.getElementById("tripOverlay").classList.add("on");
 }
-function saveTrip(){
-  const trav=document.getElementById("tTrav").value;
-  if(!trav){ toast("Seleziona un viaggiatore"); return; }
-  const o={ traveler_id:trav, inseritore:document.getElementById("tInseritore").value.trim(), scopo:document.getElementById("tScopo").value.trim(), data_inizio:document.getElementById("tDa").value||null, data_fine:document.getElementById("tA").value||null, note:document.getElementById("tNote").value.trim() };
+async function saveTrip(){
+  const overlay=document.getElementById("tripOverlay");
+  clearFieldErrors(overlay);
+  const travEl=document.getElementById("tTrav"), scopoEl=document.getElementById("tScopo"), daEl=document.getElementById("tDa"), aEl=document.getElementById("tA");
+  const trav=travEl.value, scopo=scopoEl.value.trim(), dataInizio=daEl.value||null, dataFine=aEl.value||null;
+  // validazioni per campo, mostrate in rosso sotto il campo incriminato invece che solo via toast
+  // (Luigi, 2026-09-29): viaggiatore, scopo obbligatorio, coerenza inizio/fine
+  let hasError=false;
+  if(!trav){ setFieldError(travEl,"Seleziona un viaggiatore."); hasError=true; }
+  if(!scopo){ setFieldError(scopoEl,"Il campo Scopo è obbligatorio."); hasError=true; }
+  if(!dataInizio){ setFieldError(daEl,"La data inizio è obbligatoria."); hasError=true; }
+  if(!dataFine){ setFieldError(aEl,"La data fine è obbligatoria."); hasError=true; }
+  if(dataInizio && dataFine && dataFine<dataInizio){ setFieldError(aEl,"La data fine non può essere antecedente alla data inizio."); hasError=true; }
+  if(hasError) return;
+  // avviso non bloccante se si inserisce una data inizio nel passato: si può salvare comunque
+  // ("Continua") o tornare a correggere il campo ("Modifica" — riporta il focus lì) (Luigi, 2026-09-29)
+  if(dataInizio && dataInizio<todayISO()){
+    const proceed=await showWarnConfirm("Attenzione: stai inserendo una data di inizio nel passato.");
+    if(!proceed){ daEl.focus(); return; }
+  }
+  const o={ traveler_id:trav, inseritore:document.getElementById("tInseritore").value.trim(), scopo, data_inizio:dataInizio, data_fine:dataFine, note:document.getElementById("tNote").value.trim() };
   let saved;
   if(editTripId){ const t=STATE.trips.find(x=>x.id===editTripId); Object.assign(t,o); saved=t; toast("Viaggio aggiornato"); }
   else { o.id=uuid(); STATE.trips.unshift(o); saved=o; toast("Viaggio creato"); }
-  document.getElementById("tripOverlay").classList.remove("on");
+  overlay.classList.remove("on");
   renderAll(); cloudUpsertTrip(saved);
 }
 function deleteTrip(){
@@ -1265,10 +1316,10 @@ function renderItemRows(){
   wrap.innerHTML = iRows.map((r,i)=>`
     <div class="item-row-line" data-i="${i}">
       <div class="field"><label>Importo € <span class="req">*</span></label><input type="number" step="0.01" placeholder="0,00" class="ir-imp"></div>
-      <div class="field"><label>Data acquisto</label><input type="date" class="ir-acq"></div>
+      <div class="field"><label>Data acquisto <span class="req">*</span></label><input type="date" class="ir-acq"></div>
       <div class="field"><label>Rif. prenotazione</label><input type="text" placeholder="facoltativo" class="ir-rif"></div>
-      <div class="field"><label>Servizio da</label><input type="date" class="ir-cda"></div>
-      <div class="field"><label>Servizio a</label><input type="date" class="ir-ca"></div>
+      <div class="field"><label>Servizio da <span class="req">*</span></label><input type="date" class="ir-cda"></div>
+      <div class="field"><label>Servizio a <span class="req">*</span></label><input type="date" class="ir-ca"></div>
       ${iRows.length>1?`<button type="button" class="rowbtn item-row-del" title="Rimuovi riga"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>`:'<span></span>'}
     </div>`).join("");
   wrap.querySelectorAll(".item-row-line").forEach((row,i)=>{
@@ -1306,23 +1357,39 @@ function openItem(tripId,itemId){
     ? groupRows.slice().sort((x,y)=>String(x.data_acquisto||'').localeCompare(String(y.data_acquisto||''))).map(x=>newItemRow(x.id,x.importo,x.data_acquisto,x.rif_prenotazione,x.comp_da,x.comp_a))
     : [newItemRow(null,'','','','','')];
   renderItemRows();
+  clearFieldErrors(document.getElementById("itemOverlay"));
   document.getElementById("itemOverlay").classList.add("on");
 }
 function saveItem(){
   if(!iRows.length){ toast("Aggiungi almeno una riga"); return; }
-  for(const r of iRows){ if(r.importo===''||isNaN(parseFloat(r.importo))){ toast("Inserisci l'importo per ogni riga"); return; } }
-  // le date delle righe devono restare nel perimetro del viaggio, e non si può acquistare dopo che il
-  // viaggio è già finito (Luigi, 2026-09-28) — confronto su stringhe ISO yyyy-mm-dd, ordinabili così come sono
+  const overlay=document.getElementById("itemOverlay");
+  clearFieldErrors(overlay);
+  const rowEls=overlay.querySelectorAll(".item-row-line");
+  const today=todayISO();
   const trip=STATE.trips.find(x=>x.id===editItemTrip);
-  if(trip){
-    for(const r of iRows){
-      if(r.compDa && trip.data_inizio && r.compDa<trip.data_inizio){ toast(`"Servizio da" non può precedere l'inizio del viaggio (${fmtD(trip.data_inizio)})`); return; }
-      if(r.compDa && trip.data_fine && r.compDa>trip.data_fine){ toast(`"Servizio da" non può superare la fine del viaggio (${fmtD(trip.data_fine)})`); return; }
-      if(r.compA && trip.data_inizio && r.compA<trip.data_inizio){ toast(`"Servizio a" non può precedere l'inizio del viaggio (${fmtD(trip.data_inizio)})`); return; }
-      if(r.compA && trip.data_fine && r.compA>trip.data_fine){ toast(`"Servizio a" non può superare la fine del viaggio (${fmtD(trip.data_fine)})`); return; }
-      if(r.dataAcquisto && trip.data_fine && r.dataAcquisto>trip.data_fine){ toast(`La data di acquisto non può essere successiva alla fine del viaggio (${fmtD(trip.data_fine)})`); return; }
+  // validazioni per campo, mostrate come iconcina rossa col motivo in tooltip invece che solo via
+  // toast (Luigi, 2026-09-29): importo e tutte e tre le date sono sempre obbligatorie; data acquisto
+  // (passata/odierna, non nel futuro; nel perimetro del viaggio), servizio da/a (non prima della
+  // data acquisto; nel perimetro del viaggio)
+  let hasError=false;
+  iRows.forEach((r,i)=>{
+    const row=rowEls[i]; if(!row) return;
+    const impEl=row.querySelector(".ir-imp"), acqEl=row.querySelector(".ir-acq"), cdaEl=row.querySelector(".ir-cda"), caEl=row.querySelector(".ir-ca");
+    if(r.importo===''||isNaN(parseFloat(r.importo))){ setFieldError(impEl,"Inserisci l'importo."); hasError=true; }
+    if(!r.dataAcquisto){ setFieldError(acqEl,"La data di acquisto è obbligatoria."); hasError=true; }
+    else if(r.dataAcquisto>today){ setFieldError(acqEl,"La data di acquisto non può essere nel futuro: deve essere odierna o passata."); hasError=true; }
+    else if(trip && trip.data_fine && r.dataAcquisto>trip.data_fine){ setFieldError(acqEl,`La data di acquisto non può essere successiva alla fine del viaggio (${fmtD(trip.data_fine)}).`); hasError=true; }
+    if(!r.compDa){ setFieldError(cdaEl,"\"Servizio da\" è obbligatorio."); hasError=true; }
+    else if(r.dataAcquisto && r.compDa<r.dataAcquisto){ setFieldError(cdaEl,"\"Servizio da\" non può essere precedente alla data di acquisto."); hasError=true; }
+    else if(trip && trip.data_inizio && r.compDa<trip.data_inizio){ setFieldError(cdaEl,`"Servizio da" non può precedere l'inizio del viaggio (${fmtD(trip.data_inizio)}).`); hasError=true; }
+    else if(trip && trip.data_fine && r.compDa>trip.data_fine){ setFieldError(cdaEl,`"Servizio da" non può superare la fine del viaggio (${fmtD(trip.data_fine)}).`); hasError=true; }
+    if(!r.compA){ setFieldError(caEl,"\"Servizio a\" è obbligatorio."); hasError=true; }
+    else {
+      if(trip && trip.data_inizio && r.compA<trip.data_inizio){ setFieldError(caEl,`"Servizio a" non può precedere l'inizio del viaggio (${fmtD(trip.data_inizio)}).`); hasError=true; }
+      else if(trip && trip.data_fine && r.compA>trip.data_fine){ setFieldError(caEl,`"Servizio a" non può superare la fine del viaggio (${fmtD(trip.data_fine)}).`); hasError=true; }
     }
-  }
+  });
+  if(hasError) return;
   const tipo=document.getElementById("iTipo").value, fornitore=document.getElementById("iForn").value.trim(), actualRef=document.getElementById("iActualRef").value.trim(), note=document.getElementById("iNote").value.trim();
   const groupId = editItemGroupId || uuid();
   const groupRowsBefore = editItemGroupId ? STATE.items.filter(x=>(x.gruppo_id||x.id)===editItemGroupId && x.trip_id===editItemTrip) : [];
@@ -1344,15 +1411,15 @@ function saveItem(){
   touched.forEach(x=>cloudUpsertItem(x));
   toast(editItemGroupId?"Voce aggiornata":"Voce aggiunta");
 }
-// stessa regola dei pulsanti rapidi ✓/✗ nell'elenco Attività di Docenti: nessuna conferma per "svolto",
-// conferma per "annullato" — si applica a tutte le righe della voce insieme (stesso gruppo_id)
+// unico stato ancora impostabile a mano (il resto è automatico per data) — si applica a tutte le
+// righe della voce insieme (stesso gruppo_id)
 function quickSetItemStato(tripId,groupId,stato){
   const ids=STATE.items.filter(x=>(x.gruppo_id||x.id)===groupId && x.trip_id===tripId);
   if(!ids.length) return;
   ids.forEach(x=>x.stato=stato);
   save(); renderAll();
   ids.forEach(x=>cloudUpsertItem(x));
-  toast(stato==='svolto'?"Voce confermata come svolta":"Voce annullata");
+  toast("Voce annullata");
 }
 function deleteItem(){
   if(!editItemGroupId) return;
@@ -1478,12 +1545,21 @@ document.getElementById("calPreviewClose2").onclick=closeCalPreview;
 document.getElementById("calPreviewOpen").onclick=()=>{ const id=calPreviewId; closeCalPreview(); if(id){ const it=STATE.items.find(x=>x.id===id); if(it) openItem(it.trip_id,it.id); } };
 document.getElementById("calPreviewOverlay").onclick=e=>{ if(e.target.id==="calPreviewOverlay") e.currentTarget.classList.remove("on"); };
 document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); };
-document.getElementById("refDate").onchange=e=>{ STATE.refDate=e.target.value; save(); renderAll(); };
 document.getElementById("ivaDef").onchange=e=>{ STATE.ivaDef=parseFloat(e.target.value)||0; save(); };
 document.getElementById("btnNewTrip").onclick=()=>openTrip(null);
 document.getElementById("tripClose").onclick=()=>document.getElementById("tripOverlay").classList.remove("on");
 document.getElementById("tCancel").onclick=()=>document.getElementById("tripOverlay").classList.remove("on");
 document.getElementById("tSave").onclick=saveTrip;
+// piccolo overlay di conferma per gli avvisi non bloccanti (es. data nel passato): "Modifica"
+// annulla il salvataggio e lascia correggere, "Continua" procede comunque (Luigi, 2026-09-29)
+let _warnResolve=null;
+function showWarnConfirm(msg){
+  document.getElementById("warnMsg").textContent=msg;
+  document.getElementById("warnOverlay").classList.add("on");
+  return new Promise(res=>{ _warnResolve=res; });
+}
+document.getElementById("warnEdit").onclick=()=>{ document.getElementById("warnOverlay").classList.remove("on"); if(_warnResolve) _warnResolve(false); };
+document.getElementById("warnContinue").onclick=()=>{ document.getElementById("warnOverlay").classList.remove("on"); if(_warnResolve) _warnResolve(true); };
 document.getElementById("tDelete").onclick=deleteTrip;
 document.getElementById("itemClose").onclick=()=>document.getElementById("itemOverlay").classList.remove("on");
 document.getElementById("iCancel").onclick=()=>document.getElementById("itemOverlay").classList.remove("on");

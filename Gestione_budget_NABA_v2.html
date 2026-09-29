@@ -71,6 +71,11 @@ header{
 .hgroup label{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#9DA39C}
 .hgroup input,.hgroup select{background:transparent;border:0;color:#F4F3EF;font-size:13px;outline:none}
 .hgroup select option{color:#1B1D1C}
+.hgroup input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.7;cursor:pointer}
+.hgroup input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1}
+#refDateGroup.simulated{background:rgba(214,69,69,.16);border-color:rgba(214,69,69,.45)}
+#refDateGroup.simulated label,#refDateGroup.simulated input{color:#e08b8b}
+#refDateReset{background:transparent;border:0;color:inherit;cursor:pointer;font-size:15px;line-height:1;padding:0 0 0 2px}
 .hbtn{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14);color:#F4F3EF;border-radius:8px;padding:8px 13px;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:7px;transition:.15s}
 .hbtn:hover{background:rgba(255,255,255,.16)}
 .hbtn svg{width:14px;height:14px}
@@ -414,9 +419,10 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
       <label>Anno fiscale</label>
       <select id="fySel"></select>
     </div>
-    <div class="hgroup" title="Data di oggi: separa lo speso (mesi trascorsi) dall'allocato (mesi futuri)">
+    <div class="hgroup" id="refDateGroup" title="Separa lo speso (mesi ≤ questa data) dall'allocato (mesi successivi). Di default è oggi: cambiala solo per simulare la situazione a un'altra data.">
       <label>Data rif.</label>
       <input type="date" id="refDate">
+      <button type="button" id="refDateReset" title="Torna a oggi" style="display:none">↺</button>
     </div>
     <button class="hbtn" id="btnImport" title="Importa un file Excel con foglio DETTAGLIO">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Importa
@@ -918,16 +924,20 @@ function compute(){
       if(mk<=rk) cats[c].months[mk].speso+=amt; else cats[c].months[mk].allocato+=amt;
     }
   }
-  // stime da Spese EC (viaggi/alberghi non ancora riconciliati con l'actual): sommate all'allocato,
-  // tracciate a parte in stimaEC per distinguerle in UI. Fuori-AF ignorate (non hanno un mese di competenza nel budget attivo).
+  // stime da Spese EC (viaggi/alberghi non ancora riconciliati con l'actual): tracciate a parte in
+  // stimaEC per distinguerle in UI, ma per il resto seguono la stessa regola di EXP sopra — mese di
+  // competenza <= data rif. = già speso, altrimenti ancora allocato. Prima finivano sempre e solo in
+  // allocato, anche quando ormai passate (Luigi, 2026-09-29). Fuori-AF ignorate.
   for(const r of (STATE.travelEstimates||[])){
     const c=r.categoria; if(!c||!cats[c]) continue;
     const my=ym(r.mese); if(!my) continue;
     const mk=my.key; if(mk<fs||mk>fe) continue;
     const amt=(Number(r.importo)||0)*rowIvaFactor(r);
-    cats[c].allocato+=amt; cats[c].stimaEC+=amt; gAlloc+=amt; gStimaEC+=amt;
+    cats[c].stimaEC+=amt; gStimaEC+=amt;
+    if(mk<=rk){ cats[c].speso+=amt; gSpeso+=amt; } else { cats[c].allocato+=amt; gAlloc+=amt; }
     if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaDocenti:0};
-    cats[c].months[mk].allocato+=amt; cats[c].months[mk].stimaEC+=amt;
+    cats[c].months[mk].stimaEC+=amt;
+    if(mk<=rk) cats[c].months[mk].speso+=amt; else cats[c].months[mk].allocato+=amt;
   }
   // stime da Docenti (attività programmata/svolta il cui gruppo RDA non ha ancora un codice): stesso
   // principio delle stime Spese EC — sommate all'allocato, tracciate a parte finché non arriva il
@@ -1850,8 +1860,18 @@ document.getElementById("btnSnapshot").onclick=exportSnapshot;
 document.getElementById("btnSnapshotRestore").onclick=()=>document.getElementById("snapInput").click();
 document.getElementById("snapInput").onchange=e=>{ if(e.target.files[0]) importSnapshot(e.target.files[0]); e.target.value=""; };
 document.getElementById("btnAuditRefresh").onclick=fetchAudit;
-document.getElementById("refDate").value=STATE.refDate;
-document.getElementById("refDate").onchange=e=>{ STATE.refDate=e.target.value||todayISO(); renderAll(); };
+// evidenzia in rosso quando la data rif. è stata spostata da oggi (era la fonte di confusione
+// segnalata da Luigi: sembrava sempre "oggi" ma in realtà era una simulazione silenziosa) +
+// bottone per tornare a oggi in un click (Luigi, 2026-09-28)
+function syncRefDateUI(){
+  document.getElementById("refDate").value=STATE.refDate;
+  const simulated = STATE.refDate!==todayISO();
+  document.getElementById("refDateGroup").classList.toggle("simulated",simulated);
+  document.getElementById("refDateReset").style.display=simulated?"":"none";
+}
+syncRefDateUI();
+document.getElementById("refDate").onchange=e=>{ STATE.refDate=e.target.value||todayISO(); syncRefDateUI(); save(); renderAll(); };
+document.getElementById("refDateReset").onclick=()=>{ STATE.refDate=todayISO(); syncRefDateUI(); save(); renderAll(); };
 document.getElementById("calMode").querySelectorAll("button").forEach(b=>{
   b.onclick=()=>{ STATE.calMode=b.dataset.m; document.querySelectorAll("#calMode button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); renderCalendar(compute()); save(); };
 });
@@ -1884,7 +1904,7 @@ document.getElementById("btnResetBudget").onclick=()=>{
 };
 document.getElementById("btnClearAll").onclick=()=>{
   if(confirm("Azzerare tutti i dati e ripristinare i valori iniziali dei file (entrambi gli anni)?\n\nNota: agisce solo in locale; i dati sul cloud restano invariati.")){
-    STATE=defaultState(); document.getElementById("refDate").value=STATE.refDate; initFY(); renderCalChips(); renderAll(); toast("Dati locali ripristinati");
+    STATE=defaultState(); syncRefDateUI(); initFY(); renderCalChips(); renderAll(); toast("Dati locali ripristinati");
   }
 };
 document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ closeModal(); document.getElementById("cloudOverlay").classList.remove("on"); } });
@@ -2057,7 +2077,7 @@ async function cloudPullAll(silent){
     // resta bloccato su ruolo "none" (bug reale, Luigi 2026-09-25)
     try{ Promise.resolve(sb.rpc('bdg_touch_last_seen')).catch(()=>{}); }catch(e){}
     dataReady=true;
-    save(); initFY(); document.getElementById("refDate").value=STATE.refDate; renderCalChips(); renderAll();
+    save(); initFY(); syncRefDateUI(); renderCalChips(); renderAll();
     cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud");
     cloudRealtimeSubscribe();
   }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore sync: "+(e.message||e)); dataReady=true; applyRole(); }
@@ -2177,7 +2197,7 @@ function importSnapshot(file){
     if(!s||!s.years){ toast("File snapshot non valido"); return; }
     if(!confirm("Ripristinare i dati da questo snapshot?\nSostituisce i dati LOCALI correnti (il cloud non viene toccato).")) return;
     STATE.years=s.years; STATE.ivaByCat=Object.assign(defaultIva(), s.ivaByCat||{}); STATE.trash=s.trash||[]; if(s.finance) STATE.finance=s.finance; if(s.fyStart) STATE.fyStart=s.fyStart;
-    sanitizeState(STATE); save(); initFY(); document.getElementById("refDate").value=STATE.refDate; renderCalChips(); renderAll();
+    sanitizeState(STATE); save(); initFY(); syncRefDateUI(); renderCalChips(); renderAll();
     toast("Dati ripristinati dallo snapshot (in locale)");
   }catch(e){ toast("Errore lettura snapshot: "+e.message); } };
   rd.readAsText(file);
