@@ -925,19 +925,23 @@ function compute(){
     }
   }
   // stime da Spese EC (viaggi/alberghi non ancora riconciliati con l'actual): tracciate a parte in
-  // stimaEC per distinguerle in UI, ma per il resto seguono la stessa regola di EXP sopra — mese di
-  // competenza <= data rif. = già speso, altrimenti ancora allocato. Prima finivano sempre e solo in
-  // allocato, anche quando ormai passate (Luigi, 2026-09-29). Fuori-AF ignorate.
+  // stimaEC per distinguerle in UI. Il mese resta quello di competenza (acquisto/servizio-da, per
+  // il calendario/FY), ma speso/allocato guarda la data di FINE della voce (r.fine — stessa logica
+  // di itemEndDate() in Spese EC: Servizio a, con fallback su Servizio da/acquisto) confrontata con
+  // la data rif., non il mese: altrimenti una voce poteva risultare "allocato" in Spese EC e
+  // "speso" qui, stesso giorno ma bucket diverso solo perché il mese coincideva (Luigi, 2026-09-29).
+  // Prima finivano sempre e solo in allocato, anche quando ormai passate.
   for(const r of (STATE.travelEstimates||[])){
     const c=r.categoria; if(!c||!cats[c]) continue;
     const my=ym(r.mese); if(!my) continue;
     const mk=my.key; if(mk<fs||mk>fe) continue;
     const amt=(Number(r.importo)||0)*rowIvaFactor(r);
     cats[c].stimaEC+=amt; gStimaEC+=amt;
-    if(mk<=rk){ cats[c].speso+=amt; gSpeso+=amt; } else { cats[c].allocato+=amt; gAlloc+=amt; }
+    const speso = !!(r.fine && r.fine<=STATE.refDate);
+    if(speso){ cats[c].speso+=amt; gSpeso+=amt; } else { cats[c].allocato+=amt; gAlloc+=amt; }
     if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaDocenti:0};
     cats[c].months[mk].stimaEC+=amt;
-    if(mk<=rk) cats[c].months[mk].speso+=amt; else cats[c].months[mk].allocato+=amt;
+    if(speso) cats[c].months[mk].speso+=amt; else cats[c].months[mk].allocato+=amt;
   }
   // stime da Docenti (attività programmata/svolta il cui gruppo RDA non ha ancora un codice): stesso
   // principio delle stime Spese EC — sommate all'allocato, tracciate a parte finché non arriva il
@@ -2082,13 +2086,22 @@ async function cloudPullAll(silent){
     cloudRealtimeSubscribe();
   }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore sync: "+(e.message||e)); dataReady=true; applyRole(); }
 }
-/* stime travel (Spese EC) dalla vista v_budget_allocations — sola lettura, non fatale se assente */
+/* stime travel (Spese EC) dalla vista v_budget_allocations — sola lettura, non fatale se assente.
+   "fine" (data di fine voce, stessa logica di itemEndDate() in Spese EC) serve a decidere
+   speso/allocato coerentemente con quanto mostra Spese EC stessa — prima si guardava solo il mese
+   di "competenza" (acquisto/servizio-da), che poteva risultare speso/allocato diversamente dalla
+   stessa voce vista in Spese EC (Luigi, 2026-09-29). Se la vista non ha ancora la colonna "fine"
+   (migrazione bdg_migration_fine_voce_ec.sql non ancora eseguita), riprova senza: degrada a "fine
+   sconosciuta" invece di rompere il fetch. */
 async function cloudFetchTravelEstimates(){
   if(!cloudReady()) return;
   try{
-    const {data,error}=await sb.from('bdg_v_budget_allocations').select('categoria,mese,importo,competenza,traveler_nome,voce_tipo,fornitore,destinazione,scopo');
-    if(error) throw error;
-    STATE.travelEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0,data:r.competenza||null,travelerNome:r.traveler_nome||'',voceTipo:r.voce_tipo||'',fornitore:r.fornitore||'',destinazione:r.destinazione||'',scopo:r.scopo||''}));
+    let {data,error}=await sb.from('bdg_v_budget_allocations').select('categoria,mese,importo,competenza,fine,traveler_nome,voce_tipo,fornitore,destinazione,scopo');
+    if(error){
+      ({data,error}=await sb.from('bdg_v_budget_allocations').select('categoria,mese,importo,competenza,traveler_nome,voce_tipo,fornitore,destinazione,scopo'));
+      if(error) throw error;
+    }
+    STATE.travelEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0,data:r.competenza||null,fine:r.fine||r.competenza||null,travelerNome:r.traveler_nome||'',voceTipo:r.voce_tipo||'',fornitore:r.fornitore||'',destinazione:r.destinazione||'',scopo:r.scopo||''}));
   }catch(e){ console.error('travel estimates', e); }
 }
 /* stime Docenti (attività non ancora a RDA) dalla vista bdg_v_budget_docenti_allocations — stesso pattern, sola lettura, non fatale se assente */
@@ -2165,8 +2178,8 @@ function cloudRealtimeSubscribe(){
       .on('postgres_changes',{event:'*',schema:'public',table:'bdg_expenses'},scheduleRemoteRefresh)
       .on('postgres_changes',{event:'*',schema:'public',table:'bdg_year_budgets'},scheduleRemoteRefresh)
       .on('postgres_changes',{event:'*',schema:'public',table:'bdg_settings'},scheduleRemoteRefresh)
-      .on('postgres_changes',{event:'*',schema:'public',table:'travel_items'},scheduleRemoteRefresh)
-      .on('postgres_changes',{event:'*',schema:'public',table:'travel_trips'},scheduleRemoteRefresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'bdg_travel_items'},scheduleRemoteRefresh)
+      .on('postgres_changes',{event:'*',schema:'public',table:'bdg_travel_trips'},scheduleRemoteRefresh)
       .on('postgres_changes',{event:'*',schema:'public',table:'bdg_app_users'},scheduleRemoteRefresh)
       .on('postgres_changes',{event:'*',schema:'public',table:'bdg_tab_visibility'},scheduleRemoteRefresh)
       .subscribe();
