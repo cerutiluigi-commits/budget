@@ -907,11 +907,11 @@ function compute(){
   const fs=fyStartKey(), fe=fyEndKey(), rk=refKey();
   const DS=cur(), BUD=DS.budget, EXP=DS.expenses;
   const cats={};
-  CATEGORIES.forEach(c=>cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,stimaDocenti:0,fuori:0,months:{}});
+  CATEGORIES.forEach(c=>cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,stimaECSpeso:0,stimaDocenti:0,fuori:0,months:{}});
   // includi categorie extra eventualmente presenti nei dati
-  EXP.forEach(e=>{ const c=e.categoria; if(c && !cats[c]) cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,stimaDocenti:0,fuori:0,months:{}}; });
+  EXP.forEach(e=>{ const c=e.categoria; if(c && !cats[c]) cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,stimaECSpeso:0,stimaDocenti:0,fuori:0,months:{}}; });
 
-  let gSpeso=0,gAlloc=0,gFuori=0,gStimaEC=0,gStimaDocenti=0;
+  let gSpeso=0,gAlloc=0,gFuori=0,gStimaEC=0,gStimaECSpeso=0,gStimaDocenti=0;
   for(const e of EXP){
     const c=e.categoria; if(!c||!cats[c]) continue;
     const f=rowIvaFactor(e);
@@ -920,28 +920,33 @@ function compute(){
       const mk=+mkS, amt=dist[mkS]*f;   // valore IVA inclusa
       if(mk<fs || mk>fe){ cats[c].fuori+=amt; gFuori+=amt; continue; }
       if(mk<=rk){ cats[c].speso+=amt; gSpeso+=amt; } else { cats[c].allocato+=amt; gAlloc+=amt; }
-      if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaDocenti:0};
+      if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaECSpeso:0,stimaDocenti:0};
       if(mk<=rk) cats[c].months[mk].speso+=amt; else cats[c].months[mk].allocato+=amt;
     }
   }
-  // stime da Spese EC (viaggi/alberghi non ancora riconciliati con l'actual): tracciate a parte in
-  // stimaEC per distinguerle in UI. Il mese resta quello di competenza (acquisto/servizio-da, per
-  // il calendario/FY), ma speso/allocato guarda la data di FINE della voce (r.fine — stessa logica
-  // di itemEndDate() in Spese EC: Servizio a, con fallback su Servizio da/acquisto) confrontata con
-  // la data rif., non il mese: altrimenti una voce poteva risultare "allocato" in Spese EC e
-  // "speso" qui, stesso giorno ma bucket diverso solo perché il mese coincideva (Luigi, 2026-09-29).
-  // Prima finivano sempre e solo in allocato, anche quando ormai passate.
+  // stime da Spese EC (viaggi/alberghi non ancora riconciliati con un movimento budget reale):
+  // tracciate a parte per distinguerle in UI — stimaEC per la quota ancora allocata, stimaECSpeso
+  // per la quota già speso, cosi' il tag "stima EC" compare SOLO nella colonna dove la cifra è
+  // davvero finita (prima compariva sempre in Allocato anche quando l'importo era stato spostato
+  // in Speso, mostrando lo stesso importo in entrambe le colonne — Luigi, 2026-09-29, confuso dal
+  // "stima EC" comparso sotto Allocato mentre la colonna Speso mostrava già la stessa cifra).
+  // Il mese resta quello di competenza (acquisto/servizio-da, per il calendario/FY), ma
+  // speso/allocato guarda la data di FINE della voce (r.fine — stessa logica di itemEndDate() in
+  // Spese EC: Servizio a, con fallback su Servizio da/acquisto) confrontata con la data rif., non
+  // il mese: altrimenti una voce poteva risultare "allocato" in Spese EC e "speso" qui, stesso
+  // giorno ma bucket diverso solo perché il mese coincideva. Prima finivano sempre e solo in
+  // allocato, anche quando ormai passate.
   for(const r of (STATE.travelEstimates||[])){
     const c=r.categoria; if(!c||!cats[c]) continue;
     const my=ym(r.mese); if(!my) continue;
     const mk=my.key; if(mk<fs||mk>fe) continue;
     const amt=(Number(r.importo)||0)*rowIvaFactor(r);
-    cats[c].stimaEC+=amt; gStimaEC+=amt;
     const speso = !!(r.fine && r.fine<=STATE.refDate);
-    if(speso){ cats[c].speso+=amt; gSpeso+=amt; } else { cats[c].allocato+=amt; gAlloc+=amt; }
-    if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaDocenti:0};
-    cats[c].months[mk].stimaEC+=amt;
-    if(speso) cats[c].months[mk].speso+=amt; else cats[c].months[mk].allocato+=amt;
+    if(speso){ cats[c].speso+=amt; gSpeso+=amt; cats[c].stimaECSpeso+=amt; gStimaECSpeso+=amt; }
+    else { cats[c].allocato+=amt; gAlloc+=amt; cats[c].stimaEC+=amt; gStimaEC+=amt; }
+    if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaECSpeso:0,stimaDocenti:0};
+    if(speso){ cats[c].months[mk].speso+=amt; cats[c].months[mk].stimaECSpeso+=amt; }
+    else { cats[c].months[mk].allocato+=amt; cats[c].months[mk].stimaEC+=amt; }
   }
   // stime da Docenti (attività programmata/svolta il cui gruppo RDA non ha ancora un codice): stesso
   // principio delle stime Spese EC — sommate all'allocato, tracciate a parte finché non arriva il
@@ -956,7 +961,7 @@ function compute(){
     cats[c].months[mk].allocato+=amt; cats[c].months[mk].stimaDocenti+=amt;
   }
   let gBudget=0; Object.values(cats).forEach(o=>gBudget+=o.budget);
-  return {cats, gBudget, gSpeso, gAlloc, gFuori, gStimaEC, gStimaDocenti, gImpegnato:gSpeso+gAlloc, gResiduo:gBudget-gSpeso-gAlloc};
+  return {cats, gBudget, gSpeso, gAlloc, gFuori, gStimaEC, gStimaECSpeso, gStimaDocenti, gImpegnato:gSpeso+gAlloc, gResiduo:gBudget-gSpeso-gAlloc};
 }
 
 /* ---------- formattazione ---------- */
@@ -1022,7 +1027,7 @@ function renderKpis(d){
   <div class="kpi">
     <div class="lab"><span class="sw" style="background:var(--speso)"></span><span class="eyebrow">Speso</span></div>
     <div class="v">${eur(d.gSpeso)}</div>
-    <div class="sub">${pct(d.gSpeso,d.gBudget)}% del budget</div>
+    <div class="sub">${pct(d.gSpeso,d.gBudget)}% del budget${d.gStimaECSpeso>0?` · di cui stima EC ${eur(d.gStimaECSpeso)}`:''}</div>
   </div>
   <div class="kpi">
     <div class="lab"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Allocato</span></div>
@@ -1060,8 +1065,8 @@ function renderRiep(d){
     html += `<tr>
       <td class="l" data-label="Categoria"><span class="catdot" style="background:${CAT_COLOR[c]||'#8A8F88'}"></span>${c}${catInfoIcon(c)}</td>
       <td data-label="Budget">${eur(o.budget)}</td>
-      <td data-label="Speso">${eur(o.speso)}</td>
-      <td data-label="Allocato" style="color:var(--allocato)">${o.allocato>0?eur(o.allocato):'—'}${o.stimaEC>0?`<span class="tag stima" title="di cui stima da Spese EC (viaggi/alberghi non ancora riconciliati)">stima EC ${eur(o.stimaEC)}</span>`:''}${o.stimaDocenti>0?`<span class="tag stima" title="di cui stima da attività Docenti non ancora a RDA">stima Docenti ${eur(o.stimaDocenti)}</span>`:''}</td>
+      <td data-label="Speso">${eur(o.speso)}${o.stimaECSpeso>0?`<span class="tag stima" title="di cui stima da Spese EC (non ancora un movimento budget reale)">stima EC ${eur(o.stimaECSpeso)}</span>`:''}</td>
+      <td data-label="Allocato" style="color:var(--allocato)">${o.allocato>0?eur(o.allocato):'—'}${o.stimaEC>0?`<span class="tag stima" title="di cui stima da Spese EC (non ancora un movimento budget reale)">stima EC ${eur(o.stimaEC)}</span>`:''}${o.stimaDocenti>0?`<span class="tag stima" title="di cui stima da attività Docenti non ancora a RDA">stima Docenti ${eur(o.stimaDocenti)}</span>`:''}</td>
       <td data-label="Impegnato">${eur(imp)}</td>
       <td data-label="Residuo" class="${res<0?'neg':''}">${eur(res)}</td>
       <td class="l cell-bar" data-label="Utilizzo" style="padding-left:20px">
@@ -1077,8 +1082,8 @@ function renderRiep(d){
   }
   const gOver=d.gImpegnato>d.gBudget;
   html += `</tbody><tfoot><tr>
-    <td class="l" data-label="Totale">Totale</td><td data-label="Budget">${eur(d.gBudget)}</td><td data-label="Speso">${eur(d.gSpeso)}</td>
-    <td data-label="Allocato" style="color:var(--allocato)">${eur(d.gAlloc)}${d.gStimaEC>0?`<span class="tag stima" title="di cui stima da Spese EC (viaggi/alberghi non ancora riconciliati)">stima EC ${eur(d.gStimaEC)}</span>`:''}${d.gStimaDocenti>0?`<span class="tag stima" title="di cui stima da attività Docenti non ancora a RDA">stima Docenti ${eur(d.gStimaDocenti)}</span>`:''}</td><td data-label="Impegnato">${eur(d.gImpegnato)}</td>
+    <td class="l" data-label="Totale">Totale</td><td data-label="Budget">${eur(d.gBudget)}</td><td data-label="Speso">${eur(d.gSpeso)}${d.gStimaECSpeso>0?`<span class="tag stima" title="di cui stima da Spese EC (non ancora un movimento budget reale)">stima EC ${eur(d.gStimaECSpeso)}</span>`:''}</td>
+    <td data-label="Allocato" style="color:var(--allocato)">${eur(d.gAlloc)}${d.gStimaEC>0?`<span class="tag stima" title="di cui stima da Spese EC (non ancora un movimento budget reale)">stima EC ${eur(d.gStimaEC)}</span>`:''}${d.gStimaDocenti>0?`<span class="tag stima" title="di cui stima da attività Docenti non ancora a RDA">stima Docenti ${eur(d.gStimaDocenti)}</span>`:''}</td><td data-label="Impegnato">${eur(d.gImpegnato)}</td>
     <td data-label="Residuo" class="${d.gResiduo<0?'neg':''}">${eur(d.gResiduo)}</td>
     <td class="l cell-bar-empty" style="padding-left:20px"></td><td data-label="%" class="${gOver?'neg':''}" style="${gOver?'font-weight:700':''}">${pct(d.gImpegnato,d.gBudget)}%</td></tr></tfoot>`;
   document.getElementById("riepTable").innerHTML=html;
