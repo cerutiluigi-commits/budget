@@ -168,6 +168,7 @@ tfoot td.l{text-align:left}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
 .field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:5px}
 .field input,.field select,.field textarea{width:100%;border:1px solid var(--line-strong);border-radius:9px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;background:var(--surface);color:var(--ink);outline:none}
+.field input[readonly]{background:var(--surface-2);color:var(--ink-mute);cursor:default}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
 .field{position:relative}
 .field.err input,.field.err select,.field.err textarea{border-color:var(--over)}
@@ -449,7 +450,7 @@ tfoot td.l{text-align:left}
     <div class="mbody">
       <div class="grid2">
         <div class="field"><label>Viaggiatore <span class="req">*</span></label><select id="tTrav"></select></div>
-        <div class="field"><label>Inseritore</label><input type="text" id="tInseritore" placeholder="chi sta prenotando"></div>
+        <div class="field"><label>Inseritore</label><input type="text" id="tInseritore" readonly><span class="hint">Automatico: chi ha effettuato l'accesso, non modificabile.</span></div>
         <div class="field full"><label>Scopo <span class="req">*</span></label><input type="text" id="tScopo" placeholder="es. Orientamento Puglia"></div>
         <div class="field"><label>Data inizio <span class="req">*</span></label><input type="date" id="tDa"></div>
         <div class="field"><label>Data fine <span class="req">*</span></label><input type="date" id="tA"></div>
