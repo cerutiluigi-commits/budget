@@ -145,6 +145,7 @@ tfoot td.l{text-align:left}
 .btn.ghost:hover{border-color:var(--ink-mute)}
 .btn.small{padding:6px 11px;font-size:12.5px}
 .btn.danger{background:var(--surface);color:var(--over);border:1px solid var(--over-soft)}
+.btn:disabled{opacity:.45;cursor:not-allowed}
 
 /* calendar bars */
 .calrow{display:grid;grid-template-columns:64px 1fr 96px;align-items:center;gap:12px;padding:7px 0}
@@ -427,8 +428,7 @@ tfoot td.l{text-align:left}
 
     <h2 class="sec">Parametri</h2>
     <div class="card pad" style="margin-bottom:26px;max-width:420px">
-      <div class="field"><label>IVA default %</label><input type="number" id="ivaDef" min="0" max="99" step="0.5"></div>
-      <p class="hint">Usata come default per le nuove voci; modificabile su ogni voce.</p>
+      <p class="hint">L'importo di ogni voce è sempre IVA inclusa (22%, fisso — non configurabile qui): il netto si ricava automaticamente nel Budget.</p>
     </div>
 
     <h2 class="sec">Backup</h2>
@@ -807,7 +807,6 @@ function fillSelects(){
   vw.innerHTML=`<option value="ALL">Tutti i viaggiatori</option>`+STATE.travelers.map(t=>`<option value="${t.id}" ${STATE.view===t.id?'selected':''}>${esc(t.nome)}</option>`).join("");
   vw.value=STATE.view;
   document.getElementById("iTipo").innerHTML=TIPI.map(t=>`<option>${t}</option>`).join("");
-  document.getElementById("ivaDef").value=STATE.ivaDef;
   renderRiepMonthChips();
   renderRiepTravChips();
   renderRiepTipoChips();
@@ -824,12 +823,12 @@ function itemRowHtml(it){
   const tv=travById(tp.traveler_id);
   const cls = it.stato==="annullato"?'item-row annull':'item-row';
   // niente più tasto "svolto": lo stato speso/allocato è automatico per data (impactBadge/itemBudget).
-  // Una volta inserita, sulla riga restano solo Annulla (finché non è già annullata) ed Elimina,
-  // sempre disponibile (Luigi, 2026-09-29)
+  // Una volta inserita, sulla riga restano Modifica, Annulla (finché non è già annullata) ed Elimina
+  // — quest'ultimo visibile solo all'Admin, non a orientatori/docenti (Luigi, 2026-09-30)
   const quick = `<span class="item-acts" data-id="${it.gruppo_id||it.id}" data-trip="${tp.id}">
       <button class="rowbtn item-edit-btn" data-id="${it.id}" data-trip="${tp.id}" title="Modifica voce"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button>
       ${it.stato!=='annullato' ? `<button class="rowbtn item-cancel" title="Annulla"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg></button>` : ''}
-      <button class="rowbtn item-del" title="Elimina voce"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>
+      ${CURRENT.role==='admin' ? `<button class="rowbtn item-del" title="Elimina voce"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg></button>` : ''}
     </span>`;
   return `<div class="${cls} item-edit" data-id="${it.id}" data-trip="${tp.id}" style="cursor:pointer">
     <span class="ty">${esc(it.tipo)}</span>
@@ -841,6 +840,7 @@ function itemRowHtml(it){
   </div>`;
 }
 function quickDeleteItem(tripId,groupId){
+  if(CURRENT.role!=='admin') return; // difesa in profondità oltre al tasto nascosto ai non-admin
   if(!confirm("Eliminare questa voce, comprese tutte le righe collegate?")) return;
   const ids=STATE.items.filter(x=>(x.gruppo_id||x.id)===groupId && x.trip_id===tripId).map(x=>x.id);
   if(!ids.length) return;
@@ -1256,8 +1256,15 @@ function openTrip(id){
   document.getElementById("tScopo").value=t?t.scopo||"":"";
   document.getElementById("tDa").value=t?t.data_inizio||"":"";
   document.getElementById("tA").value=t?t.data_fine||"":"";
+  document.getElementById("tA").min=document.getElementById("tDa").value||"";
   document.getElementById("tNote").value=t?t.note||"":"";
-  document.getElementById("tDelete").style.display=id?"inline-flex":"none";
+  // "Elimina viaggio" funziona solo se il viaggio non ha ancora voci — altrimenti va prima svuotato
+  // (Luigi, 2026-09-30): niente cancellazioni a cascata accidentali di più voci insieme
+  const tDel=document.getElementById("tDelete");
+  tDel.style.display=id?"inline-flex":"none";
+  const hasItems=id && tripItems(id).length>0;
+  tDel.disabled=!!hasItems;
+  tDel.title=hasItems?"Elimina prima tutte le voci del viaggio":"";
   clearFieldErrors(document.getElementById("tripOverlay"));
   document.getElementById("tripOverlay").classList.add("on");
 }
@@ -1290,9 +1297,11 @@ async function saveTrip(){
 }
 function deleteTrip(){
   if(!editTripId) return;
-  if(!confirm("Eliminare il viaggio e tutte le sue voci?")) return;
   const id=editTripId;
-  STATE.items=STATE.items.filter(i=>i.trip_id!==id);
+  // difesa in profondità oltre al disabled del tasto: un viaggio con voci non si elimina, va
+  // prima svuotato (Luigi, 2026-09-30)
+  if(tripItems(id).length>0){ toast("Elimina prima tutte le voci del viaggio"); return; }
+  if(!confirm("Eliminare il viaggio?")) return;
   STATE.trips=STATE.trips.filter(t=>t.id!==id);
   document.getElementById("tripOverlay").classList.remove("on");
   renderAll(); cloudDeleteTrip(id); toast("Viaggio eliminato");
@@ -1315,7 +1324,7 @@ function renderItemRows(){
   const wrap=document.getElementById("iRows");
   wrap.innerHTML = iRows.map((r,i)=>`
     <div class="item-row-line" data-i="${i}">
-      <div class="field"><label>Importo € <span class="req">*</span></label><input type="number" step="0.01" placeholder="0,00" class="ir-imp"></div>
+      <div class="field"><label>Importo € (IVA incl. 22%) <span class="req">*</span></label><input type="number" step="0.01" placeholder="0,00" class="ir-imp"></div>
       <div class="field"><label>Data acquisto <span class="req">*</span></label><input type="date" class="ir-acq"></div>
       <div class="field"><label>Rif. prenotazione</label><input type="text" placeholder="facoltativo" class="ir-rif"></div>
       <div class="field"><label>Servizio da <span class="req">*</span></label><input type="date" class="ir-cda"></div>
@@ -1325,10 +1334,11 @@ function renderItemRows(){
   wrap.querySelectorAll(".item-row-line").forEach((row,i)=>{
     const impEl=row.querySelector(".ir-imp"), acqEl=row.querySelector(".ir-acq"), rifEl=row.querySelector(".ir-rif"), cdaEl=row.querySelector(".ir-cda"), caEl=row.querySelector(".ir-ca"), delBtn=row.querySelector(".item-row-del");
     impEl.value=iRows[i].importo; acqEl.value=iRows[i].dataAcquisto; rifEl.value=iRows[i].rifPrenotazione; cdaEl.value=iRows[i].compDa; caEl.value=iRows[i].compA;
+    if(cdaEl.value) caEl.min=cdaEl.value; // il calendario di "Servizio a" non propone date prima di "Servizio da"
     impEl.oninput=()=>{ iRows[i].importo=impEl.value; updateItemTotal(); };
     acqEl.onchange=()=>{ iRows[i].dataAcquisto=acqEl.value; };
     rifEl.oninput=()=>{ iRows[i].rifPrenotazione=rifEl.value; };
-    cdaEl.onchange=()=>{ iRows[i].compDa=cdaEl.value; };
+    cdaEl.onchange=()=>{ iRows[i].compDa=cdaEl.value; caEl.min=cdaEl.value||''; };
     caEl.onchange=()=>{ iRows[i].compA=caEl.value; };
     if(delBtn) delBtn.onclick=()=>{ iRows.splice(i,1); renderItemRows(); };
   });
@@ -1352,7 +1362,7 @@ function openItem(tripId,itemId){
   document.getElementById("iForn").value=fornCurrent;
   document.getElementById("iActualRef").value=rep?rep.actual_ref||"":"";
   document.getElementById("iNote").value=rep?rep.note||"":"";
-  document.getElementById("iDelete").style.display=itemId?"inline-flex":"none";
+  document.getElementById("iDelete").style.display=(itemId&&CURRENT.role==='admin')?"inline-flex":"none";
   iRows = groupRows.length
     ? groupRows.slice().sort((x,y)=>String(x.data_acquisto||'').localeCompare(String(y.data_acquisto||''))).map(x=>newItemRow(x.id,x.importo,x.data_acquisto,x.rif_prenotazione,x.comp_da,x.comp_a))
     : [newItemRow(null,'','','','','')];
@@ -1385,7 +1395,10 @@ function saveItem(){
     else if(trip && trip.data_fine && r.compDa>trip.data_fine){ setFieldError(cdaEl,`"Servizio da" non può superare la fine del viaggio (${fmtD(trip.data_fine)}).`); hasError=true; }
     if(!r.compA){ setFieldError(caEl,"\"Servizio a\" è obbligatorio."); hasError=true; }
     else {
-      if(trip && trip.data_inizio && r.compA<trip.data_inizio){ setFieldError(caEl,`"Servizio a" non può precedere l'inizio del viaggio (${fmtD(trip.data_inizio)}).`); hasError=true; }
+      // la fine non può mai precedere l'inizio, qui come su tutti gli altri form con un intervallo
+      // di date (Luigi, 2026-09-30)
+      if(r.compDa && r.compA<r.compDa){ setFieldError(caEl,"\"Servizio a\" non può essere precedente a \"Servizio da\"."); hasError=true; }
+      else if(trip && trip.data_inizio && r.compA<trip.data_inizio){ setFieldError(caEl,`"Servizio a" non può precedere l'inizio del viaggio (${fmtD(trip.data_inizio)}).`); hasError=true; }
       else if(trip && trip.data_fine && r.compA>trip.data_fine){ setFieldError(caEl,`"Servizio a" non può superare la fine del viaggio (${fmtD(trip.data_fine)}).`); hasError=true; }
     }
   });
@@ -1423,6 +1436,7 @@ function quickSetItemStato(tripId,groupId,stato){
 }
 function deleteItem(){
   if(!editItemGroupId) return;
+  if(CURRENT.role!=='admin') return;
   if(!confirm("Eliminare l'intera voce, comprese tutte le righe collegate?")) return;
   const ids=STATE.items.filter(x=>(x.gruppo_id||x.id)===editItemGroupId && x.trip_id===editItemTrip).map(x=>x.id);
   STATE.items=STATE.items.filter(x=>!ids.includes(x.id));
@@ -1545,11 +1559,11 @@ document.getElementById("calPreviewClose2").onclick=closeCalPreview;
 document.getElementById("calPreviewOpen").onclick=()=>{ const id=calPreviewId; closeCalPreview(); if(id){ const it=STATE.items.find(x=>x.id===id); if(it) openItem(it.trip_id,it.id); } };
 document.getElementById("calPreviewOverlay").onclick=e=>{ if(e.target.id==="calPreviewOverlay") e.currentTarget.classList.remove("on"); };
 document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); };
-document.getElementById("ivaDef").onchange=e=>{ STATE.ivaDef=parseFloat(e.target.value)||0; save(); };
 document.getElementById("btnNewTrip").onclick=()=>openTrip(null);
 document.getElementById("tripClose").onclick=()=>document.getElementById("tripOverlay").classList.remove("on");
 document.getElementById("tCancel").onclick=()=>document.getElementById("tripOverlay").classList.remove("on");
 document.getElementById("tSave").onclick=saveTrip;
+document.getElementById("tDa").onchange=e=>{ document.getElementById("tA").min=e.target.value||""; };
 // piccolo overlay di conferma per gli avvisi non bloccanti (es. data nel passato): "Modifica"
 // annulla il salvataggio e lascia correggere, "Continua" procede comunque (Luigi, 2026-09-29)
 let _warnResolve=null;

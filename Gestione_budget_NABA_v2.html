@@ -249,6 +249,12 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
 .field label .req{color:var(--over)}
 .field input,.field select,.field textarea{border:1px solid var(--line-strong);border-radius:8px;padding:9px 11px;background:var(--surface);outline:none;transition:.12s}
 .field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.ac-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;box-shadow:var(--shadow-lg);max-height:240px;overflow-y:auto;z-index:40;display:none}
+.ac-list.on{display:block}
+.ac-item{padding:9px 12px;cursor:pointer;font-size:13px;border-bottom:1px solid var(--line)}
+.ac-item:last-child{border-bottom:0}
+.ac-item:hover{background:var(--accent-soft)}
+.ac-item.add{color:var(--accent-ink);font-weight:600}
 .field textarea{resize:vertical;min-height:44px}
 .field .hint{font-size:10.5px;color:var(--ink-mute)}
 .preview{margin-top:16px;border:1px dashed var(--line-strong);border-radius:10px;padding:14px;background:var(--surface-2)}
@@ -665,16 +671,16 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
           <input type="date" id="fConsegna">
           <span class="hint">Usata come competenza per i materiali.</span>
         </div>
-        <div class="field">
+        <div class="field" id="fFornField" style="position:relative">
           <label>Fornitore</label>
-          <input type="text" id="fForn" placeholder="Digita o scegli…" list="dlForn" autocomplete="off">
-          <span class="hint">Propone i fornitori già usati; puoi aggiungerne di nuovi.</span>
+          <input type="text" id="fForn" placeholder="Cerca fornitore… (le parole possono essere in qualsiasi ordine)" autocomplete="off">
+          <div class="ac-list" id="fFornAc"></div>
+          <span class="hint">Anagrafica + fornitori già usati. Non lo trovi? Scegli "+ Aggiungi…" in fondo alla lista. Per spese da Docenti/Spese EC usa il nome del docente/orientatore.</span>
         </div>
         <div class="field full">
           <label>Oggetto</label>
           <input type="text" id="fOgg" placeholder="Digita o scegli…" list="dlOgg" autocomplete="off">
         </div>
-        <datalist id="dlForn"></datalist>
         <datalist id="dlOgg"></datalist>
         <datalist id="dlNum"></datalist>
         <div class="field full">
@@ -770,6 +776,55 @@ const CAT_COLOR = {
   "TUTOR":"#7D6BA8","VIAGGI TRASF. ALTRI NO STAFF":"#2E9C8E","VIAGGI TRASF. STAFF":"#1F7A8C",
   "ALBERGHI RIST. STAFF":"#A87B4F","ALBERGHI RIST. NO STAFF":"#C99A5B","COMM. PASSIVE":"#5B6E4A","ALTRO":"#8A8F88"
 };
+// Anagrafica fornitori (import da anagrafica_fornitori.csv, Luigi 2026-09-30): solo suggerimenti
+// di ricerca per il campo Fornitore, non un vincolo — resta un campo libero, "+ Aggiungi…" accetta
+// qualunque testo digitato non presente qui. 3 nomi con caratteri illeggibili nel CSV originale
+// (encoding) sono stati corretti a mano dove il nome corretto era desumibile con ragionevole certezza.
+const FORNITORI_SEED = ["4U S.R.L","AIR3 - ASSOCIAZIONE ITALIANA REGISTI","ALBERTO BETTINETTI","ALBERTO FUMAGALLI",
+"ALBERTO SANSONE","ALDO MUCCIARONE","ALESSANDRA MOTTADELLI","ALESSIA FATTOREL","ALESSIO TRABACCHINI","ALL SOCIAL SRL",
+"AMAZON","AMBRA MENEGUOLO","ANDREA ALBERTO ALFREDO DE MARINIS","ANDREA ARRIGONI","ANDREA CHINETTI","ANDREA ROMANO",
+"ANDREA SUSINI","ANGELO SARLETI","ANNACHIARA RABITO","ANNA OPIZZI","ANNA SPETTOLI","APPLY APS","APS ADVERTISING",
+"ARRCO SRL","ARTI GRAFICHE BIANCA E VOLTA SRL","ASDM S.R.L.","ASHLEY BENIGNO","ASSOCIAZIONE ASTER",
+"ASSOCIAZIONE GENITORI MAJORANA","ATM","AURORA POSSENTI","BARBARA LEONE","BEATRICE CATANZARO","BENEDETTA FORESTI",
+"BORBONESE S.P.A","CAMPUS EDITORI SRL","CARLOTTA MORELLI","CHIARA SMEDILE","CHIARA VICO","CIRCULO FORMACION. S.L.",
+"CREAZIONI FONTANA SNC DI FONTANA AURELIO","CREMONA TOUR","CRISTIAN BORÒ","CRISTIAN LODDO","CRISTINA MASTURZO",
+"DANIELE CARUSO","DANIELE PIO MARZORATI","DANILO LOIZEDDA","DAVIDE BRAMBILLA","DAVIDE FERRARIO","DAVIDE GALLINA",
+"DAVIDE GATTI","DENISE CARNINI","DESIRÈ PRETINI","DIALOGO NEL BUIO","EDOARDO GARIBBO","EDOARDO OGGIONI",
+"EDOARDO TEBALDI","ELEONORA PERONETTI","ELEONORA ROARO","EMANUELE DESIATI","EMANUELE SONCIN","EMILIANO FASANO",
+"ERNESTO IADEVAIA","EUROBRICO","EXPONDO","FABIO SIRNA","FABRIZIO BRANCATO","FABRIZIO ROSCINI","FEDERICA CLERICI",
+"FEDERICO DEMARTINI","FEDERICO DI CORATO","FEDERICO EPIS","FLASHBAY LTD","FONDAZIONE MILANO FILM FEST - IMPRESA SOCIALE",
+"FRAB'S","FRANCESCA GUARNONE","FRANCESCA TONGIORGI","FRANCESCO ALBANO","FRANCESCO BALLESTRAZZI","FRANCESCO DE CARLI",
+"FRANCESCO ZANOT","FRANCO GONELLA","FRATELLI GIACOMEL S.P.A.","GABRIELE BIANCHI","GABRIELE CARRERA","GABRIELE LAI",
+"GABRIELE RISCAZZI","GABRIELLA MONDELLI","GALASSIE SRL","GED SNC DI PORRO G. & C.","GIACOMO MANZOTTI",
+"GIANLUCA SBICCA","GIANMARCO SIGNORELLI","GILDA MANFRIN","GIORGIO DE LEO","GIORGIO LABORATORE","GIOVANNI NAHMIAS",
+"GIOVANNI SCOLARI","GIOVANNI VISAI","GISELLA ADELE CAPPELLI","GIULIA CAIELLI","GIULIA CONTI","GIULIA CURTI",
+"GIULIA D'ERCOLE","GIULIA MANCASSOLA","GIULIA MEZZADRI","GIULIA PELIZZARI","GIULIA RUGA","GIULIA TRINCARDI",
+"GIUSEPPE CAMPANELLA","GIUSEPPE SPITALI","GLORIA PUPPI","GRAFILANDIA S.R.L.","GREGORIO POGGETTI","GRETA GUERCIO",
+"GRETA MARIA COSENZA","GRUPPO PUBLIONDA SRL","HARD ROCK CAFE' MILANO","HIGHLINE GALLERIA","HOUSE OF TUBERS",
+"IACOPO MORETTI","IKEA","IL GARDEN FIORITO","IL RIGOLETTO S.R.L.","ITALWORK SRL","LARIOFIERE","LAURA BAGNERA",
+"LICEO SCIENTIFICO STATALE GIORGIO DAL PIAZ","LORENZO SEGHEZZI","LUCA BAGGIO","LUCA FIORINO","LUCREZIA ZARAMELLA",
+"MALINA ERICA MELISSA DE CARLO","MANUELA FOSSATI","MANUEL PETRONE","MARA MARANGONI - STEP INTO THE FUTURE",
+"MARCO ALBERTO ZANOLETTI","MARCO BONGIORNI","MARCO FERRARI","MARCO MARTINI","MARCO POCHETTI","MARCO RENZI",
+"MARCO SECCHI","MARCO TRINCA COLONEL","MARIANGELA ROSSETTO","MARIANO DALLAGO","MARIA PIATTICA","MARIE VICINO",
+"MARINA VIOLA CAVADINI","MARTINA PORTA","MASSIMO COLLI","MASSIMO FORTUNA","MATTEO ALMIENTO","MATTEO BRASILI",
+"MATTEO LISSONI","MATTEO SEBASTIAN MANZINI","MATTIA GENNARO","MAURIZIO BARBIANI GONZALEZ","MAURIZIO ROSENZWEIG",
+"MAURIZIO SCALZI","MAURO MAZZARA","MAURO STEFANO VANETTI","MEHERET CRESPI","MIAMI RISTORO SRL","MICHELA CIANDRINI",
+"MICHELLE BEZZO","MIRKO CIABATTI","MIRKO TORRENTE","MONICA GESUALDO","MOODY DI FRANCESCO ZAMPAGLIONE","MOOVIE SRL",
+"NAVA PRESS SRL","NICOLA DI LOLLO","NICOLÒ COLCIAGO","NIESPOR ZUZANNA EWA","NOEMI AONDIO","NOVA GROUP DI LEALI MARCO",
+"OBT ITALIA SRLS","OPEN AI","PANETTERIA VENTURA","PAOLA GALASSI","PERNILLA BERTAGNI","PETITO VINCENZO",
+"PIERPAOLO MARIA ZAPPA","PIERSILVIO BISOGNO","PIETRO PACIULLO","POLCAN ELISABETTA","PORDENONE FIERE SPA","PROGRAF",
+"QS QUACQUARELLI SYMONDS LTD","RACHELE TREZZI","REBECCA MASTROSTEFANO","REBECCHI FOOD SYSTEMS SPA","RICCARDO CIUNCI",
+"RICCARDO SGARAMELLA","ROBERTO CAPELLI & FIGLIO S.R.L","ROBERTO CLEMENTE","ROBERTO GRASSO","SAMUELE CIGARDI",
+"SAMUELE ROMANO","SEBASTIANO PACCINI","SEC NEWGATE ITALIA S.R.L SOCIETA' BENEFIT","SEMAR ITALIA",
+"SESAAB - SERVIZI SRL A SOCIO UNICO","SHAMUN DI ORAZIO MARINO","S.I.A.E. SOCIETÀ DEGLI AUTORI ED EDITORI",
+"SILVIA MORETTO","SILVIA PERSONENI","SIMONA DUCI","SIMONE PELLEGRINI","SIMONE ROVELLINI","SIMONE VALTULINA",
+"SMACRENT S.R.L.","SMART EVENTI SRL","SODEXO ITALIA SPA","SOFIA CASALGRANDI","SPOTIFY","SRT INTERNATIONAL LTD",
+"STAGEDECK SRLS","STEFANO COMENSOLI","STEFANO MEAZZA","STEFANO SAVIOZZI","STUDIO TERRE DI EVA NOEMI MARCHETTI",
+"SULEYMAN ALI MUMIN SACCHI","SUPABASE","SUPERMARKER DI ARIANNA RIMOLDI","THOMANN GMBH","TIP S.R.L","TIZIANO DEMURO",
+"TOMMASO MAZZARINI","TRANS AUDIO VIDEO SRL","TRENITALIA","UMBERTO AGNELLO","UMBERTO PUNZI","UNIFROG EDUCATION LTD",
+"UNITOUR","UVET","VALENTINA TURRI","VALERIA BATTEL","VERONAFIERE SPA","VIDEOLINEA SISTEM SRL","VINCENZO GHILOTTI",
+"VLADISLAV SHAPOVALOV","ZOOM VIDEO COMMUNICATION INC"];
+
 // Mappatura SAP ↔ categoria movimenti + spiegazioni (da Mappatura_Codice_SAP_Movimenti)
 const CAT_INFO = {
   "EVENTI":{sap:"0404018000",doc:"SER000009",tipo:"Servizio",nome:"Eventi promozionali in Campus",attivita:"Open Day, NABAvision, NABAexperience, Workshop, ecc.",usare:"Facchini, catering, fornitori di servizi vari, traduzioni, ecc.",note:"Non usare per beni fisici/materiali."},
@@ -846,6 +901,9 @@ function ivaFactor(cat){ const r=(STATE.ivaByCat && STATE.ivaByCat[cat]!=null)?S
 // aliquota IVA (ivaPctOverride, dal flag "IVA 22%" del docente) che SOSTITUISCE quella di categoria —
 // l'aliquota di categoria resta quella "vera" solo per le spese non-docenti (Luigi + team, 2026-09-22).
 function rowIvaFactor(r){ return r.ivaPctOverride!=null ? 1+Number(r.ivaPctOverride)/100 : ivaFactor(r.categoria); }
+// Spese EC inserisce sempre l'importo IVA inclusa al 22%, fisso — non l'aliquota di categoria
+// (Luigi, 2026-09-30). Serve per desumere il netto dove va mostrato (es. tabella stime aperte).
+const SPESE_EC_IVA_FACTOR=1.22;
 function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(STATE)); }catch(e){} }
 
 /* dataset dell'anno fiscale attivo — creato al volo se assente */
@@ -936,11 +994,14 @@ function compute(){
   // il mese: altrimenti una voce poteva risultare "allocato" in Spese EC e "speso" qui, stesso
   // giorno ma bucket diverso solo perché il mese coincideva. Prima finivano sempre e solo in
   // allocato, anche quando ormai passate.
+  // l'importo di Spese EC è inserito già IVA inclusa (22% fisso, non per categoria: Luigi,
+  // 2026-09-30) — qui NON va rimoltiplicato per l'aliquota di categoria come le altre righe, o
+  // l'IVA finisce conteggiata due volte e il totale gonfiato del 22% in più.
   for(const r of (STATE.travelEstimates||[])){
     const c=r.categoria; if(!c||!cats[c]) continue;
     const my=ym(r.mese); if(!my) continue;
     const mk=my.key; if(mk<fs||mk>fe) continue;
-    const amt=(Number(r.importo)||0)*rowIvaFactor(r);
+    const amt=Number(r.importo)||0;
     const speso = !!(r.fine && r.fine<=STATE.refDate);
     if(speso){ cats[c].speso+=amt; gSpeso+=amt; cats[c].stimaECSpeso+=amt; gStimaECSpeso+=amt; }
     else { cats[c].allocato+=amt; gAlloc+=amt; cats[c].stimaEC+=amt; gStimaEC+=amt; }
@@ -1391,32 +1452,50 @@ function renderMvEstimates(catF,q){
     if(catF!=="ALL" && r.categoria!==catF) return;
     const label=[r.tipo,r.luogo,r.docenteNome].filter(Boolean).join(" · ");
     if(q && !(label+" "+(r.categoria||"")).toLowerCase().includes(q)) return;
-    rows.push({categoria:r.categoria, data:r.data, label, sub:"Docenti", importo:r.importo, ivaPctOverride:r.ivaPctOverride});
+    rows.push({categoria:r.categoria, data:r.data, label, sub:"Docenti", importo:r.importo, ivaPctOverride:r.ivaPctOverride, fornSuggest:r.docenteNome||''});
   });
   (STATE.travelEstimates||[]).forEach(r=>{
     const my=ym(r.mese); if(!my||my.key<fs||my.key>fe) return;
     if(catF!=="ALL" && r.categoria!==catF) return;
     const label=[r.voceTipo, r.destinazione||r.scopo, r.travelerNome].filter(Boolean).join(" · ");
     if(q && !(label+" "+(r.categoria||"")).toLowerCase().includes(q)) return;
-    rows.push({categoria:r.categoria, data:r.data, label, sub:"Spese EC", importo:r.importo});
+    rows.push({categoria:r.categoria, data:r.data, label, sub:"Spese EC", importo:r.importo, isEC:true, fornSuggest:r.travelerNome||''});
   });
   if(!rows.length){ wrap.style.display="none"; return; }
   wrap.style.display="";
   rows.sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+  MV_ESTIMATE_ROWS=rows;
   let html=`<thead><tr>
     <th class="l">Data</th><th class="l">Categoria</th><th class="l">Descrizione</th><th>Netto</th><th>IVA incl.</th></tr></thead><tbody>`;
-  for(const r of rows){
-    const net=+r.importo||0, gross=net*rowIvaFactor(r);
-    html+=`<tr>
+  rows.forEach((r,i)=>{
+    // Spese EC: l'importo è già IVA inclusa (22% fisso) — il netto si ricava dividendo, non
+    // moltiplicando (Luigi, 2026-09-30). Docenti resta netto->lordo come prima.
+    const gross = r.isEC ? (+r.importo||0) : (+r.importo||0)*rowIvaFactor(r);
+    const net = r.isEC ? gross/SPESE_EC_IVA_FACTOR : (+r.importo||0);
+    html+=`<tr class="mve-row" data-i="${i}" style="cursor:pointer" title="Clic per registrarla come spesa reale">
       <td class="l" data-label="Data"><div class="obj">${fmtD(r.data)}</div></td>
       <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[r.categoria]||'#8A8F88',.13)};color:${CAT_COLOR[r.categoria]||'#6A6F6A'}">${r.categoria||''}</span></td>
       <td class="l" data-label="Descrizione"><div class="obj">${esc(r.label)||'—'}</div><div class="meta">stima · ${r.sub}</div></td>
       <td data-label="Netto" style="color:var(--ink-mute)">${eur2(net)}</td>
       <td data-label="IVA incl.">${eur2(gross)}</td>
     </tr>`;
-  }
+  });
   html+=`</tbody>`;
   document.getElementById("mvEstimatesTable").innerHTML=html;
+  document.querySelectorAll("#mvEstimatesTable .mve-row").forEach(tr=>tr.onclick=()=>openModalFromEstimate(MV_ESTIMATE_ROWS[+tr.dataset.i]));
+}
+// clic su una stima aperta: apre "Aggiungi spesa" precompilata, per registrarla come movimento
+// budget reale. Fornitore = nome del docente/orientatore, mai una ragione sociale, perché è la sua
+// prestazione/trasferta a generare la spesa (Luigi, 2026-09-30)
+function openModalFromEstimate(r){
+  if(!r) return;
+  openModal(null);
+  document.getElementById("fCat").value=r.categoria;
+  set("fCompDa", r.data||"");
+  set("fForn", r.fornSuggest||"");
+  const net = r.isEC ? (Number(r.importo)||0)/SPESE_EC_IVA_FACTOR : (Number(r.importo)||0);
+  set("fImporto", net?net.toFixed(2):"");
+  fillDatalists(); updateCatHelp(); updatePreview();
 }
 function fmtD(s){ if(!s) return "—"; const p=String(s).split("-"); if(p.length<3) return s; return p[2]+"/"+p[1]+"/"+p[0].slice(2); }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>]/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;'}[m])); }
@@ -1593,6 +1672,7 @@ function importFinance(file){
 }
 
 let editingId=null;
+let MV_ESTIMATE_ROWS=[]; // ultima lista renderizzata in "Stime aperte", per il clic->precompila
 let formLocked=false;
 // righe generate dal bridge Docenti (sourceRdaId valorizzato) restano bloccate finché non si preme
 // "Forza modifica": si risincronizzano da sole da Docenti, una modifica manuale non protetta verrebbe
@@ -1619,9 +1699,33 @@ function buildSuggestions(field, cat){
 function fillDatalists(){
   const cat=document.getElementById("fCat").value;
   const opt=v=>`<option value="${String(v).replace(/"/g,'&quot;')}">`;
-  document.getElementById("dlForn").innerHTML=buildSuggestions("fornitore",cat).map(opt).join("");
   document.getElementById("dlOgg").innerHTML =buildSuggestions("oggetto",cat).map(opt).join("");
   document.getElementById("dlNum").innerHTML =buildSuggestions("numOrdine",cat).slice(0,300).map(opt).join("");
+}
+// candidati per la ricerca Fornitore: prima i già usati (più frequenti in cima, buildSuggestions),
+// poi l'anagrafica CSV per chi non è mai stato inserito ancora (Luigi, 2026-09-30)
+function fornitoreCandidates(){
+  const cat=document.getElementById("fCat").value;
+  const used=buildSuggestions("fornitore",cat);
+  const seen=new Set(used.map(n=>n.toLowerCase()));
+  const extra=FORNITORI_SEED.filter(n=>!seen.has(n.toLowerCase()));
+  return used.concat(extra);
+}
+function closeFornAc(){ const el=document.getElementById("fFornAc"); if(el){ el.classList.remove("on"); el.innerHTML=""; } }
+// ricerca per parole indipendente dall'ordine, stesso principio di searchSchools() in Docenti:
+// ogni parola digitata deve comparire nel nome, non serve scriverle nell'ordine esatto
+function renderFornAc(q){
+  const el=document.getElementById("fFornAc"); if(!el) return;
+  const all=fornitoreCandidates();
+  const terms=q.trim().toLowerCase().split(/\s+/).filter(Boolean);
+  let matches = terms.length ? all.filter(n=>{ const hay=n.toLowerCase(); return terms.every(t=>hay.includes(t)); }) : all;
+  matches=matches.slice(0,20);
+  let html=matches.map(n=>`<div class="ac-item" data-v="${esc(n)}">${esc(n)}</div>`).join("");
+  const qTrim=q.trim();
+  if(qTrim && !all.some(n=>n.toLowerCase()===qTrim.toLowerCase())) html+=`<div class="ac-item add" data-v="${esc(qTrim)}">+ Aggiungi "${esc(qTrim)}"</div>`;
+  if(!html){ closeFornAc(); return; }
+  el.innerHTML=html; el.classList.add("on");
+  el.querySelectorAll(".ac-item").forEach(it=>it.onclick=()=>{ document.getElementById("fForn").value=it.dataset.v; closeFornAc(); });
 }
 function updateCatHelp(){
   const c=document.getElementById("fCat").value; const i=CAT_INFO[c]; const box=document.getElementById("catHelp");
@@ -1900,6 +2004,9 @@ document.getElementById("overlay").onclick=e=>{ if(e.target.id==="overlay") clos
   document.getElementById(id).addEventListener("change",updatePreview);
 });
 document.getElementById("fCat").addEventListener("change",()=>{ fillDatalists(); updateCatHelp(); });
+document.getElementById("fForn").addEventListener("input",e=>renderFornAc(e.target.value));
+document.getElementById("fForn").addEventListener("focus",e=>renderFornAc(e.target.value));
+document.addEventListener("click",e=>{ if(!e.target.closest("#fFornField")) closeFornAc(); });
 document.getElementById("btnImport").onclick=()=>document.getElementById("fileInput").click();
 document.getElementById("fileInput").onchange=e=>{ if(e.target.files[0]) importFile(e.target.files[0]); e.target.value=""; };
 document.getElementById("btnExport").onclick=exportFile;
