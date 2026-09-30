@@ -1288,6 +1288,17 @@ async function saveTrip(){
   if(!dataInizio){ setFieldError(daEl,"La data inizio è obbligatoria."); hasError=true; }
   if(!dataFine){ setFieldError(aEl,"La data fine è obbligatoria."); hasError=true; }
   if(dataInizio && dataFine && dataFine<dataInizio){ setFieldError(aEl,"La data fine non può essere antecedente alla data inizio."); hasError=true; }
+  // non si può restringere il periodo del viaggio sotto le date delle voci già presenti — altrimenti
+  // una voce resterebbe "orfana", fuori dal perimetro del suo stesso viaggio (Luigi, 2026-09-30)
+  if(editTripId){
+    const its=tripItems(editTripId);
+    const dates=its.flatMap(it=>[it.data_acquisto,it.comp_da,it.comp_a]).filter(Boolean);
+    if(dates.length){
+      const minDate=dates.reduce((a,b)=>a<b?a:b), maxDate=dates.reduce((a,b)=>a>b?a:b);
+      if(dataInizio && dataInizio>minDate){ setFieldError(daEl,`Non puoi spostare l'inizio dopo il ${fmtD(minDate)}: c'è già una voce con quella data.`); hasError=true; }
+      if(dataFine && dataFine<maxDate){ setFieldError(aEl,`Non puoi anticipare la fine prima del ${fmtD(maxDate)}: c'è già una voce con quella data.`); hasError=true; }
+    }
+  }
   if(hasError) return;
   // avviso non bloccante se si inserisce una data inizio nel passato: si può salvare comunque
   // ("Continua") o tornare a correggere il campo ("Modifica" — riporta il focus lì) (Luigi, 2026-09-29)

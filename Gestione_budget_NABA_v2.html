@@ -1088,12 +1088,12 @@ function renderKpis(d){
   <div class="kpi">
     <div class="lab"><span class="sw" style="background:var(--speso)"></span><span class="eyebrow">Speso</span></div>
     <div class="v">${eur(d.gSpeso)}</div>
-    <div class="sub">${pct(d.gSpeso,d.gBudget)}% del budget${d.gStimaECSpeso>0?` · di cui stima EC ${eur(d.gStimaECSpeso)}`:''}</div>
+    <div class="sub">${pct(d.gSpeso,d.gBudget)}% del budget</div>
   </div>
   <div class="kpi">
     <div class="lab"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Allocato</span></div>
     <div class="v">${eur(d.gAlloc)}</div>
-    <div class="sub">impegnato ${eur(d.gImpegnato)}${d.gStimaEC>0?` · di cui stima EC ${eur(d.gStimaEC)}`:''}${d.gStimaDocenti>0?` · di cui stima Docenti ${eur(d.gStimaDocenti)}`:''}</div>
+    <div class="sub">impegnato ${eur(d.gImpegnato)}</div>
   </div>
   <div class="kpi residuo">
     <div class="lab"><span class="sw" style="background:var(--residuo)"></span><span class="eyebrow">Residuo</span></div>
@@ -1126,8 +1126,8 @@ function renderRiep(d){
     html += `<tr>
       <td class="l" data-label="Categoria"><span class="catdot" style="background:${CAT_COLOR[c]||'#8A8F88'}"></span>${c}${catInfoIcon(c)}</td>
       <td data-label="Budget">${eur(o.budget)}</td>
-      <td data-label="Speso">${eur(o.speso)}${o.stimaECSpeso>0?`<span class="tag stima" title="di cui stima da Spese EC (non ancora un movimento budget reale)">stima EC ${eur(o.stimaECSpeso)}</span>`:''}</td>
-      <td data-label="Allocato" style="color:var(--allocato)">${o.allocato>0?eur(o.allocato):'—'}${o.stimaEC>0?`<span class="tag stima" title="di cui stima da Spese EC (non ancora un movimento budget reale)">stima EC ${eur(o.stimaEC)}</span>`:''}${o.stimaDocenti>0?`<span class="tag stima" title="di cui stima da attività Docenti non ancora a RDA">stima Docenti ${eur(o.stimaDocenti)}</span>`:''}</td>
+      <td data-label="Speso">${eur(o.speso)}</td>
+      <td data-label="Allocato" style="color:var(--allocato)">${o.allocato>0?eur(o.allocato):'—'}</td>
       <td data-label="Impegnato">${eur(imp)}</td>
       <td data-label="Residuo" class="${res<0?'neg':''}">${eur(res)}</td>
       <td class="l cell-bar" data-label="Utilizzo" style="padding-left:20px">
@@ -1143,8 +1143,8 @@ function renderRiep(d){
   }
   const gOver=d.gImpegnato>d.gBudget;
   html += `</tbody><tfoot><tr>
-    <td class="l" data-label="Totale">Totale</td><td data-label="Budget">${eur(d.gBudget)}</td><td data-label="Speso">${eur(d.gSpeso)}${d.gStimaECSpeso>0?`<span class="tag stima" title="di cui stima da Spese EC (non ancora un movimento budget reale)">stima EC ${eur(d.gStimaECSpeso)}</span>`:''}</td>
-    <td data-label="Allocato" style="color:var(--allocato)">${eur(d.gAlloc)}${d.gStimaEC>0?`<span class="tag stima" title="di cui stima da Spese EC (non ancora un movimento budget reale)">stima EC ${eur(d.gStimaEC)}</span>`:''}${d.gStimaDocenti>0?`<span class="tag stima" title="di cui stima da attività Docenti non ancora a RDA">stima Docenti ${eur(d.gStimaDocenti)}</span>`:''}</td><td data-label="Impegnato">${eur(d.gImpegnato)}</td>
+    <td class="l" data-label="Totale">Totale</td><td data-label="Budget">${eur(d.gBudget)}</td><td data-label="Speso">${eur(d.gSpeso)}</td>
+    <td data-label="Allocato" style="color:var(--allocato)">${eur(d.gAlloc)}</td><td data-label="Impegnato">${eur(d.gImpegnato)}</td>
     <td data-label="Residuo" class="${d.gResiduo<0?'neg':''}">${eur(d.gResiduo)}</td>
     <td class="l cell-bar-empty" style="padding-left:20px"></td><td data-label="%" class="${gOver?'neg':''}" style="${gOver?'font-weight:700':''}">${pct(d.gImpegnato,d.gBudget)}%</td></tr></tfoot>`;
   document.getElementById("riepTable").innerHTML=html;
