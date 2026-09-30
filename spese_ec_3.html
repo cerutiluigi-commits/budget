@@ -663,16 +663,22 @@ function baseIdentity(){
   const email=(typeof cloudUser==='function'?cloudUser():null);
   if(email){
     const role=roleForEmail(email);
+    // il "tag" extra_roles può rendere orientatore anche chi ha ruolo primario diverso (es. un
+    // docente con tag Orientatore): travelerId va popolato in base a TUTTI i ruoli effettivi, non
+    // solo quello primario, altrimenti "Nuovo viaggio"/filtri restano nascosti pur essendo la tab
+    // visibile (Luigi, 2026-09-30 — Davide Gallina: docente primario + tag orientatore)
+    const u=(STATE.appUsers||{})[email.toLowerCase()];
+    const hasOrientatore = role==='orientatore' || ((u&&u.extra_roles)||[]).includes('orientatore');
+    const trav = hasOrientatore ? findTravByEmail(email) : null;
     if(role==='admin'){
       if(STATE.localIdentity && STATE.localIdentity!=='admin'){ const t=STATE.travelers.find(x=>x.id===STATE.localIdentity); if(t) return {role:'orientatore',travelerId:t.id,preview:false,email,name:t.nome,viewAs:true}; }
       return {role:'admin',travelerId:null,preview:false,email,name:null};
     }
     if(role==='orientatore'){
-      const t=findTravByEmail(email);
-      if(t) return {role:'orientatore',travelerId:t.id,preview:false,email,name:t.nome};
+      if(trav) return {role:'orientatore',travelerId:trav.id,preview:false,email,name:trav.nome};
       return {role:'none',travelerId:null,preview:false,email,name:null};
     }
-    if(role==='docente') return {role:'docente',travelerId:null,preview:false,email,name:null};
+    if(role==='docente') return {role:'docente',travelerId:trav?trav.id:null,preview:false,email,name:trav?trav.nome:null};
     return {role:'none',travelerId:null,preview:false,email,name:null};
   }
   if(STATE.localIdentity==='admin') return {role:'admin',travelerId:null,preview:false,email:null,name:'Admin'};
@@ -684,7 +690,7 @@ function effectiveIdentity(){
   if(base.role==='admin' && STATE.previewAs){ const t=STATE.travelers.find(x=>x.id===STATE.previewAs); if(t) return {role:'orientatore',travelerId:t.id,preview:true,email:t.email||null,name:t.nome}; }
   return base;
 }
-function myFilter(){ return CURRENT.role==='orientatore'?CURRENT.travelerId:(STATE.view!=="ALL"?STATE.view:null); }
+function myFilter(){ return CURRENT.travelerId?CURRENT.travelerId:(STATE.view!=="ALL"?STATE.view:null); }
 /* visibilità tab per ruolo (condivisa via cloud, per tool); admin sempre visibile se manca config */
 function tabVisible(tool,tabKey,role){
   const cfg=STATE.tabVisibility&&STATE.tabVisibility[tool]&&STATE.tabVisibility[tool][tabKey];
@@ -751,7 +757,7 @@ function applyRole(){
   CURRENT=effectiveIdentity();
   document.querySelector('main').style.display='';
   document.getElementById('tabs').style.display='';
-  const isAdmin=CURRENT.role==='admin', trav=CURRENT.role==='orientatore';
+  const isAdmin=CURRENT.role==='admin', trav=!!CURRENT.travelerId;
   const q=s=>document.querySelector(s);
   const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display=isAdmin?'':'none';
   const vg=document.getElementById('viewSel').closest('.hgroup'); if(vg) vg.style.display=isAdmin?'':'none';
@@ -1235,7 +1241,7 @@ function openTrip(id){
   document.getElementById("tripTitle").textContent=id?"Modifica viaggio":"Nuovo viaggio";
   const travField=document.getElementById("tTrav").closest(".field");
   const travSel=document.getElementById("tTrav");
-  if(CURRENT.role==="orientatore"){
+  if(CURRENT.travelerId){
     const me=STATE.travelers.find(x=>x.id===CURRENT.travelerId);
     // chi condivide un "gruppo" con altri viaggiatori può inserire trasferte anche per loro, non solo
     // per sé (Luigi, 2026-09-26 — stessa idea già applicata al multi-riga: estesa a tutti gli

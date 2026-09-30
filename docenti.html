@@ -873,6 +873,13 @@ function baseIdentity(){
   const email=(typeof cloudUser==='function'?cloudUser():null);
   if(email){
     const role=roleForEmail(email);
+    // il "tag" extra_roles può rendere docente anche chi ha ruolo primario diverso (es. un
+    // orientatore con tag Docente): interfaceId va popolato in base a TUTTI i ruoli effettivi, non
+    // solo quello primario, altrimenti "Nuova attività"/i filtri restano nascosti pur essendo la tab
+    // visibile (Luigi, 2026-09-30 — stesso bug simmetrico trovato in Spese EC con Davide Gallina)
+    const u=(STATE.appUsers||{})[email.toLowerCase()];
+    const hasDocente = role==='docente' || ((u&&u.extra_roles)||[]).includes('docente');
+    const iface = hasDocente ? findInterfaceByEmail(email) : null;
     if(role==='admin'){
       // un vecchio "Entra come" locale (STATE.localIdentity, schermata di login offline/demo) non deve
       // mai sovrascrivere un ruolo admin reale confermato dal cloud — bug reale: un localIdentity rimasto
@@ -882,11 +889,10 @@ function baseIdentity(){
       return {role:'admin',interfaceId:null,preview:false,email,name:null};
     }
     if(role==='docente'){
-      const i=findInterfaceByEmail(email);
-      if(i) return {role:'docente',interfaceId:i.id,preview:false,email,name:i.nome};
+      if(iface) return {role:'docente',interfaceId:iface.id,preview:false,email,name:iface.nome};
       return {role:'none',interfaceId:null,preview:false,email,name:null};
     }
-    if(role==='orientatore') return {role:'orientatore',interfaceId:null,preview:false,email,name:null};
+    if(role==='orientatore') return {role:'orientatore',interfaceId:iface?iface.id:null,preview:false,email,name:iface?iface.nome:null};
     if(role==='superuser') return {role:'superuser',interfaceId:null,preview:false,email,name:null};
     return {role:'none',interfaceId:null,preview:false,email,name:null};
   }
@@ -900,7 +906,7 @@ function effectiveIdentity(){
   return base;
 }
 // docente = filtro su TUTTI i docenti collegati alla mia interfaccia; admin = filtro opzionale su un singolo docente (Vista)
-function myTeacherIds(){ return CURRENT.role==='docente' && CURRENT.interfaceId ? teachersOfInterface(CURRENT.interfaceId).map(t=>t.id) : null; }
+function myTeacherIds(){ return CURRENT.interfaceId ? teachersOfInterface(CURRENT.interfaceId).map(t=>t.id) : null; }
 function myFilter(){ return STATE.view!=="ALL"?STATE.view:null; }
 function tabVisible(tool,tabKey,role){
   const cfg=STATE.tabVisibility&&STATE.tabVisibility[tool]&&STATE.tabVisibility[tool][tabKey];
@@ -974,7 +980,7 @@ function applyRole(){
   CURRENT=effectiveIdentity();
   document.querySelector('main').style.display='';
   document.getElementById('tabs').style.display='';
-  const isAdmin=CURRENT.role==='admin', teach=CURRENT.role==='docente', manage=canManage();
+  const isAdmin=CURRENT.role==='admin', teach=!!CURRENT.interfaceId, manage=canManage();
   const q=s=>document.querySelector(s);
   const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display=isAdmin?'':'none'; // Admin panel: mai al Superuser, solo Admin vero
   const vg=document.getElementById('viewSel').closest('.hgroup'); if(vg) vg.style.display=manage?'':'none';
@@ -1042,7 +1048,7 @@ function scopedTipi(){
   return (sc.tipologia && sc.tipologia.length) ? TIPI.filter(t=>sc.tipologia.includes(t)) : TIPI;
 }
 function visibleActivities(){
-  if(CURRENT.role==='docente'){ const ids=myTeacherIds()||[]; return STATE.activities.filter(a=>ids.includes(a.teacher_id)); }
+  if(CURRENT.interfaceId){ const ids=myTeacherIds()||[]; return STATE.activities.filter(a=>ids.includes(a.teacher_id)); }
   const f=myFilter();
   let list=f?STATE.activities.filter(a=>a.teacher_id===f):STATE.activities;
   if(CURRENT.role==='superuser') list=list.filter(activityInScope);
@@ -1321,7 +1327,7 @@ function buildOutlookLink(a){
     // catena che riporta al pannello "Nuovo evento" precompilato e si atterra sulla mail. login_hint
     // da solo basta a precompilare la schermata quando un login serve davvero.
   ];
-  if(CURRENT.role==='docente' && t && t.email) params.push(['to',t.email]);
+  if(CURRENT.interfaceId && t && t.email) params.push(['to',t.email]);
   // "path" resta con gli slash non codificati (come nel deeplink Outlook di riferimento): solo un
   // valore fisso e sicuro, non contenuto utente
   const qs=params.filter(([,v])=>v!=='').map(([k,v])=> k==='path' ? `${k}=${v}` : `${k}=${encodeURIComponent(v)}`).join('&');
@@ -2259,7 +2265,7 @@ function updateLuogoField(){
 // quelle dell'interfaccia del docente selezionato (admin che inserisce per conto di qualcuno).
 function currentAreaOptions(){
   let iface=null;
-  if(CURRENT.role==='docente') iface=interfaceById(CURRENT.interfaceId);
+  if(CURRENT.interfaceId) iface=interfaceById(CURRENT.interfaceId);
   else{ const t=teacherById(document.getElementById("aTeacher").value); iface=t&&t.interface_id?interfaceById(t.interface_id):null; }
   return iface?(iface.aree||[]):[];
 }
@@ -2477,7 +2483,7 @@ function openActivity(id){
   const tf=document.getElementById("aTeacherField");
   const teacherSel=document.getElementById("aTeacher");
   tf.style.display="";
-  if(CURRENT.role==="docente"){
+  if(CURRENT.interfaceId){
     const mine=teachersOfInterface(CURRENT.interfaceId);
     teacherSel.innerHTML=mine.map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join("")+`<option value="__new__">+ Aggiungi nuovo docente…</option>`;
     const self=mine.find(t=>t.nome===CURRENT.name);
