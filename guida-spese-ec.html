@@ -1,0 +1,676 @@
+<!DOCTYPE html>
+<html lang="it">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Guida Spese EC NABA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  color-scheme: light;
+  --tut-bg:#15171C; --tut-bg2:#1B1E24; --tut-panel:#20232A; --tut-line:#2E323B;
+  --tut-ink:#F1EFE8; --tut-ink-soft:#AEB2BC; --tut-ink-mute:#787D89;
+  --tut-accent:#E0A23B; --tut-accent-ink:#1B1508;
+  --tut-cursor:#3B82F6; --tut-cursor-soft:rgba(59,130,246,.22);
+  --mk-paper:#F5F3EC; --mk-surface:#FFFFFF; --mk-surface2:#FBFAF6;
+  --mk-ink:#1B1D19; --mk-ink-soft:#5F6459; --mk-ink-mute:#93968A;
+  --mk-line:#E4E1D5; --mk-line-strong:#D2CEBD;
+  --mk-accent:#2E6B54; --mk-accent-soft:#E3EFE8; --mk-accent-ink:#1F4E3D;
+  --mk-warn:#C1892E; --mk-warn-soft:#F7ECD9;
+  --mk-info:#6B5B95; --mk-info-soft:#ECE7F5;
+  --mk-over:#B5462F; --mk-over-soft:#F7E4DD;
+  --mk-speso:#2E3532;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){ color-scheme: dark; }
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--tut-bg);color:var(--tut-ink);font-family:'Inter',system-ui,sans-serif;-webkit-font-smoothing:antialiased}
+.wrap{max-width:900px;margin:0 auto;padding:28px 16px 40px;display:flex;flex-direction:column;gap:16px}
+.hd{display:flex;align-items:baseline;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.hd h1{font-size:19px;margin:0;font-weight:800;letter-spacing:-.01em}
+.hd .eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--tut-ink-mute);font-weight:600}
+.hd-right{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--tut-ink-mute)}
+
+/* ---- stage (mockup frame) ---- */
+.stage-shell{position:relative;border-radius:16px;overflow:hidden;box-shadow:0 20px 60px -20px rgba(0,0,0,.6),0 1px 0 rgba(255,255,255,.04) inset;border:1px solid var(--tut-line);background:var(--mk-paper)}
+.stage{position:relative;min-height:400px}
+.stage.fade{animation:stageFade .35s ease}
+@keyframes stageFade{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:translateY(0)}}
+
+#cursor{position:absolute;width:30px;height:30px;margin:-15px 0 0 -15px;pointer-events:none;z-index:40;transition:left .7s cubic-bezier(.22,.68,0,1.01),top .7s cubic-bezier(.22,.68,0,1.01),opacity .25s;opacity:0}
+#cursor.on{opacity:1}
+#cursor svg{width:30px;height:30px;filter:drop-shadow(0 3px 6px rgba(0,0,0,.35))}
+#cursor .ring{position:absolute;inset:-9px;border-radius:50%;background:var(--tut-cursor-soft);animation:ringPulse 1.6s ease-out infinite}
+@keyframes ringPulse{0%{transform:scale(.6);opacity:.9}100%{transform:scale(1.9);opacity:0}}
+
+#highlight{position:absolute;border:2.5px solid var(--tut-cursor);border-radius:10px;box-shadow:0 0 0 4000px rgba(15,17,20,.38),0 0 0 3px rgba(59,130,246,.18);pointer-events:none;z-index:30;transition:left .55s cubic-bezier(.22,.68,0,1.01),top .55s cubic-bezier(.22,.68,0,1.01),width .55s cubic-bezier(.22,.68,0,1.01),height .55s cubic-bezier(.22,.68,0,1.01),opacity .25s;opacity:0}
+#highlight.on{opacity:1}
+
+.start-overlay{position:absolute;inset:0;z-index:50;background:linear-gradient(180deg,rgba(21,23,28,.94),rgba(21,23,28,.985));display:flex;align-items:center;justify-content:center;text-align:center;padding:28px}
+.start-overlay.hidden{display:none}
+.start-card{max-width:420px;display:flex;flex-direction:column;gap:14px;align-items:center}
+.start-card .eyebrow{color:var(--tut-accent);font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;font-weight:700}
+.start-card h2{margin:0;font-size:24px;font-weight:800;color:var(--tut-ink);letter-spacing:-.01em}
+.start-card p{margin:0;color:var(--tut-ink-soft);font-size:14px;line-height:1.6}
+.play-btn{display:inline-flex;align-items:center;gap:10px;background:var(--tut-accent);color:var(--tut-accent-ink);border:0;border-radius:999px;padding:13px 26px;font-family:'Inter',sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 10px 26px -8px rgba(224,162,59,.55)}
+.play-btn:hover{filter:brightness(1.06)}
+.play-btn svg{width:18px;height:18px}
+.start-hint{font-size:11.5px;color:var(--tut-ink-mute)}
+
+/* ---- controls ---- */
+.controls{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.ctrl-btn{display:inline-flex;align-items:center;justify-content:center;gap:7px;background:var(--tut-panel);border:1px solid var(--tut-line);color:var(--tut-ink);border-radius:10px;padding:9px 14px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;cursor:pointer}
+.ctrl-btn:hover{border-color:#454955}
+.ctrl-btn:disabled{opacity:.4;cursor:default}
+.ctrl-btn svg{width:15px;height:15px}
+.ctrl-btn.primary{background:var(--tut-accent);color:var(--tut-accent-ink);border-color:transparent}
+.ctrl-btn.active{color:var(--tut-accent);border-color:rgba(224,162,59,.45)}
+#btnSpeed{min-width:44px;justify-content:center;font-variant-numeric:tabular-nums}
+.ctrl-sp{flex:1}
+.stage-shell.speed2x #cursor{transition:left .35s cubic-bezier(.22,.68,0,1.01),top .35s cubic-bezier(.22,.68,0,1.01),opacity .18s}
+.stage-shell.speed2x #highlight{transition:left .28s cubic-bezier(.22,.68,0,1.01),top .28s cubic-bezier(.22,.68,0,1.01),width .28s cubic-bezier(.22,.68,0,1.01),height .28s cubic-bezier(.22,.68,0,1.01),opacity .18s}
+.voice-toggle{display:inline-flex;align-items:center;gap:7px;font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--tut-ink-mute);background:var(--tut-panel);border:1px solid var(--tut-line);border-radius:10px;padding:9px 12px;cursor:pointer}
+.voice-toggle.off{color:var(--tut-ink-mute)}
+.voice-toggle.on{color:var(--tut-accent);border-color:rgba(224,162,59,.4)}
+.voice-toggle svg{width:14px;height:14px}
+
+.progress-row{display:flex;align-items:center;gap:10px}
+.progress-track{flex:1;height:5px;border-radius:99px;background:var(--tut-line);overflow:hidden}
+.progress-fill{height:100%;background:var(--tut-accent);border-radius:99px;transition:width .35s ease}
+.progress-label{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--tut-ink-mute);white-space:nowrap}
+
+.section-strip{display:flex;gap:6px;flex-wrap:wrap}
+.section-chip{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.07em;text-transform:uppercase;padding:5px 10px;border-radius:999px;background:var(--tut-panel);border:1px solid var(--tut-line);color:var(--tut-ink-mute);font-weight:600}
+.section-chip.on{color:var(--tut-accent);border-color:rgba(224,162,59,.45);background:rgba(224,162,59,.1)}
+
+.caption-card{background:var(--tut-panel);border:1px solid var(--tut-line);border-radius:14px;padding:18px 20px;min-height:78px;display:flex;align-items:center}
+.caption-card p{margin:0;font-size:15.5px;line-height:1.55;color:var(--tut-ink)}
+.caption-card .say{display:inline-flex;align-items:center;gap:6px;color:var(--tut-accent);margin-right:2px}
+
+.foot-note{font-size:11.5px;color:var(--tut-ink-mute);text-align:center;line-height:1.6}
+
+@media (max-width:560px){
+  .hd{flex-direction:column;align-items:flex-start}
+  .stage{min-height:340px}
+}
+
+/* =====================================================================
+   Mockup styles — riprendono esattamente la palette/tipografia reale
+   del tool Spese EC (Inter + JetBrains Mono, stessi colori badge)
+   ===================================================================== */
+.mk{font-family:'Inter',sans-serif;color:var(--mk-ink);background:var(--mk-paper);font-size:13.5px}
+.mk-topbar{background:#14161B;color:#EDEBE2;display:flex;align-items:center;gap:10px;padding:13px 20px}
+.mk-brand b{font-weight:800;font-size:16px}
+.mk-brand span{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.14em;text-transform:uppercase;color:#9DA39C;margin-left:8px}
+.mk-tabs{display:flex;gap:4px;background:var(--mk-surface2);border:1px solid var(--mk-line);border-radius:12px;padding:5px;margin:16px 20px}
+.mk-tab{background:none;border:0;border-radius:8px;padding:8px 14px;font-size:12.5px;font-weight:600;color:var(--mk-ink-soft);font-family:'Inter',sans-serif}
+.mk-tab.on{background:var(--mk-ink);color:var(--mk-paper)}
+.mk-banner{margin:0 20px 16px;background:var(--mk-accent-soft);color:var(--mk-accent-ink);border:1px solid rgba(46,107,84,.25);border-radius:11px;padding:12px 16px;font-size:13px;line-height:1.5}
+.mk-banner b{font-weight:700}
+.mk-pad{padding:0 20px 22px}
+.mk-h1{display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;flex-wrap:wrap;gap:10px}
+.mk-h1 h2{font-size:18px;margin:0;font-weight:800}
+.mk-h1 .sub{font-family:'JetBrains Mono',monospace;font-size:10.5px;color:var(--mk-ink-mute)}
+.mk-btn{display:inline-flex;align-items:center;gap:7px;background:var(--mk-accent);color:#fff;border:0;border-radius:10px;padding:10px 16px;font-size:13px;font-weight:700;font-family:'Inter',sans-serif}
+.mk-btn svg{width:15px;height:15px}
+.mk-btn.ghost{background:var(--mk-surface);color:var(--mk-ink);border:1px solid var(--mk-line-strong)}
+.mk-btn.small{padding:6px 11px;font-size:12px}
+.mk-card{background:var(--mk-surface);border:1px solid var(--mk-line);border-radius:13px;overflow:hidden;box-shadow:0 1px 2px rgba(0,0,0,.03)}
+.mk-card.form{overflow:visible}
+.mk-badge{display:inline-block;font-size:10px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap}
+.mk-badge.warn{background:var(--mk-warn-soft);color:var(--mk-warn)}
+.mk-badge.ok{background:var(--mk-accent-soft);color:var(--mk-accent)}
+.mk-badge.trace{background:var(--mk-info-soft);color:var(--mk-info)}
+.mk-badge.speso{background:var(--mk-surface2);color:var(--mk-speso)}
+.mk-badge.rev{background:var(--mk-over-soft);color:var(--mk-over)}
+.mk-iconbtn{width:28px;height:28px;border-radius:7px;border:1px solid var(--mk-line-strong);background:var(--mk-surface);display:inline-flex;align-items:center;justify-content:center;color:var(--mk-ink-soft)}
+.mk-iconbtn svg{width:14px;height:14px}
+.mk-iconbtn.x{color:var(--mk-over)}
+.mk-iconbtn.check{color:var(--mk-accent)}
+
+.mk-form{display:flex;flex-direction:column;gap:14px}
+.mk-grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.mk-field{position:relative}
+.mk-field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--mk-ink-mute);margin-bottom:6px}
+.mk-dropdown-pop{position:absolute;left:0;top:100%;margin-top:4px;min-width:150px;width:max-content;max-width:230px;background:var(--mk-surface);border:1px solid var(--mk-line-strong);border-radius:10px;box-shadow:0 14px 30px -10px rgba(0,0,0,.3);padding:5px;z-index:35;opacity:0;transform:translateY(-4px);pointer-events:none;transition:opacity .3s,transform .3s}
+.mk-dropdown-pop.show{opacity:1;transform:translateY(0)}
+.mk-dropdown-pop .opt{padding:7px 10px;border-radius:7px;font-size:12.5px;color:var(--mk-ink-soft);white-space:nowrap}
+.mk-dropdown-pop .opt.sel{background:var(--mk-accent-soft);color:var(--mk-accent-ink);font-weight:700}
+.mk-dropdown-pop .opt.add{color:var(--mk-accent);font-weight:700;border-top:1px solid var(--mk-line);margin-top:3px;padding-top:9px}
+.mk-field label b.req{color:var(--mk-over)}
+.mk-help{display:inline-flex;align-items:center;justify-content:center;width:16px;height:16px;border-radius:50%;border:1.4px solid var(--mk-accent);color:var(--mk-accent);font-weight:700;font-size:9.5px;margin-left:5px;vertical-align:middle}
+.mk-input,.mk-select,.mk-textarea{width:100%;border:1px solid var(--mk-line-strong);border-radius:9px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:13px;background:var(--mk-surface);color:var(--mk-ink)}
+.mk-input.ph,.mk-textarea.ph{color:var(--mk-ink-mute);font-style:italic}
+.mk-input[readonly]{background:var(--mk-surface2);color:var(--mk-ink-mute)}
+.mk-hint{font-size:11px;color:var(--mk-ink-mute);line-height:1.5}
+@media (max-width:640px){ .mk-grid2{grid-template-columns:1fr} }
+
+.mk-chips{display:flex;gap:7px;flex-wrap:wrap;margin-bottom:16px}
+.mk-chip{border:1px solid var(--mk-line-strong);background:var(--mk-surface);border-radius:20px;padding:6px 13px;font-size:12px;font-weight:600;color:var(--mk-ink-soft)}
+.mk-chip.on{background:var(--mk-ink);color:var(--mk-paper);border-color:var(--mk-ink)}
+
+.mk-toast{position:absolute;left:50%;bottom:18px;transform:translateX(-50%);background:#3A1712;color:#F9DCD3;border:1px solid #6E2A20;border-radius:10px;padding:11px 16px;font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:8px;box-shadow:0 10px 24px -8px rgba(0,0,0,.4);max-width:88%}
+.mk-toast svg{width:15px;height:15px;flex:none;color:#E38B78}
+
+.mk-outro{padding:64px 30px;text-align:center;display:flex;flex-direction:column;align-items:center;gap:14px}
+.mk-outro .badge-row{display:flex;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px}
+.mk-outro h2{margin:0;font-size:22px;font-weight:800}
+.mk-outro p{margin:0;color:var(--mk-ink-soft);max-width:420px;line-height:1.6}
+
+/* ---- riepilogo: KPI e albero mese→viaggiatore, fedeli alla schermata reale ---- */
+.mk-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:18px}
+.mk-kpi{position:relative;background:var(--mk-surface);border:1px solid var(--mk-line);border-radius:12px;padding:12px 14px;overflow:hidden}
+.mk-kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bar)}
+.mk-kpi .l{display:flex;align-items:center;gap:6px;margin-bottom:7px}
+.mk-kpi .sw{width:7px;height:7px;border-radius:2px;flex:none}
+.mk-kpi .eyebrow{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.07em;text-transform:uppercase;color:var(--mk-ink-mute);font-weight:700}
+.mk-kpi .v{font-size:20px;font-weight:800;line-height:1.1}
+.mk-kpi .sub{font-size:10px;color:var(--mk-ink-mute);margin-top:3px;line-height:1.4}
+@media (max-width:640px){ .mk-kpis{grid-template-columns:1fr} }
+.mk-node{background:var(--mk-surface);border:1px solid var(--mk-line);border-radius:12px;overflow:hidden}
+.mk-node.current{border-left:3px solid var(--mk-accent)}
+.mk-node-row{display:flex;align-items:center;gap:12px;padding:13px 15px;flex-wrap:wrap}
+.mk-twisty{width:15px;height:15px;color:var(--mk-ink-mute);transform:rotate(90deg);flex:none}
+.mk-node-title{font-weight:700;font-size:13.5px}
+.mk-node-sub{font-size:10.5px;color:var(--mk-ink-mute);margin-top:2px}
+.mk-riepstats{display:flex;gap:16px;margin-left:auto}
+.mk-riepstat .rl{display:block;font-family:'JetBrains Mono',monospace;font-size:8px;letter-spacing:.06em;text-transform:uppercase;font-weight:700}
+.mk-riepstat.prog .rl{color:var(--mk-warn)}
+.mk-riepstat.done .rl{color:var(--mk-accent)}
+.mk-riepstat .rv{display:block;font-size:10.5px;color:var(--mk-ink-soft);white-space:nowrap}
+@media (max-width:640px){ .mk-riepstats{width:100%;margin-left:0;gap:20px} }
+.mk-node-children{border-top:1px solid var(--mk-line)}
+.mk-docente-row{display:flex;align-items:center;gap:12px;padding:11px 15px 11px 32px;border-bottom:1px solid var(--mk-line);flex-wrap:wrap}
+.mk-docente-row:last-child{border-bottom:0}
+
+/* ---- Spese EC: trasferte/voci, form multi-riga, calendario a icone ---- */
+.mk-trip{background:var(--mk-surface);border:1px solid var(--mk-line);border-radius:13px;overflow:hidden;margin-bottom:12px}
+.mk-trip-h{display:flex;align-items:center;gap:12px;padding:13px 16px;border-bottom:1px solid var(--mk-line);flex-wrap:wrap}
+.mk-trip-h .who{font-weight:700;font-size:14px}
+.mk-trip-h .tagw{font-size:9.5px;font-weight:700;font-family:'JetBrains Mono',monospace;background:var(--mk-surface2);color:var(--mk-ink-soft);border-radius:6px;padding:2px 7px;margin-left:6px;text-transform:uppercase;letter-spacing:.04em}
+.mk-trip-h .meta{font-size:11.5px;color:var(--mk-ink-mute);margin-top:2px}
+.mk-trip-h .tot{margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14px}
+.mk-trip-body{padding:2px 16px 12px}
+.mk-item-row{display:flex;align-items:center;gap:10px;padding:9px 0;border-bottom:1px dashed var(--mk-line);flex-wrap:wrap}
+.mk-item-row:last-child{border-bottom:0}
+.mk-item-row.annull{opacity:.5;text-decoration:line-through}
+.mk-item-row .ty{min-width:100px;font-weight:600;font-size:12.5px}
+.mk-item-row .cat{flex:1;min-width:150px}
+.mk-item-row .dt{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--mk-ink-mute)}
+.mk-item-row .amt{font-family:'JetBrains Mono',monospace;font-weight:700;min-width:76px;text-align:right}
+.mk-item-acts{display:inline-flex;gap:5px;margin-left:auto}
+.mk-tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;padding:3px 7px;border-radius:6px;background:var(--mk-surface2);color:var(--mk-ink-soft)}
+
+.mk-itemrows{display:flex;flex-direction:column;gap:10px;margin-bottom:4px}
+.mk-itemrow-line{display:grid;grid-template-columns:1fr .85fr 1fr .85fr .85fr 26px;gap:8px;align-items:end}
+.mk-itemrow-line .mk-field label{font-size:8px}
+.mk-itemrow-line .mk-input{padding:8px 8px;font-size:12px}
+.mk-itemrow-del{align-self:end;width:26px;height:26px;border-radius:6px;border:1px solid var(--mk-line-strong);background:var(--mk-surface);color:var(--mk-ink-mute);display:inline-flex;align-items:center;justify-content:center}
+.mk-itemrow-del svg{width:12px;height:12px}
+@media (max-width:640px){ .mk-itemrow-line{grid-template-columns:1fr} }
+.mk-itemtotal{text-align:right;font-weight:700;font-size:13.5px;margin:2px 0 4px}
+
+.mk-calgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--mk-line);border:1px solid var(--mk-line);border-radius:11px;overflow:hidden}
+.mk-caldow{background:var(--mk-surface2);padding:6px 3px;text-align:center;font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.05em;text-transform:uppercase;color:var(--mk-ink-mute)}
+.mk-calcell{background:var(--mk-surface);min-height:62px;padding:5px;display:flex;flex-direction:column;gap:3px}
+.mk-calcell.blank{background:var(--mk-surface2)}
+.mk-caldn{font-size:10px;color:var(--mk-ink-mute);font-weight:600}
+.mk-calentry{display:flex;align-items:center;gap:4px;font-size:9px;padding:2px 4px;border-radius:5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--mk-ink)}
+.mk-calentry svg{width:10px;height:10px;flex:none}
+.mk-calentry.muted{color:var(--mk-ink-mute);opacity:.65}
+@media (max-width:640px){ .mk-calcell{min-height:46px} .mk-calentry{font-size:8px} }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <div class="hd">
+    <div>
+      <div class="eyebrow">Nabasuite · Spese EC</div>
+      <h1>Guida passo passo per le spese di trasferta</h1>
+    </div>
+    <div class="hd-right" id="stepLabel">Passo 0 / 0</div>
+  </div>
+
+  <div class="stage-shell">
+    <div class="stage" id="stage"></div>
+    <div id="highlight"></div>
+    <div id="cursor"><div class="ring"></div>
+      <svg viewBox="0 0 24 24" fill="none"><path d="M4 3l7 17 2.2-7.1L20 10.8 4 3z" fill="var(--tut-cursor)" stroke="#0b1220" stroke-width="1.2" stroke-linejoin="round"/></svg>
+    </div>
+    <div class="mk-toast" id="toast" style="display:none"></div>
+
+    <div class="start-overlay" id="startOverlay">
+      <div class="start-card">
+        <div class="eyebrow">Tutorial guidato · ~4 minuti</div>
+        <h2>Come usare il tool Spese EC</h2>
+        <p>Un cursore animato ti mostra dove cliccare, con una voce che spiega ogni passaggio: come registrare un viaggio, inserire le spese e ritrovarle quando ti servono.</p>
+        <button class="play-btn" id="btnStart"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Avvia il tutorial</button>
+        <div class="start-hint">Serve un clic per attivare l'audio del browser — puoi anche seguirlo solo leggendo, con l'audio spento.</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="caption-card"><p id="caption">Premi "Avvia il tutorial" per cominciare.</p></div>
+
+  <div class="progress-row">
+    <div class="progress-track"><div class="progress-fill" id="progressFill" style="width:0%"></div></div>
+    <div class="progress-label" id="progressLabel">0 / 0</div>
+  </div>
+
+  <div class="section-strip" id="sectionStrip"></div>
+
+  <div class="controls">
+    <button class="ctrl-btn" id="btnPrev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M15 18l-6-6 6-6"/></svg>Indietro</button>
+    <button class="ctrl-btn primary" id="btnPlay"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Play</button>
+    <button class="ctrl-btn" id="btnNext">Avanti<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg></button>
+    <div class="ctrl-sp"></div>
+    <button class="ctrl-btn" id="btnSpeed" title="Raddoppia la velocità di riproduzione (voce e avanzamento)">1×</button>
+    <button class="voice-toggle on" id="btnVoice"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M4 9v6h4l5 5V4L8 9H4z"/></svg><span id="voiceLabel">Voce attiva</span></button>
+    <button class="ctrl-btn" id="btnRestart"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg>Riavvia</button>
+  </div>
+
+  <div class="foot-note">Ricostruzione fedele delle schermate reali del tool Spese EC, a scopo didattico — non è una registrazione dell'applicazione live.</div>
+</div>
+
+<script>
+(function(){
+"use strict";
+var reduceMotion = window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+/* ============================== SCENE TEMPLATES ============================== */
+var ICON = {
+  plus:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M12 5v14M5 12h14"/></svg>',
+  check:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M20 6L9 17l-5-5"/></svg>',
+  x:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><path d="M18 6L6 18M6 6l12 12"/></svg>',
+  edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>',
+  warn:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 9v4M12 17h.01M10.3 3.9L2.5 17a2 2 0 0 0 1.7 3h15.6a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0z"/></svg>'
+};
+var CAL_ICON = {
+  speso:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--mk-accent)"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>',
+  annullato:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--mk-ink-mute)"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>',
+  allocato:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--mk-warn)"/><rect x="11" y="6.5" width="2" height="7" rx="1" fill="#fff"/><rect x="11" y="15.5" width="2" height="2" rx="1" fill="#fff"/></svg>'
+};
+
+function tabbar(active){
+  var tabs=['Le mie trasferte','Il mio riepilogo','Calendario','Impostazioni'];
+  return '<div class="mk-tabs" data-tut="tabs">'+tabs.map(function(t){return '<button class="mk-tab'+(t===active?' on':'')+'">'+t+'</button>';}).join('')+'</div>';
+}
+function topbar(){
+  return '<div class="mk-topbar" data-tut="brand"><span class="mk-brand"><b>Spese EC</b><span>NABA · TRASFERTE ORIENTATORI</span></span></div>';
+}
+function banner(){
+  return '<div class="mk-banner" data-tut="banner">Accesso utente: <b>Andrea Arrigoni</b>. Vedi e inserisci solo le tue spese.</div>';
+}
+
+var SCENES = {
+
+intro: function(){
+  return '<div class="mk">'+topbar()+tabbar('Le mie trasferte')+banner()+
+  '<div class="mk-pad"><div class="mk-hint" style="padding:40px 0;text-align:center">Le tue trasferte compariranno qui sotto.</div></div></div>';
+},
+
+lista: function(){
+  return '<div class="mk">'+topbar()+tabbar('Le mie trasferte')+banner()+
+  '<div class="mk-pad">'+
+    '<div class="mk-h1"><div><h2>Trasferte</h2><div class="sub">2 trasferte · 4 voci</div></div>'+
+      '<button class="mk-btn" data-tut="nuovo-btn">'+ICON.plus+'Nuovo viaggio</button></div>'+
+    '<div class="mk-trip" data-tut="trip-card">'+
+      '<div class="mk-trip-h">'+
+        '<div><div class="who">Andrea Arrigoni<span class="tagw">no-staff</span></div>'+
+        '<div class="meta">Orientamento Puglia · 06/10→08/10 · inserito da Andrea Arrigoni</div></div>'+
+        '<span class="tot">€ 412,00</span>'+
+      '</div>'+
+      '<div class="mk-trip-body" data-tut="item-rows">'+
+        '<div class="mk-item-row" data-tut="row-allocato">'+
+          '<span class="ty">Treno</span><span class="cat"><span class="mk-tag">VIAGGI TRASF. ALTRI NO STAFF</span></span>'+
+          '<span class="dt">06/10</span><span class="mk-badge warn" data-tut="row-allocato-badge">allocato stima</span>'+
+          '<span class="amt">€ 86,00</span>'+
+          '<span class="mk-item-acts" data-tut="row-allocato-actions"><span class="mk-iconbtn">'+ICON.edit+'</span><span class="mk-iconbtn x">'+ICON.x+'</span></span>'+
+        '</div>'+
+        '<div class="mk-item-row" data-tut="row-speso">'+
+          '<span class="ty">Hotel</span><span class="cat"><span class="mk-tag">ALBERGHI RIST. NO STAFF</span></span>'+
+          '<span class="dt">20/09</span><span class="mk-badge speso" data-tut="row-speso-badge">speso stima</span>'+
+          '<span class="amt">€ 220,00</span>'+
+        '</div>'+
+        '<div class="mk-item-row annull" data-tut="row-annull">'+
+          '<span class="ty">Rimborso km</span><span class="cat"><span class="mk-tag">VIAGGI TRASF. ALTRI NO STAFF</span></span>'+
+          '<span class="dt">07/10</span><span class="mk-badge rev" data-tut="row-annull-badge">annullata</span>'+
+          '<span class="amt">€ 36,00</span>'+
+        '</div>'+
+        '<button type="button" class="mk-btn ghost small" data-tut="add-item-btn" style="margin-top:8px">'+ICON.plus+'Aggiungi voce</button>'+
+      '</div>'+
+    '</div>'+
+  '</div></div>';
+},
+
+tripForm: function(){
+  return '<div class="mk">'+topbar()+
+  '<div class="mk-pad" style="padding-top:18px">'+
+    '<div class="mk-h1"><h2>Nuovo viaggio</h2></div>'+
+    '<div class="mk-card form" style="padding:18px 18px 20px">'+
+    '<div class="mk-form">'+
+      '<div class="mk-grid2">'+
+        '<div class="mk-field" data-tut="t-viaggiatore"><label>Viaggiatore <b class="req">*</b></label><select class="mk-select"><option>Andrea Arrigoni</option><option>Angelo Sarleti</option></select>'+
+          '<div class="mk-dropdown-pop" data-tut="t-viaggiatore-pop"><div class="opt sel">Andrea Arrigoni</div><div class="opt">Angelo Sarleti</div></div>'+
+        '</div>'+
+        '<div class="mk-field" data-tut="t-inseritore"><label>Inseritore</label><input class="mk-input" readonly value="Andrea Arrigoni"></div>'+
+      '</div>'+
+      '<div class="mk-field" data-tut="t-scopo"><label>Scopo <b class="req">*</b></label><input class="mk-input" value="Orientamento Puglia"></div>'+
+      '<div class="mk-grid2" data-tut="t-date">'+
+        '<div class="mk-field"><label>Data inizio <b class="req">*</b></label><input class="mk-input" value="06/10/2026"></div>'+
+        '<div class="mk-field"><label>Data fine <b class="req">*</b></label><input class="mk-input" value="08/10/2026"></div>'+
+      '</div>'+
+      '<div class="mk-field" data-tut="t-note"><label>Note</label><textarea class="mk-textarea ph" rows="2">facoltative</textarea></div>'+
+      '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px">'+
+        '<button class="mk-btn" data-tut="t-save">'+ICON.check+'Salva</button>'+
+      '</div>'+
+    '</div></div>'+
+  '</div></div>';
+},
+
+itemForm: function(){
+  return '<div class="mk">'+topbar()+
+  '<div class="mk-pad" style="padding-top:18px">'+
+    '<div class="mk-h1"><h2>Nuova voce</h2></div>'+
+    '<div class="mk-card form" style="padding:18px 18px 20px">'+
+    '<div class="mk-form">'+
+      '<div class="mk-grid2">'+
+        '<div class="mk-field" data-tut="i-tipo"><label>Tipologia <b class="req">*</b></label><select class="mk-select"><option>Volo</option><option selected>Treno</option><option>Noleggio auto</option><option>Hotel</option><option>Rimborso km</option><option>Altro</option></select>'+
+          '<div class="mk-dropdown-pop" data-tut="i-tipo-pop"><div class="opt">Volo</div><div class="opt sel">Treno</div><div class="opt">Noleggio auto</div><div class="opt">Hotel</div><div class="opt">Rimborso km</div><div class="opt">Altro</div></div>'+
+        '</div>'+
+        '<div class="mk-field" data-tut="i-fornitore"><label>Fornitore</label><select class="mk-select"><option>Trenitalia</option></select>'+
+          '<div class="mk-dropdown-pop" data-tut="i-fornitore-pop"><div class="opt sel">Trenitalia</div><div class="opt">Uvet</div><div class="opt add">+ Aggiungi nuovo fornitore…</div></div>'+
+        '</div>'+
+      '</div>'+
+      '<div class="mk-field"><label>Rif. actual (fattura/nota spese)</label><input class="mk-input ph" placeholder="es. fattura 2026-045"></div>'+
+      '<div class="mk-itemrows" data-tut="i-rows">'+
+        '<div class="mk-itemrow-line">'+
+          '<div class="mk-field"><label>Importo € (IVA incl. 22%) <b class="req">*</b></label><input class="mk-input" value="86,00"></div>'+
+          '<div class="mk-field"><label>Data acquisto <b class="req">*</b></label><input class="mk-input" value="28/09/2026"></div>'+
+          '<div class="mk-field"><label>Rif. prenotazione</label><input class="mk-input ph" placeholder="facoltativo"></div>'+
+          '<div class="mk-field"><label>Servizio da <b class="req">*</b></label><input class="mk-input" value="06/10/2026"></div>'+
+          '<div class="mk-field"><label>Servizio a <b class="req">*</b></label><input class="mk-input" value="06/10/2026"></div>'+
+          '<span></span>'+
+        '</div>'+
+        '<div class="mk-itemrow-line" data-tut="i-row2">'+
+          '<div class="mk-field"><label>Importo € (IVA incl. 22%) <b class="req">*</b></label><input class="mk-input" value="92,00"></div>'+
+          '<div class="mk-field"><label>Data acquisto <b class="req">*</b></label><input class="mk-input" value="28/09/2026"></div>'+
+          '<div class="mk-field"><label>Rif. prenotazione</label><input class="mk-input ph" placeholder="facoltativo"></div>'+
+          '<div class="mk-field"><label>Servizio da <b class="req">*</b></label><input class="mk-input" value="08/10/2026"></div>'+
+          '<div class="mk-field"><label>Servizio a <b class="req">*</b></label><input class="mk-input" value="08/10/2026"></div>'+
+          '<button type="button" class="mk-itemrow-del">'+ICON.x+'</button>'+
+        '</div>'+
+      '</div>'+
+      '<button type="button" class="mk-btn ghost small" data-tut="i-add-row" style="align-self:flex-start">+ aggiungi riga</button>'+
+      '<div class="mk-itemtotal" data-tut="i-total">Totale: € 178,00</div>'+
+      '<div class="mk-field" data-tut="i-note"><label>Note</label><textarea class="mk-textarea ph" rows="2">facoltative</textarea></div>'+
+      '<div style="display:flex;justify-content:flex-end;gap:10px;margin-top:4px">'+
+        '<button class="mk-btn" data-tut="i-save">'+ICON.check+'Salva voce</button>'+
+      '</div>'+
+    '</div></div>'+
+  '</div></div>';
+},
+
+calendario: function(){
+  var dow=['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+  var head=dow.map(function(d){ return '<div class="mk-caldow">'+d+'</div>'; }).join('');
+  var cells='';
+  var blanks=4; // il mese inizia di giovedì, per esempio
+  for(var i=0;i<blanks;i++) cells+='<div class="mk-calcell blank"></div>';
+  for(var d=1; d<=28; d++){
+    var entry='';
+    if(d===6) entry='<div class="mk-calentry" data-tut="cal-entry">'+CAL_ICON.allocato+'Arrigoni · Treno</div>';
+    if(d===8) entry='<div class="mk-calentry">'+CAL_ICON.allocato+'Arrigoni · Rimborso km</div>';
+    if(d===20) entry='<div class="mk-calentry">'+CAL_ICON.speso+'Arrigoni · Hotel</div>';
+    if(d===24) entry='<div class="mk-calentry muted" data-tut="cal-entry-annull">'+CAL_ICON.annullato+'Sarleti · Volo</div>';
+    cells+='<div class="mk-calcell"><div class="mk-caldn">'+d+'</div>'+entry+'</div>';
+  }
+  return '<div class="mk">'+topbar()+tabbar('Calendario')+banner()+
+  '<div class="mk-pad">'+
+    '<div class="mk-h1"><h2>Calendario</h2><div class="sub">Ottobre 2026</div></div>'+
+    '<div class="mk-chips" data-tut="cal-filters"><span class="mk-chip">Allocate</span><span class="mk-chip">Spese</span><span class="mk-chip">Annullate</span></div>'+
+    '<div class="mk-calgrid" data-tut="cal-grid">'+head+cells+'</div>'+
+  '</div></div>';
+},
+
+riepilogo: function(){
+  var riepstats=function(allocRv,spesoRv){
+    return '<div class="mk-riepstats">'+
+      '<div class="mk-riepstat prog"><span class="rl">Allocato</span><span class="rv">'+allocRv+'</span></div>'+
+      '<div class="mk-riepstat done"><span class="rl">Speso</span><span class="rv">'+spesoRv+'</span></div>'+
+    '</div>';
+  };
+  return '<div class="mk">'+topbar()+tabbar('Il mio riepilogo')+banner()+
+  '<div class="mk-pad">'+
+    '<div class="mk-chips" data-tut="r-chips">'+
+      '<span class="mk-chip on">Set \'26</span><span class="mk-chip">Ott \'26</span><span class="mk-chip">Nov \'26</span><span class="mk-chip">Dic \'26</span>'+
+    '</div>'+
+    '<div class="mk-hint" data-tut="r-filtri" style="margin-bottom:14px">▸ Filtri per viaggiatore e tipologia</div>'+
+    '<div class="mk-kpis" data-tut="r-kpis">'+
+      '<div class="mk-kpi" style="--bar:var(--mk-ink-mute)"><div class="l"><span class="sw" style="background:var(--mk-ink)"></span><span class="eyebrow">Totale stima</span></div><div class="v">€ 412</div><div class="sub">AF 2026–27 · IVA inclusa</div></div>'+
+      '<div class="mk-kpi" style="--bar:var(--mk-accent)"><div class="l"><span class="sw" style="background:var(--mk-speso)"></span><span class="eyebrow">Speso stima</span></div><div class="v">€ 220</div><div class="sub">mesi fino ad oggi</div></div>'+
+      '<div class="mk-kpi" style="--bar:var(--mk-warn)"><div class="l"><span class="sw" style="background:var(--mk-warn)"></span><span class="eyebrow">Allocato stima</span></div><div class="v">€ 192</div><div class="sub">mesi futuri</div></div>'+
+    '</div>'+
+    '<h2 style="font-size:14.5px;margin:2px 0 10px;font-weight:800">Mese in corso</h2>'+
+    '<div class="mk-node current" data-tut="r-node">'+
+      '<div class="mk-node-row">'+
+        '<svg class="mk-twisty" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4"><path d="M9 6l6 6-6 6"/></svg>'+
+        '<div><div class="mk-node-title">Ottobre 2026</div><div class="mk-node-sub">2 viaggiatori coinvolti</div></div>'+
+        '<div data-tut="r-stats">'+riepstats('1 voce · € 86,00','0 voci · € 0,00')+'</div>'+
+      '</div>'+
+      '<div class="mk-node-children" data-tut="r-viaggiatori">'+
+        '<div class="mk-docente-row"><div class="mk-node-title">Andrea Arrigoni</div>'+riepstats('1 voce · € 86,00','0 voci · € 0,00')+'</div>'+
+        '<div class="mk-docente-row"><div class="mk-node-title">Angelo Sarleti</div>'+riepstats('0 voci · € 0,00','0 voci · € 0,00')+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<h2 style="font-size:14.5px;margin:22px 0 10px;font-weight:800" data-tut="r-bycat">Per categoria budget</h2>'+
+    '<div class="mk-hint">Come queste stime si mappano sulle categorie del budget (staff / no-staff), nel periodo selezionato sopra.</div>'+
+  '</div></div>';
+},
+
+outro: function(){
+  return '<div class="mk"><div class="mk-outro" data-tut="outro-card">'+
+    '<div class="eyebrow" style="color:var(--mk-accent);font-family:\'JetBrains Mono\',monospace;font-size:10.5px;letter-spacing:.14em;text-transform:uppercase;font-weight:700">Hai finito la guida</div>'+
+    '<h2>Sei pronto per registrare le tue trasferte</h2>'+
+    '<p>Crea il viaggio, aggiungi le voci con gli importi IVA inclusa, e ritrovale sempre tutte in un posto solo. Le etichette allocato/speso sono automatiche: non devi gestirle, a te resta solo, se serve, l\'Annulla.</p>'+
+    '<div class="badge-row"><span class="mk-badge warn">allocato stima</span><span class="mk-badge speso">speso stima</span><span class="mk-badge rev">annullata</span></div>'+
+  '</div></div>';
+}
+};
+
+/* ============================== SCRIPT (passi) ============================== */
+var STEPS = [
+  {scene:'intro', section:'Benvenuto', target:'brand', caption:'Ciao! Sono la tua guida al tool Spese EC di NABA. In pochi minuti ti mostro come registrare un viaggio e inserire le tue spese, per ritrovarle sempre quando ti servono.', speech:'Ciao! Sono la tua guida al tool Spese EC di NABA. In pochi minuti ti mostro come registrare un viaggio e inserire le tue spese, per ritrovarle sempre quando ti servono.'},
+  {scene:'intro', section:'Benvenuto', target:'banner', caption:'Qui accedi direttamente con il tuo account: non c\'è un\'interfaccia intermedia come in Docenti, vedi e inserisci solo le tue trasferte e le tue spese.', speech:'Qui accedi direttamente con il tuo account: non c\'è un\'interfaccia intermedia come in Docenti, vedi e inserisci solo le tue trasferte e le tue spese.'},
+  {scene:'intro', section:'Benvenuto', target:'tabs', caption:'In alto trovi quattro sezioni: Le mie trasferte, Il mio riepilogo, Calendario e Impostazioni. Iniziamo da come si registra un viaggio.', speech:'In alto trovi quattro sezioni: le mie trasferte, il mio riepilogo, calendario e impostazioni. Iniziamo da come si registra un viaggio.'},
+
+  {scene:'lista', section:'Registrare un viaggio', target:'nuovo-btn', caption:'Per prima cosa crei il viaggio: premi «+ Nuovo viaggio» in alto a destra. Dentro ad ogni viaggio inserirai poi, una per una, le singole voci di spesa.', speech:'Per prima cosa crei il viaggio: premi più Nuovo viaggio in alto a destra. Dentro ad ogni viaggio inserirai poi, una per una, le singole voci di spesa.'},
+  {scene:'tripForm', section:'Registrare un viaggio', target:'t-viaggiatore', reveal:'t-viaggiatore-pop', caption:'Scegli il Viaggiatore: se fai parte di un gruppo che condivide l\'inserimento, qui trovi anche i tuoi colleghi di gruppo, non solo te stesso.', speech:'Scegli il Viaggiatore: se fai parte di un gruppo che condivide l\'inserimento, qui trovi anche i tuoi colleghi di gruppo, non solo te stesso.'},
+  {scene:'tripForm', section:'Registrare un viaggio', target:'t-inseritore', caption:'L\'Inseritore è sempre automatico: chi ha effettuato l\'accesso, non modificabile. Serve a sapere chi ha materialmente registrato la trasferta.', speech:'L\'inseritore è sempre automatico: chi ha effettuato l\'accesso, non modificabile. Serve a sapere chi ha materialmente registrato la trasferta.'},
+  {scene:'tripForm', section:'Registrare un viaggio', target:'t-scopo', caption:'Lo Scopo è un testo libero: descrivi in breve il motivo del viaggio, per esempio «Orientamento Puglia».', speech:'Lo scopo è un testo libero: descrivi in breve il motivo del viaggio, per esempio Orientamento Puglia.'},
+  {scene:'tripForm', section:'Registrare un viaggio', target:'t-date', caption:'Indichi Data inizio e Data fine del viaggio: sono il periodo complessivo, le singole voci di spesa potranno avere le loro date specifiche all\'interno.', speech:'Indichi data inizio e data fine del viaggio: sono il periodo complessivo, le singole voci di spesa potranno avere le loro date specifiche all\'interno.'},
+  {scene:'tripForm', section:'Registrare un viaggio', target:'t-save', caption:'Premi «Salva»: il viaggio è creato, ma è ancora vuoto. Il passo successivo è aggiungere le voci di spesa al suo interno.', speech:'Premi Salva: il viaggio è creato, ma è ancora vuoto. Il passo successivo è aggiungere le voci di spesa al suo interno.'},
+
+  {scene:'lista', section:'Aggiungere le spese', target:'add-item-btn', caption:'Dentro al viaggio trovi «+ Aggiungi voce»: è il pulsante che usi per ogni singola spesa, quante ne servono.', speech:'Dentro al viaggio trovi più Aggiungi voce: è il pulsante che usi per ogni singola spesa, quante ne servono.'},
+  {scene:'itemForm', section:'Aggiungere le spese', target:'i-tipo', reveal:'i-tipo-pop', caption:'Scegli la Tipologia: Volo, Treno, Noleggio auto, Hotel, Rimborso km oppure Altro.', speech:'Scegli la tipologia: volo, treno, noleggio auto, hotel, rimborso chilometrico oppure altro.'},
+  {scene:'itemForm', section:'Aggiungere le spese', target:'i-fornitore', reveal:'i-fornitore-pop', caption:'Il Fornitore viene proposto in automatico in base alla tipologia — per esempio Trenitalia per il Treno, Uvet per volo, hotel e noleggi. Se manca quello che ti serve, in fondo trovi «+ Aggiungi nuovo fornitore…»: lo scrivi al volo e resta lì anche per le prossime volte.', speech:'Il Fornitore viene proposto in automatico in base alla tipologia, per esempio Trenitalia per il treno, Uvet per volo, hotel e noleggi. Se manca quello che ti serve, in fondo trovi più Aggiungi nuovo fornitore: lo scrivi al volo e resta lì anche per le prossime volte.'},
+  {scene:'itemForm', section:'Aggiungere le spese', target:'i-rows', caption:'Ogni voce può avere più righe: utile per un volo andata e ritorno, o più notti in hotel diversi. Ogni riga ha il suo importo e le sue date, ma condivide la stessa tipologia e lo stesso fornitore.', speech:'Ogni voce può avere più righe: utile per un volo andata e ritorno, o più notti in hotel diversi. Ogni riga ha il suo importo e le sue date, ma condivide la stessa tipologia e lo stesso fornitore.'},
+  {scene:'itemForm', section:'Aggiungere le spese', target:'i-row2', caption:'L\'importo è sempre IVA inclusa, al 22% fisso: il netto per il budget viene calcolato automaticamente, non devi fare tu il calcolo. «Servizio da» e «Servizio a» sono le date effettive della trasferta per quella riga, non la data in cui hai pagato.', speech:'L\'importo è sempre IVA inclusa, al 22% fisso: il netto per il budget viene calcolato automaticamente, non devi fare tu il calcolo. Servizio da e Servizio a sono le date effettive della trasferta per quella riga, non la data in cui hai pagato.'},
+  {scene:'itemForm', section:'Aggiungere le spese', target:'i-total', caption:'In fondo vedi sempre il Totale della voce, somma di tutte le righe che hai aggiunto.', speech:'In fondo vedi sempre il totale della voce, somma di tutte le righe che hai aggiunto.'},
+  {scene:'itemForm', section:'Aggiungere le spese', target:'i-save', caption:'Premi «Salva voce»: la spesa compare subito nell\'elenco del viaggio, pronta per essere consultata in qualsiasi momento.', speech:'Premi Salva voce: la spesa compare subito nell\'elenco del viaggio, pronta per essere consultata in qualsiasi momento.'},
+
+  {scene:'lista', section:'Leggere le tue spese', target:'row-allocato-badge', caption:'Accanto a ogni voce vedi un\'etichetta come «allocato stima» o «speso stima»: è solo un calcolo automatico in base alla data, utile per il budget interno — non è nulla che devi gestire o controllare tu.', speech:'Accanto a ogni voce vedi un\'etichetta come allocato stima o speso stima: è solo un calcolo automatico in base alla data, utile per il budget interno. Non è nulla che devi gestire o controllare tu.'},
+  {scene:'lista', section:'Leggere le tue spese', target:'row-allocato-actions', caption:'Quello che conta davvero per te sono questi pulsanti: Modifica, per correggere qualcosa, e Annulla se una spesa prevista non si farà più — resta visibile in grigetto e barrata, come questa voce qui sotto, solo come promemoria. Il pulsante Elimina, quando c\'è, è visibile solo agli amministratori.', speech:'Quello che conta davvero per te sono questi pulsanti: Modifica, per correggere qualcosa, e Annulla se una spesa prevista non si farà più: resta visibile in grigetto e barrata, solo come promemoria. Il pulsante Elimina, quando c\'è, è visibile solo agli amministratori.'},
+
+  {scene:'riepilogo', section:'Riepilogo', target:'r-chips', caption:'Nella sezione "Il mio riepilogo" scegli uno o più mesi dell\'anno fiscale, per vedere solo il periodo che ti interessa.', speech:'Nella sezione il mio riepilogo scegli uno o più mesi dell\'anno fiscale, per vedere solo il periodo che ti interessa.'},
+  {scene:'riepilogo', section:'Riepilogo', target:'r-filtri', caption:'Puoi anche filtrare per viaggiatore e per tipologia di spesa, aprendo questo pannello.', speech:'Puoi anche filtrare per viaggiatore e per tipologia di spesa, aprendo questo pannello.'},
+  {scene:'riepilogo', section:'Riepilogo', target:'r-kpis', caption:'Tre schede riassumono il periodo scelto, sempre IVA inclusa come l\'hai inserita: il Totale, quanto è già Speso e quanto resta Allocato sui mesi futuri. È una suddivisione automatica per la reportistica interna: a te basta guardare il Totale.', speech:'Tre schede riassumono il periodo scelto, sempre IVA inclusa come l\'hai inserita: il totale, quanto è già speso e quanto resta allocato sui mesi futuri. È una suddivisione automatica per la reportistica interna: a te basta guardare il totale.'},
+  {scene:'riepilogo', section:'Riepilogo', target:'r-node', caption:'Ogni mese raggruppa così le tue spese, con lo stesso Allocato/Speso visto sopra: guardalo solo come riferimento, non è nulla che devi gestire.', speech:'Ogni mese raggruppa così le tue spese, con lo stesso allocato e speso visto sopra: guardalo solo come riferimento, non è nulla che devi gestire.'},
+  {scene:'riepilogo', section:'Riepilogo', target:'r-viaggiatori', caption:'Aprendo il mese trovi lo stesso riepilogo ripetuto per ciascun viaggiatore coinvolto.', speech:'Aprendo il mese trovi lo stesso riepilogo ripetuto per ciascun viaggiatore coinvolto.'},
+  {scene:'riepilogo', section:'Riepilogo', target:'r-bycat', caption:'Più sotto trovi come queste spese si mappano sulle categorie del budget: una vista pensata per chi segue il budget, non per l\'inserimento di tutti i giorni.', speech:'Più sotto trovi come queste spese si mappano sulle categorie del budget: una vista pensata per chi segue il budget, non per l\'inserimento di tutti i giorni.'},
+
+  {scene:'calendario', section:'Calendario', target:'cal-filters', caption:'Nella sezione Calendario puoi filtrare per stato: Allocate, Spese oppure Annullate, per vedere solo quello che ti interessa.', speech:'Nella sezione Calendario puoi filtrare per stato: allocate, spese oppure annullate, per vedere solo quello che ti interessa.'},
+  {scene:'calendario', section:'Calendario', target:'cal-grid', caption:'Ogni giorno mostra le voci con un\'icona colorata per lo stato: arancione per allocato, verde per speso, grigia per annullato.', speech:'Ogni giorno mostra le voci con un\'icona colorata per lo stato: arancione per allocato, verde per speso, grigia per annullato.'},
+  {scene:'calendario', section:'Calendario', target:'cal-entry-annull', caption:'Le voci annullate restano visibili in grigetto, così resta traccia che erano previste anche se non pesano più sul budget.', speech:'Le voci annullate restano visibili in grigetto, così resta traccia che erano previste anche se non pesano più sul budget.'},
+
+  {scene:'outro', section:'Fine', target:'outro-card', caption:'Questo è tutto! Ricorda: crea il viaggio, aggiungi le voci con gli importi IVA inclusa, e ritrovale sempre tutte qui. Le etichette che vedi sono automatiche, non devi gestirle. Buon lavoro!', speech:'Questo è tutto! Ricorda: crea il viaggio, aggiungi le voci con gli importi IVA inclusa, e ritrovale sempre tutte qui. Le etichette che vedi sono automatiche, non devi gestirle. Buon lavoro!'}
+];
+
+var SECTIONS = [];
+STEPS.forEach(function(s){ if(SECTIONS.indexOf(s.section)===-1) SECTIONS.push(s.section); });
+
+/* ============================== ENGINE ============================== */
+var stage=document.getElementById('stage'), highlight=document.getElementById('highlight'), cursor=document.getElementById('cursor');
+var caption=document.getElementById('caption'), progressFill=document.getElementById('progressFill'), progressLabel=document.getElementById('progressLabel');
+var stepLabel=document.getElementById('stepLabel'), sectionStrip=document.getElementById('sectionStrip');
+var btnPlay=document.getElementById('btnPlay'), btnPrev=document.getElementById('btnPrev'), btnNext=document.getElementById('btnNext'), btnRestart=document.getElementById('btnRestart');
+var btnVoice=document.getElementById('btnVoice'), voiceLabel=document.getElementById('voiceLabel');
+var btnSpeed=document.getElementById('btnSpeed'), stageShell=document.querySelector('.stage-shell');
+var startOverlay=document.getElementById('startOverlay'), btnStart=document.getElementById('btnStart');
+
+var idx=-1, currentScene=null, playing=false, voiceOn=true, advanceTimer=null, voices=[], started=false, speedX=1;
+
+function loadVoices(){ try{ voices=speechSynthesis.getVoices()||[]; }catch(e){} }
+if('speechSynthesis' in window){ loadVoices(); speechSynthesis.onvoiceschanged=loadVoices; }
+// tra le voci italiane disponibili preferisce quelle che suonano meno robotiche: i browser espongono
+// spesso sia una voce "compatta" offline (veloce ma meccanica) sia una di rete più naturale (Google/
+// Natural/Neural/Online) — quando c'è, scegliamo quella
+function pickItVoice(){
+  var itVoices=voices.filter(function(v){ return /^it/i.test(v.lang); });
+  if(!itVoices.length) return null;
+  function score(v){
+    var n=(v.name||'').toLowerCase(); var s=0;
+    if(/natural/.test(n)) s+=4;
+    if(/neural/.test(n)) s+=4;
+    if(/google/.test(n)) s+=3;
+    if(/online/.test(n)) s+=2;
+    if(v.localService===false) s+=1;
+    if(/compact/.test(n)) s-=2;
+    return s;
+  }
+  itVoices.sort(function(a,b){ return score(b)-score(a); });
+  return itVoices[0];
+}
+
+function renderSections(){
+  sectionStrip.innerHTML = SECTIONS.map(function(s){ return '<span class="section-chip" data-s="'+s+'">'+s+'</span>'; }).join('');
+}
+renderSections();
+
+function positionCursor(targetKey){
+  var el = targetKey ? stage.querySelector('[data-tut="'+targetKey+'"]') : null;
+  if(!el){ highlight.classList.remove('on'); cursor.classList.remove('on'); return; }
+  var er = el.getBoundingClientRect(), sr = stage.getBoundingClientRect();
+  var pad = 7;
+  highlight.style.left = (er.left - sr.left - pad) + 'px';
+  highlight.style.top = (er.top - sr.top - pad) + 'px';
+  highlight.style.width = (er.width + pad*2) + 'px';
+  highlight.style.height = (er.height + pad*2) + 'px';
+  highlight.classList.add('on');
+  var cx = er.left - sr.left + Math.min(er.width - 14, er.width*0.82);
+  var cy = er.top - sr.top + Math.min(er.height - 10, er.height*0.78);
+  cursor.style.left = cx + 'px';
+  cursor.style.top = cy + 'px';
+  cursor.classList.add('on');
+}
+
+function estimateMs(text){ return Math.max(2200, Math.min(9000, text.length*58)) / speedX; }
+
+function speak(text, onDone){
+  if(!voiceOn || !('speechSynthesis' in window)){ advanceTimer=setTimeout(onDone, estimateMs(text)); return; }
+  try{
+    speechSynthesis.cancel();
+    var u = new SpeechSynthesisUtterance(text);
+    u.lang='it-IT'; var v=pickItVoice(); if(v) u.voice=v; u.rate=0.97*speedX; u.pitch=1.0;
+    var done=false;
+    function finish(){ if(done) return; done=true; onDone(); }
+    u.onend=finish; u.onerror=finish;
+    advanceTimer=setTimeout(finish, estimateMs(text)+4000); // rete di sicurezza se l'evento onend non arriva
+    speechSynthesis.speak(u);
+  }catch(e){ advanceTimer=setTimeout(onDone, estimateMs(text)); }
+}
+
+function clearAdvance(){ if(advanceTimer){ clearTimeout(advanceTimer); advanceTimer=null; } try{ speechSynthesis.cancel(); }catch(e){} }
+
+function goTo(i, autoChain){
+  if(i<0) i=0; if(i>=STEPS.length) i=STEPS.length-1;
+  clearAdvance();
+  var step = STEPS[i];
+  idx = i;
+  if(step.scene !== currentScene){
+    stage.innerHTML = SCENES[step.scene]();
+    currentScene = step.scene;
+    stage.classList.remove('fade'); void stage.offsetWidth; stage.classList.add('fade');
+    highlight.classList.remove('on'); cursor.classList.remove('on');
+  }
+  var raf = window.requestAnimationFrame || function(f){ setTimeout(f,16); };
+  raf(function(){ raf(function(){
+    var openPops = stage.querySelectorAll('.mk-dropdown-pop.show');
+    for(var p=0;p<openPops.length;p++) openPops[p].classList.remove('show');
+    if(step.reveal){ var rp = stage.querySelector('[data-tut="'+step.reveal+'"]'); if(rp) rp.classList.add('show'); }
+    positionCursor(step.target);
+    caption.textContent = step.caption;
+    progressFill.style.width = (((i+1)/STEPS.length)*100) + '%';
+    progressLabel.textContent = (i+1) + ' / ' + STEPS.length;
+    stepLabel.textContent = 'Passo ' + (i+1) + ' / ' + STEPS.length;
+    var chips = sectionStrip.querySelectorAll('.section-chip');
+    for(var c=0;c<chips.length;c++) chips[c].classList.toggle('on', chips[c].getAttribute('data-s')===step.section);
+    btnPrev.disabled = (i===0);
+    btnNext.disabled = (i===STEPS.length-1);
+    if(autoChain){
+      speak(step.speech, function(){ if(playing && idx<STEPS.length-1) goTo(idx+1, true); else if(playing && idx===STEPS.length-1) setPlaying(false); });
+    }
+  }); });
+}
+
+function setPlaying(v){
+  playing = v;
+  btnPlay.innerHTML = v
+    ? '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M6 5h4v14H6zM14 5h4v14h-4z"/></svg>Pausa'
+    : '<svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg>Play';
+  if(!v) clearAdvance();
+}
+
+btnStart.addEventListener('click', function(){
+  started = true;
+  startOverlay.classList.add('hidden');
+  setPlaying(true);
+  goTo(0, true);
+});
+btnPlay.addEventListener('click', function(){
+  if(!started){ btnStart.click(); return; }
+  if(playing){ setPlaying(false); }
+  else { setPlaying(true); goTo(idx<0?0:idx, true); }
+});
+btnPrev.addEventListener('click', function(){ if(!started) return; setPlaying(false); goTo(idx-1, false); });
+btnNext.addEventListener('click', function(){ if(!started) return; setPlaying(false); goTo(idx+1, false); });
+btnRestart.addEventListener('click', function(){
+  if(!started){ btnStart.click(); return; }
+  setPlaying(true); goTo(0, true);
+});
+btnVoice.addEventListener('click', function(){
+  voiceOn = !voiceOn;
+  btnVoice.classList.toggle('on', voiceOn);
+  btnVoice.classList.toggle('off', !voiceOn);
+  voiceLabel.textContent = voiceOn ? 'Voce attiva' : 'Voce spenta';
+  if(!voiceOn){ try{ speechSynthesis.cancel(); }catch(e){} }
+});
+btnSpeed.addEventListener('click', function(){
+  speedX = speedX===1 ? 2 : 1;
+  btnSpeed.textContent = speedX+'×';
+  btnSpeed.classList.toggle('active', speedX===2);
+  stageShell.classList.toggle('speed2x', speedX===2);
+});
+
+stepLabel.textContent = 'Passo 0 / ' + STEPS.length;
+progressLabel.textContent = '0 / ' + STEPS.length;
+stage.innerHTML = SCENES.intro();
+currentScene='intro';
+})();
+</script>
+</body>
+</html>

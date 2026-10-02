@@ -428,6 +428,10 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
       <label>Anno fiscale</label>
       <select id="fySel"></select>
     </div>
+    <div class="hgroup" id="ccGroup" title="Centro di costo: Domestic on Field (6000) o Direct Domestic (6400)">
+      <label>Centro di costo</label>
+      <select id="ccSel"></select>
+    </div>
     <div class="hgroup" id="refDateGroup" title="Separa lo speso (mesi ≤ questa data) dall'allocato (mesi successivi). Di default è oggi: cambiala solo per simulare la situazione a un'altra data.">
       <label>Data rif.</label>
       <input type="date" id="refDate">
@@ -553,6 +557,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
         <div class="eyebrow" style="text-align:right">Disponibile IVA incl.</div>
         <div class="eyebrow" style="text-align:right">Impegnato</div>
       </div>
+      <p id="budgetCcNote" style="margin:0 0 10px;font-size:12px;color:var(--ink-mute)"></p>
       <div class="bgrid" id="budgetGrid"></div>
       <div class="brow btot" style="border-top:2px solid var(--ink);font-weight:700">
         <div class="cn">Totale</div>
@@ -656,6 +661,11 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
           <label>Categoria <span class="req">*</span></label>
           <select id="fCat"></select>
           <div id="catHelp"></div>
+        </div>
+        <div class="field">
+          <label>Centro di costo <span class="req">*</span></label>
+          <select id="fCc"></select>
+          <span class="hint">6000 di default; Eventi PG va su 6400.</span>
         </div>
         <div class="field">
           <label>Importo netto IVA <span class="req">*</span></label>
@@ -778,6 +788,45 @@ const CATEGORIES = ["FIERE","CONS. COMM. MKTG","MATERIALI","EVENTI",
 // categoria esclusa da ogni totale (budget/speso/allocato/impegnato/residuo): resta visibile con i
 // suoi numeri nella propria riga, ma non si somma col resto — richiesta di Luigi, 2026-10-01
 const CAT_NO_TOTALS = "COMM. PASSIVE";
+// centri di costo (Luigi, 2026-10-02): 6000 Domestic on Field (Saviozzi), 6400 Direct Domestic
+// (Schiavone). Regola: tutto su 6000 tranne le spese Docenti di tipologia Test/Eventi PG e la
+// categoria EVENTI PG, che vanno su 6400. I dati senza centro (storici) sono sempre 6000.
+const CENTRI_COSTO = [
+  {id:"6000", nome:"Domestic on Field", resp:"Stefano Saviozzi"},
+  {id:"6400", nome:"Direct Domestic",   resp:"Flavio Schiavone"}
+];
+const CC_DEFAULT = "6000";
+function centroForCategoria(cat){ return cat==="EVENTI PG" ? "6400" : "6000"; }
+// tipologie Docenti che vanno sul centro 6400 (stessa regola della colonna centro_costo nelle viste SQL)
+const TIPI_DOCENTI_6400 = ["Test","Eventi PG"];
+function centroForTipoDocenti(tipo){ return TIPI_DOCENTI_6400.includes(tipo) ? "6400" : "6000"; }
+function ccLabel(id){ const c=CENTRI_COSTO.find(x=>x.id===id); return c ? `${c.id} · ${c.nome}` : String(id); }
+function ccOf(e){ return (e && e.centroCosto) || CC_DEFAULT; }
+// centri che l'utente può vedere: admin e uso locale = tutti; responsabile = solo quelli del suo
+// scope (fail-closed se manca); superuser/altri ruoli senza scope per centro = tutti (come prima)
+function allowedCcs(){
+  const all=CENTRI_COSTO.map(c=>c.id);
+  const email=(typeof cloudUser==='function')?cloudUser():null;
+  if(!email || typeof cloudReady!=='function' || !cloudReady()) return all;
+  const u=(STATE.appUsers||{})[email.toLowerCase()];
+  if(!u || u.role==='admin') return all;
+  const sc=u.scope&&Array.isArray(u.scope.centri_costo)?u.scope.centri_costo.map(String):null;
+  if(sc&&sc.length) return all.filter(id=>sc.includes(id));
+  return u.role==='responsabile' ? [] : all;
+}
+// centri effettivamente mostrati ora: la selezione corrente ristretta a quelli consentiti
+function ccInView(){
+  const allowed=allowedCcs();
+  const sel=STATE.ccSel||"ALL";
+  return (sel==="ALL" || !allowed.includes(sel)) ? allowed : [sel];
+}
+// budget (netto IVA) di un anno per un centro: 6000 resta in ds.budget (formato storico), gli altri in ds.budgetCC
+function budgetOf(ds,cc,create){
+  if(cc===CC_DEFAULT) return ds.budget||(ds.budget={});
+  if(!ds.budgetCC) ds.budgetCC={};
+  if(!ds.budgetCC[cc]) { if(!create) return {}; ds.budgetCC[cc]={}; }
+  return ds.budgetCC[cc];
+}
 const CAT_COLOR = {
   "FIERE":"#3E7C64","CONS. COMM. MKTG":"#C8892E","MATERIALI":"#4A6FA5","EVENTI":"#B5462F","EVENTI PG":"#8C4A6B",
   "TUTOR":"#7D6BA8","VIAGGI TRASF. ALTRI NO STAFF":"#2E9C8E","VIAGGI TRASF. STAFF":"#1F7A8C",
@@ -971,7 +1020,12 @@ function distribute(e){
 /* ---------- aggregazione ---------- */
 function compute(){
   const fs=fyStartKey(), fe=fyEndKey(), rk=refKey();
-  const DS=cur(), BUD=DS.budget, EXP=DS.expenses;
+  const DS=cur();
+  // centro di costo: si calcola solo sui centri mostrati (selezione + permessi); il budget è la
+  // somma dei budget dei centri in vista, le spese/stime sono filtrate per centro
+  const CCS=ccInView();
+  const BUD={}; CATEGORIES.forEach(c=>{ BUD[c]=CCS.reduce((s,cc)=>s+Number(budgetOf(DS,cc)[c]||0),0); });
+  const EXP=DS.expenses.filter(e=>CCS.includes(ccOf(e)));
   const cats={};
   CATEGORIES.forEach(c=>cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,stimaECSpeso:0,stimaDocenti:0,fuori:0,months:{}});
   // includi categorie extra eventualmente presenti nei dati
@@ -1006,6 +1060,7 @@ function compute(){
   // l'IVA finisce conteggiata due volte e il totale gonfiato del 22% in più.
   for(const r of (STATE.travelEstimates||[])){
     const c=r.categoria; if(!c||!cats[c]) continue;
+    if(!CCS.includes(r.centro||CC_DEFAULT)) continue;
     const my=ym(r.mese); if(!my) continue;
     const mk=my.key; if(mk<fs||mk>fe) continue;
     const amt=Number(r.importo)||0;
@@ -1021,6 +1076,7 @@ function compute(){
   // codice RDA (a quel punto l'attività scompare da qui e diventa una riga reale in EXP, vedi docenti.html syncBudgetMovement()).
   for(const r of (STATE.docentiEstimates||[])){
     const c=r.categoria; if(!c||!cats[c]) continue;
+    if(!CCS.includes(r.centro||CC_DEFAULT)) continue;
     const my=ym(r.mese); if(!my) continue;
     const mk=my.key; if(mk<fs||mk>fe) continue;
     const amt=(Number(r.importo)||0)*rowIvaFactor(r);
@@ -1080,7 +1136,18 @@ window.addEventListener("scroll",()=>{ if(_tipEl) hideTip(); }, true);
 /* ============================================================
    RENDER
    ============================================================ */
+// selettore del centro di costo: mostra solo i centri consentiti all'utente (con uno solo è fisso)
+function syncCcUI(){
+  const sel=document.getElementById("ccSel"), grp=document.getElementById("ccGroup"); if(!sel) return;
+  const allowed=allowedCcs();
+  sel.innerHTML=(allowed.length>1?[`<option value="ALL">Tutti i centri</option>`]:[]).concat(allowed.map(id=>`<option value="${id}">${esc(ccLabel(id))}</option>`)).join("");
+  const inView=ccInView();
+  sel.value = inView.length===1 ? inView[0] : "ALL";
+  sel.disabled = allowed.length<=1;
+  if(grp) grp.style.display = allowed.length ? "" : "none";
+}
 function renderAll(){
+  syncCcUI();
   const d=compute();
   renderKpis(d);
   renderRiep(d);
@@ -1367,8 +1434,9 @@ function renderHeatmap(d){
 /* ---------- dettaglio mese (click su colonna o cella) ---------- */
 function monthContributions(monthKey, onlyCat){
   // ritorna righe {e, amount(gross), speso/allocato} che contribuiscono al mese
-  const out=[]; const rk=refKey();
+  const out=[]; const rk=refKey(); const ccsView=ccInView();
   cur().expenses.forEach(e=>{
+    if(!ccsView.includes(ccOf(e))) return;
     if(onlyCat && e.categoria!==onlyCat) return;
     const dist=distribute(e); if(dist[monthKey]==null) return;
     const amt=dist[monthKey]*rowIvaFactor(e);
@@ -1446,7 +1514,8 @@ function renderMovimenti(){
   }
   const q=(document.getElementById("mvSearch").value||"").toLowerCase().trim();
   const catF=cf.value||"ALL";
-  let list=cur().expenses.slice();
+  const ccsView=ccInView();
+  let list=cur().expenses.filter(e=>ccsView.includes(ccOf(e)));
   if(catF!=="ALL") list=list.filter(e=>e.categoria===catF);
   if(q) list=list.filter(e=>((e.fornitore||"")+" "+(e.oggetto||"")+" "+(e.categoria||"")+" "+(e.numOrdine||"")+" "+(e.note||"")).toLowerCase().includes(q));
   list.sort((a,b)=>String(b.dataOrdine||"").localeCompare(String(a.dataOrdine||"")));
@@ -1492,20 +1561,23 @@ function renderMovimenti(){
 function renderMvEstimates(catF,q){
   const wrap=document.getElementById("mvEstimatesWrap");
   const fs=fyStartKey(), fe=fyEndKey();
+  const ccsView=ccInView();
   const rows=[];
   (STATE.docentiEstimates||[]).forEach(r=>{
     const my=ym(r.mese); if(!my||my.key<fs||my.key>fe) return;
     if(catF!=="ALL" && r.categoria!==catF) return;
     const label=[r.tipo,r.luogo,r.docenteNome].filter(Boolean).join(" · ");
     if(q && !(label+" "+(r.categoria||"")).toLowerCase().includes(q)) return;
-    rows.push({categoria:r.categoria, data:r.data, label, sub:"Docenti", importo:r.importo, ivaPctOverride:r.ivaPctOverride, fornSuggest:r.docenteNome||''});
+    if(!ccsView.includes(r.centro||CC_DEFAULT)) return;
+    rows.push({categoria:r.categoria, centro:r.centro||CC_DEFAULT, data:r.data, label, sub:"Docenti", importo:r.importo, ivaPctOverride:r.ivaPctOverride, fornSuggest:r.docenteNome||''});
   });
   (STATE.travelEstimates||[]).forEach(r=>{
     const my=ym(r.mese); if(!my||my.key<fs||my.key>fe) return;
     if(catF!=="ALL" && r.categoria!==catF) return;
     const label=[r.voceTipo, r.destinazione||r.scopo, r.travelerNome].filter(Boolean).join(" · ");
     if(q && !(label+" "+(r.categoria||"")).toLowerCase().includes(q)) return;
-    rows.push({categoria:r.categoria, data:r.data, label, sub:"Spese EC", importo:r.importo, isEC:true, fornSuggest:r.travelerNome||''});
+    if(!ccsView.includes(r.centro||CC_DEFAULT)) return;
+    rows.push({categoria:r.categoria, centro:r.centro||CC_DEFAULT, data:r.data, label, sub:"Spese EC", importo:r.importo, isEC:true, fornSuggest:r.travelerNome||''});
   });
   if(!rows.length){ wrap.style.display="none"; return; }
   wrap.style.display="";
@@ -1537,6 +1609,7 @@ function openModalFromEstimate(r){
   if(!r) return;
   openModal(null);
   document.getElementById("fCat").value=r.categoria;
+  { const fcc=document.getElementById("fCc"); if([...fcc.options].some(o=>o.value===r.centro)) fcc.value=r.centro; }
   set("fCompDa", r.data||"");
   set("fForn", r.fornSuggest||"");
   const net = r.isEC ? (Number(r.importo)||0)/SPESE_EC_IVA_FACTOR : (Number(r.importo)||0);
@@ -1564,23 +1637,27 @@ function renderBudget(d){
       ${over>0?`<i style="left:${LINE}%;width:${over}%;background:#E2662A"></i>`:''}
       <span class="mbline" style="left:${LINE}%"></span></div>`;
   };
+  // il budget si modifica solo con UN centro di costo selezionato (con "Tutti" è la somma dei centri)
+  const ccs=ccInView(), editCc = ccs.length===1 ? ccs[0] : null;
+  const ccNote=document.getElementById("budgetCcNote");
+  if(ccNote) ccNote.textContent = editCc ? `Stai modificando il budget del centro ${ccLabel(editCc)}.` : (ccs.length ? "Vista di più centri di costo (somma): per modificare un budget seleziona un solo centro in alto." : "Nessun centro di costo disponibile per il tuo utente.");
   CATEGORIES.forEach(c=>{
     const o=d.cats[c]||{budget:0,budgetNet:0,speso:0,allocato:0};
-    totNet+=o.budgetNet;
+    if(c!==CAT_NO_TOTALS) totNet+=o.budgetNet;
     const imp=o.speso+o.allocato, p=o.budget>0?imp/o.budget*100:0, over=imp>o.budget&&o.budget>0;
     const ivaC=(STATE.ivaByCat[c]!=null)?STATE.ivaByCat[c]:STATE.ivaRate;
     const row=document.createElement("div"); row.className="brow";
     row.innerHTML=`
       <div class="cn"><span class="catdot" style="background:${CAT_COLOR[c]}"></span>${c}${catInfoIcon(c)}</div>
-      <div class="binput" data-mlab="Disponibile netto"><span>€</span><input type="number" step="100" value="${o.budgetNet||0}" data-k="bud"></div>
+      <div class="binput" data-mlab="Disponibile netto"><span>€</span><input type="number" step="100" value="${o.budgetNet||0}" data-k="bud" ${editCc?'':'disabled title="Seleziona un solo centro di costo per modificare"'}></div>
       <div class="binput" data-mlab="IVA %" style="padding:0 8px"><input type="number" step="1" value="${ivaC}" data-k="iva" style="text-align:center"><span>%</span></div>
       <div class="num" data-mlab="IVA inclusa" style="text-align:right;color:var(--ink)">${eur(o.budget)}</div>
       <div class="miniuse" data-mlab="Impegnato">${eur(imp)} · <span style="${over?'color:#E2662A;font-weight:700':''}">${Math.round(p)}%${over?' ⚠':''}</span>
         ${mbar(imp,o.budget)}
       </div>`;
     const [budIn,ivaIn]=row.querySelectorAll("input");
-    budIn.addEventListener("input",ev=>{ cur().budget[c]=parseFloat(ev.target.value)||0; renderKpis(compute()); save(); });
-    budIn.addEventListener("change",()=>{ cloudUpsertBudget(STATE.fyStart,c,cur().budget[c]); renderAll(); });
+    budIn.addEventListener("input",ev=>{ if(!editCc) return; budgetOf(cur(),editCc,true)[c]=parseFloat(ev.target.value)||0; renderKpis(compute()); save(); });
+    budIn.addEventListener("change",()=>{ if(!editCc) return; cloudUpsertBudget(STATE.fyStart,c,budgetOf(cur(),editCc,true)[c],editCc); renderAll(); });
     ivaIn.addEventListener("input",ev=>{ STATE.ivaByCat[c]=parseFloat(ev.target.value)||0; renderKpis(compute()); save(); });
     ivaIn.addEventListener("change",()=>{ cloudSetSetting("iva_by_cat",STATE.ivaByCat); cloudAudit('iva','iva',null,`${c} = ${STATE.ivaByCat[c]}%`); renderAll(); });
     grid.appendChild(row);
@@ -1725,7 +1802,7 @@ let formLocked=false;
 // sovrascritta al prossimo aggiornamento senza che chi la fa se ne accorga
 function setFormLocked(locked){
   formLocked=locked;
-  ['fOrdine','fNum','fTipoPag','fCat','fImporto','fCompDa','fCompA','fConsegna','fForn','fOgg','fNote'].forEach(id=>{ document.getElementById(id).disabled=locked; });
+  ['fOrdine','fNum','fTipoPag','fCat','fCc','fImporto','fCompDa','fCompA','fConsegna','fForn','fOgg','fNote'].forEach(id=>{ document.getElementById(id).disabled=locked; });
   document.getElementById("btnDelete").disabled=locked;
   document.getElementById("lockBanner").style.display = locked ? "flex" : "none";
 }
@@ -1795,6 +1872,13 @@ function openModal(id){
   set("fForn", e?e.fornitore:"");
   set("fOgg", e?e.oggetto:"");
   set("fNote", e?e.note:"");
+  // centro di costo: solo quelli consentiti all'utente; default = il centro in vista (se uno solo)
+  // altrimenti quello suggerito dalla categoria
+  const allowed=allowedCcs();
+  document.getElementById("fCc").innerHTML=allowed.map(id=>`<option value="${id}">${esc(ccLabel(id))}</option>`).join("");
+  const inView=ccInView();
+  const wantCc = e ? ccOf(e) : (inView.length===1 ? inView[0] : centroForCategoria(document.getElementById("fCat").value));
+  document.getElementById("fCc").value = allowed.includes(wantCc) ? wantCc : (allowed[0]||CC_DEFAULT);
   fillDatalists();
   updateCatHelp();
   document.getElementById("btnDelete").style.display = e? "inline-flex":"none";
@@ -1809,7 +1893,8 @@ function readForm(){
   return {
     dataOrdine:get("fOrdine")||null, numOrdine:get("fNum"), tipoPagamento:get("fTipoPag"), categoria:get("fCat"),
     importo:parseFloat(get("fImporto"))||0, compDa:get("fCompDa")||null, compA:get("fCompA")||null,
-    dataConsegna:get("fConsegna")||null, fornitore:get("fForn"), oggetto:get("fOgg"), note:get("fNote")
+    dataConsegna:get("fConsegna")||null, fornitore:get("fForn"), oggetto:get("fOgg"), note:get("fNote"),
+    centroCosto:get("fCc")||CC_DEFAULT
   };
 }
 function updatePreview(){
@@ -1969,7 +2054,7 @@ function exportFile(){
   const wb=XLSX.utils.book_new();
   // DETTAGLIO
   const det=[["data req/ord.","req/num. ord.","categoria","cat. ALTRO","fornitore","importo","comp da","comp a","data consegna","oggetto","note"]];
-  cur().expenses.forEach(e=>det.push([e.dataOrdine,e.numOrdine,e.categoria,e.catAltro||"",e.fornitore,+e.importo||0,e.compDa,e.compA,e.dataConsegna,e.oggetto,e.note]));
+  { const ccsView=ccInView(); cur().expenses.filter(e=>ccsView.includes(ccOf(e))).forEach(e=>det.push([e.dataOrdine,e.numOrdine,e.categoria,e.catAltro||"",e.fornitore,+e.importo||0,e.compDa,e.compA,e.dataConsegna,e.oggetto,e.note])); }
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(det),"DETTAGLIO");
   // RIASSUNTO (valori IVA inclusa; disp. netto come riferimento)
   const ri=[["disp. netto","disp. IVA incl.","IVA %","categoria","speso","allocato","impegnato","residuo"]];
@@ -2030,6 +2115,7 @@ function syncRefDateUI(){
 }
 syncRefDateUI();
 document.getElementById("refDate").onchange=e=>{ STATE.refDate=e.target.value||todayISO(); syncRefDateUI(); save(); renderAll(); };
+document.getElementById("ccSel").onchange=e=>{ STATE.ccSel=e.target.value; save(); renderAll(); };
 document.getElementById("refDateReset").onclick=()=>{ STATE.refDate=todayISO(); syncRefDateUI(); save(); renderAll(); };
 document.getElementById("calMode").querySelectorAll("button").forEach(b=>{
   b.onclick=()=>{ STATE.calMode=b.dataset.m; document.querySelectorAll("#calMode button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); renderCalendar(compute()); save(); };
@@ -2049,7 +2135,12 @@ document.getElementById("overlay").onclick=e=>{ if(e.target.id==="overlay") clos
   document.getElementById(id).addEventListener("input",updatePreview);
   document.getElementById(id).addEventListener("change",updatePreview);
 });
-document.getElementById("fCat").addEventListener("change",()=>{ fillDatalists(); updateCatHelp(); });
+document.getElementById("fCat").addEventListener("change",()=>{
+  fillDatalists(); updateCatHelp();
+  // cambiando categoria si ripropone il centro di costo suggerito (se consentito): resta modificabile
+  const sug=centroForCategoria(document.getElementById("fCat").value), fcc=document.getElementById("fCc");
+  if([...fcc.options].some(o=>o.value===sug)) fcc.value=sug;
+});
 document.getElementById("fForn").addEventListener("input",e=>renderFornAc(e.target.value));
 document.getElementById("fForn").addEventListener("focus",e=>renderFornAc(e.target.value));
 document.addEventListener("click",e=>{ if(!e.target.closest("#fFornField")) closeFornAc(); });
@@ -2170,7 +2261,7 @@ function applyRole(){
 // sono stati tolti del tutto invece di lasciarli vuoti.
 function uuid(){ return (window.crypto&&crypto.randomUUID)?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);}); }
 function isUuid(s){ return typeof s==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s); }
-function expToRow(e,fy){ return { id:e.id, fy_start:+fy, data_ordine:e.dataOrdine||null, num_ordine:e.numOrdine||null, categoria:e.categoria, cat_altro:e.catAltro||null, fornitore:e.fornitore||null, importo:Number(e.importo)||0, comp_da:e.compDa||null, comp_a:e.compA||null, data_consegna:e.dataConsegna||null, oggetto:e.oggetto||null, note:e.note||null, tipo_pagamento:e.tipoPagamento||'RDA' }; }
+function expToRow(e,fy){ return { centro_costo:ccOf(e), id:e.id, fy_start:+fy, data_ordine:e.dataOrdine||null, num_ordine:e.numOrdine||null, categoria:e.categoria, cat_altro:e.catAltro||null, fornitore:e.fornitore||null, importo:Number(e.importo)||0, comp_da:e.compDa||null, comp_a:e.compA||null, data_consegna:e.dataConsegna||null, oggetto:e.oggetto||null, note:e.note||null, tipo_pagamento:e.tipoPagamento||'RDA' }; }
 function cloudSetDot(state){ const d=document.getElementById("cloudDot"), l=document.getElementById("cloudLbl"); if(!d)return; d.className="cloud-dot "+state; l.textContent = state==='on'?'Sincronizzato':state==='sync'?'Sync…':state==='err'?'Errore':'Cloud'; }
 function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clearTimeout(flashSynced._t); flashSynced._t=setTimeout(()=>{ if(cloudReady())cloudSetDot('on'); },600); }
 function cloudErr(ctx,error){ console.error(ctx,error); cloudSetDot('err'); toast("Errore salvataggio cloud ("+ctx+"): "+(error&&error.message?error.message:'riprova')+" — dato solo in locale",'err'); }
@@ -2220,9 +2311,9 @@ async function cloudPullAll(silent){
     const {data:sets,error:se}=await sb.from('bdg_settings').select('*'); if(se) throw se;
     const years={};
     const ensure=y=>{ y=String(y); if(!years[y]) years[y]={budget:{}, expenses:[]}; CATEGORIES.forEach(c=>{ if(years[y].budget[c]==null) years[y].budget[c]=0; }); return years[y]; };
-    (buds||[]).forEach(b=>{ ensure(b.fy_start).budget[b.categoria]=Number(b.budget_net)||0; });
+    (buds||[]).forEach(b=>{ budgetOf(ensure(b.fy_start),b.centro_costo||CC_DEFAULT,true)[b.categoria]=Number(b.budget_net)||0; });
     const active=(all||[]).filter(r=>!r.deleted_at), deleted=(all||[]).filter(r=>r.deleted_at);
-    active.forEach(r=>{ ensure(r.fy_start).expenses.push({ id:r.id, dataOrdine:r.data_ordine, numOrdine:r.num_ordine||"", categoria:r.categoria, catAltro:r.cat_altro||"", fornitore:r.fornitore||"", importo:Number(r.importo)||0, compDa:r.comp_da, compA:r.comp_a, dataConsegna:r.data_consegna, oggetto:r.oggetto||"", note:r.note||"", tipoPagamento:r.tipo_pagamento||"RDA", sourceRdaId:r.source_rda_id||null, ivaPctOverride:r.iva_pct_override!=null?Number(r.iva_pct_override):null }); });
+    active.forEach(r=>{ ensure(r.fy_start).expenses.push({ centroCosto:r.centro_costo||CC_DEFAULT, id:r.id, dataOrdine:r.data_ordine, numOrdine:r.num_ordine||"", categoria:r.categoria, catAltro:r.cat_altro||"", fornitore:r.fornitore||"", importo:Number(r.importo)||0, compDa:r.comp_da, compA:r.comp_a, dataConsegna:r.data_consegna, oggetto:r.oggetto||"", note:r.note||"", tipoPagamento:r.tipo_pagamento||"RDA", sourceRdaId:r.source_rda_id||null, ivaPctOverride:r.iva_pct_override!=null?Number(r.iva_pct_override):null }); });
     if(Object.keys(years).length){ STATE.years=years; if(!STATE.years[String(STATE.fyStart)]){ STATE.fyStart=+Object.keys(STATE.years).sort().pop(); } }
     STATE.trash = deleted.map(r=>({ id:r.id, _fy:r.fy_start, deletedAt:r.deleted_at, dataOrdine:r.data_ordine, numOrdine:r.num_ordine||"", categoria:r.categoria, catAltro:r.cat_altro||"", fornitore:r.fornitore||"", importo:Number(r.importo)||0, compDa:r.comp_da, compA:r.comp_a, dataConsegna:r.data_consegna, oggetto:r.oggetto||"", note:r.note||"" }));
     sanitizeState(STATE);
@@ -2259,7 +2350,7 @@ async function cloudFetchTravelEstimates(){
       ({data,error}=await sb.from('bdg_v_budget_allocations').select('categoria,mese,importo,competenza,traveler_nome,voce_tipo,fornitore,destinazione,scopo'));
       if(error) throw error;
     }
-    STATE.travelEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0,data:r.competenza||null,fine:r.fine||r.competenza||null,travelerNome:r.traveler_nome||'',voceTipo:r.voce_tipo||'',fornitore:r.fornitore||'',destinazione:r.destinazione||'',scopo:r.scopo||''}));
+    STATE.travelEstimates=(data||[]).map(r=>({centro:CC_DEFAULT,categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0,data:r.competenza||null,fine:r.fine||r.competenza||null,travelerNome:r.traveler_nome||'',voceTipo:r.voce_tipo||'',fornitore:r.fornitore||'',destinazione:r.destinazione||'',scopo:r.scopo||''}));
   }catch(e){ console.error('travel estimates', e); }
 }
 /* stime Docenti (attività non ancora a RDA) dalla vista bdg_v_budget_docenti_allocations — stesso pattern, sola lettura, non fatale se assente */
@@ -2268,7 +2359,7 @@ async function cloudFetchDocentiEstimates(){
   try{
     const {data,error}=await sb.from('bdg_v_budget_docenti_allocations').select('categoria,mese,importo,docente_nome,tipo,data,luogo,iva_pct');
     if(error) throw error;
-    STATE.docentiEstimates=(data||[]).map(r=>({categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0,docenteNome:r.docente_nome||'',tipo:r.tipo||'',data:r.data||null,luogo:r.luogo||'',ivaPctOverride:r.iva_pct!=null?Number(r.iva_pct):null}));
+    STATE.docentiEstimates=(data||[]).map(r=>({centro:centroForTipoDocenti(r.tipo),categoria:r.categoria,mese:r.mese,importo:Number(r.importo)||0,docenteNome:r.docente_nome||'',tipo:r.tipo||'',data:r.data||null,luogo:r.luogo||'',ivaPctOverride:r.iva_pct!=null?Number(r.iva_pct):null}));
   }catch(e){ console.error('docenti estimates', e); }
 }
 /* ruoli/visibilità tab: tabelle condivise con Spese EC. Fetch protetta a parte
@@ -2279,7 +2370,7 @@ async function cloudFetchRoles(){
   try{
     const {data:au,error:eu}=await sb.from('bdg_app_users').select('*'); if(eu) throw eu;
     const {data:tvz,error:et}=await sb.from('bdg_tab_visibility').select('*'); if(et) throw et;
-    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,extra_roles:r.extra_roles||[],last_seen_at:r.last_seen_at||null}; });
+    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,scope:r.scope||null,extra_roles:r.extra_roles||[],last_seen_at:r.last_seen_at||null}; });
     const vis={}; (tvz||[]).forEach(r=>{ if(!vis[r.tool])vis[r.tool]={}; if(!vis[r.tool][r.tab_key])vis[r.tool][r.tab_key]={}; vis[r.tool][r.tab_key][r.role]=!!r.visible; });
     STATE.appUsers=users; STATE.tabVisibility=vis;
   }catch(e){ console.error('roles fetch',e); }
@@ -2294,7 +2385,7 @@ async function cloudPushAll(){
     sanitizeState(STATE);
     const budRows=[]; const expRows=[]; const years=Object.keys(STATE.years);
     years.forEach(y=>{
-      const b=STATE.years[y].budget||{}; CATEGORIES.forEach(c=>budRows.push({fy_start:+y,categoria:c,budget_net:Number(b[c]||0)}));
+      CENTRI_COSTO.forEach(cc=>{ const b=budgetOf(STATE.years[y],cc.id); CATEGORIES.forEach(c=>budRows.push({fy_start:+y,centro_costo:cc.id,categoria:c,budget_net:Number(b[c]||0)})); });
       STATE.years[y].expenses.forEach(e=>{ if(!isUuid(e.id)) e.id=uuid(); });
     });
     save();
@@ -2302,7 +2393,7 @@ async function cloudPushAll(){
     let skipped=0;
     years.forEach(y=>{ STATE.years[y].expenses.forEach(e=>{ const cat=(e.categoria!=null?String(e.categoria):"").trim(); if(!cat){skipped++;return;} expRows.push(expToRow(e,+y)); }); });
     // budget
-    if(budRows.length){ const {error}=await sb.from('bdg_year_budgets').upsert(budRows,{onConflict:'fy_start,categoria'}); if(error) throw error; }
+    if(budRows.length){ const {error}=await sb.from('bdg_year_budgets').upsert(budRows,{onConflict:'fy_start,centro_costo,categoria'}); if(error) throw error; }
     // spese: replace per anno (delete + insert) → idempotente
     for(const y of years){ const {error}=await sb.from('bdg_expenses').delete().eq('fy_start',+y); if(error) throw error; }
     for(let i=0;i<expRows.length;i+=200){ const {error}=await sb.from("bdg_expenses").insert(expRows.slice(i,i+200)); if(error) throw error; }
@@ -2322,7 +2413,7 @@ function cloudSoftDelete(id,fy,exp){ if(!cloudReady()||!isUuid(id))return; sb.fr
 function cloudRestore(id,fy,exp){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_expenses').update({deleted_at:null,deleted_by:null}).eq('id',id).then(({error})=>{ error?cloudErr('ripristino spesa',error):flashSynced(); }); cloudAudit('ripristino','spesa',fy, exp?`${exp.categoria} · ${exp.fornitore||'—'}`:String(id)); }
 function cloudHardDelete(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_expenses').delete().eq('id',id).then(({error})=>{ error?cloudErr('eliminazione definitiva spesa',error):flashSynced(); }); cloudAudit('eliminazione definitiva','spesa',null,String(id)); }
 function cloudAudit(action,entity,fy,summary,details){ if(!cloudReady())return; sb.from('bdg_audit_log').insert({user_email:cloudUser(),action,entity,fy_start:fy||null,summary:summary||null,details:details||null}).then(({error})=>{ if(error) console.error('registro',error); else if(document.getElementById('panel-registro').classList.contains('on')) fetchAudit(); }); }
-function cloudUpsertBudget(fy,cat,net){ if(!cloudReady())return; sb.from('bdg_year_budgets').upsert({fy_start:+fy,categoria:cat,budget_net:Number(net)||0},{onConflict:'fy_start,categoria'}).then(({error})=>{ error?cloudErr('budget',error):flashSynced(); }); cloudAudit('budget','budget',fy,`${cat} = ${eur(Number(net)||0)} netto`); }
+function cloudUpsertBudget(fy,cat,net,cc){ cc=cc||CC_DEFAULT; if(!cloudReady())return; sb.from('bdg_year_budgets').upsert({fy_start:+fy,centro_costo:cc,categoria:cat,budget_net:Number(net)||0},{onConflict:'fy_start,centro_costo,categoria'}).then(({error})=>{ error?cloudErr('budget',error):flashSynced(); }); cloudAudit('budget','budget',fy,`${cc} · ${cat} = ${eur(Number(net)||0)} netto`); }
 function cloudSetSetting(key,val){ if(!cloudReady())return; sb.from('bdg_settings').upsert({key,value:val}).then(({error})=>{ error?cloudErr('impostazioni',error):flashSynced(); }); }
 function cloudReplaceYearExpenses(fy,expenses){ if(!cloudReady())return; sb.from('bdg_expenses').delete().eq('fy_start',+fy).then(({error})=>{ if(error){cloudErr('sostituzione spese anno',error);return;} const rows=expenses.filter(e=>(e.categoria!=null?String(e.categoria):"").trim()!=="").map(e=>{ if(!isUuid(e.id))e.id=uuid(); return expToRow(e,+fy); }); (async()=>{ for(let i=0;i<rows.length;i+=200){ const {error:er}=await sb.from('bdg_expenses').insert(rows.slice(i,i+200)); if(er){cloudErr('sostituzione spese anno',er);return;} } flashSynced(); })(); }); }
 

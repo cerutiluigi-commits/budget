@@ -365,13 +365,18 @@ tfoot td.l{text-align:left}
   <section class="panel on" id="panel-trasferte">
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:16px;flex-wrap:wrap">
       <div><h2 class="sec">Trasferte</h2><span class="hint" id="tripCount"></span></div>
-      <button class="btn" id="btnNewTrip" style="margin-left:auto"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuovo viaggio</button>
+      <a class="btn ghost" href="guida-spese-ec.html" target="_blank" rel="noopener" style="margin-left:auto">▶ Video guida</a>
+      <button class="btn" id="btnNewTrip"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Nuovo viaggio</button>
     </div>
     <div id="tripsList"></div>
   </section>
 
   <!-- RIEPILOGO -->
   <section class="panel" id="panel-riepilogo">
+    <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
+      <h2 class="sec" style="margin:0">Riepilogo</h2>
+      <a class="btn ghost" href="guida-spese-ec.html" target="_blank" rel="noopener" style="margin-left:auto">▶ Video guida</a>
+    </div>
     <div class="chips" id="riepMonthChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px"></div>
     <button type="button" class="riep-filters-toggle" id="riepFiltersToggle">
       <span class="twisty"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg></span>
@@ -678,6 +683,12 @@ function baseIdentity(){
     if(role==='orientatore'){
       if(trav) return {role:'orientatore',travelerId:trav.id,preview:false,email,name:trav.nome};
       return {role:'none',travelerId:null,preview:false,email,name:null};
+    }
+    // responsabile di centro di costo (Luigi, 2026-10-02): Spese EC è tutta del centro 6000, quindi chi
+    // ha il 6000 nel proprio scope lavora qui come un admin; chi non lo ha (es. 6400) non vede nulla
+    if(role==='responsabile'){
+      const sc=u&&u.scope&&Array.isArray(u.scope.centri_costo)?u.scope.centri_costo.map(String):[];
+      return sc.includes('6000') ? {role:'admin',travelerId:null,preview:false,email,name:null} : {role:'none',travelerId:null,preview:false,email,name:null};
     }
     if(role==='docente') return {role:'docente',travelerId:trav?trav.id:null,preview:false,email,name:trav?trav.nome:null};
     return {role:'none',travelerId:null,preview:false,email,name:null};
@@ -1041,7 +1052,7 @@ function renderRiepilogo(){
   its.forEach(it=>{ const b=itemBudget(it); if(!b.mo) return; if(b.trace){trace+=b.amount;return;} if(!b.counts)return; if(b.bucket==="speso")speso+=b.amount; else alloc+=b.amount; });
   const tot=speso+alloc;
   document.getElementById("kpis").innerHTML=`
-    <div class="kpi" style="--bar:var(--ink-mute)"><div class="l"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Totale stima</span></div><div class="v">${eur(tot)}</div><div class="sub">AF ${STATE.fyStart}–${(STATE.fyStart+1)%100} · IVA esclusa</div></div>
+    <div class="kpi" style="--bar:var(--ink-mute)"><div class="l"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Totale stima</span></div><div class="v">${eur(tot)}</div><div class="sub">AF ${STATE.fyStart}–${(STATE.fyStart+1)%100} · IVA inclusa</div></div>
     <div class="kpi" style="--bar:var(--accent)"><div class="l"><span class="sw" style="background:var(--speso)"></span><span class="eyebrow">Speso stima</span></div><div class="v">${eur(speso)}</div><div class="sub">mesi fino ad oggi</div></div>
     <div class="kpi" style="--bar:var(--warn)"><div class="l"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Allocato stima</span></div><div class="v">${eur(alloc)}</div><div class="sub">mesi futuri</div></div>`;
 
@@ -1520,7 +1531,7 @@ async function cloudFetchRoles(){
   try{
     const {data:au,error:eu}=await sb.from('bdg_app_users').select('*'); if(eu) throw eu;
     const {data:tvz,error:et}=await sb.from('bdg_tab_visibility').select('*'); if(et) throw et;
-    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,extra_roles:r.extra_roles||[],last_seen_at:r.last_seen_at||null}; });
+    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,scope:r.scope||null,extra_roles:r.extra_roles||[],last_seen_at:r.last_seen_at||null}; });
     const vis={}; (tvz||[]).forEach(r=>{ if(!vis[r.tool])vis[r.tool]={}; if(!vis[r.tool][r.tab_key])vis[r.tool][r.tab_key]={}; vis[r.tool][r.tab_key][r.role]=!!r.visible; });
     STATE.appUsers=users; STATE.tabVisibility=vis;
   }catch(e){ console.error('roles fetch',e); }

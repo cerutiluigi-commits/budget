@@ -894,6 +894,7 @@ function baseIdentity(){
     }
     if(role==='orientatore') return {role:'orientatore',interfaceId:iface?iface.id:null,preview:false,email,name:iface?iface.nome:null};
     if(role==='superuser') return {role:'superuser',interfaceId:null,preview:false,email,name:null};
+    if(role==='responsabile') return {role:'responsabile',interfaceId:null,preview:false,email,name:null};
     return {role:'none',interfaceId:null,preview:false,email,name:null};
   }
   if(STATE.localIdentity==='admin') return {role:'admin',interfaceId:null,preview:false,email:null,name:'Admin'};
@@ -1006,15 +1007,16 @@ function applyRole(){
     banner.style.display='block'; banner.className='role-banner';
     banner.innerHTML=`Accesso interfaccia orientamento: <b>${esc(CURRENT.name||'')}</b> · ${esc(aree)}. Gestisci le attività di ${n} docent${n===1?'e':'i'}.`;
   }
-  else if(CURRENT.role==='superuser'){
+  else if(isScopedRole()){
     const sc=currentScope();
     const parts=[];
+    if(sc.centri_costo && sc.centri_costo.length) parts.push('Centro di costo: '+sc.centri_costo.join(', '));
     if(sc.tipologia && sc.tipologia.length) parts.push('Tipologia: '+sc.tipologia.join(', '));
     if(sc.area && sc.area.length) parts.push('Corso/Area: '+sc.area.join(', '));
     banner.style.display='block'; banner.className='role-banner';
     banner.innerHTML = parts.length
-      ? `Accesso Superuser — ambito: <b>${esc(parts.join(' · '))}</b>`
-      : `Accesso Superuser — nessuna restrizione impostata: vedi tutte le attività.`;
+      ? `Accesso ${CURRENT.role==='responsabile'?'Responsabile':'Superuser'} — ambito: <b>${esc(parts.join(' · '))}</b>`
+      : `Accesso ${CURRENT.role==='responsabile'?'Responsabile — nessun centro di costo assegnato: non vedi attività.':'Superuser — nessuna restrizione impostata: vedi tutte le attività.'}`;
   }
   else banner.style.display='none';
   document.getElementById('btnNewAct').style.display=(manage||teach)?'':'none';
@@ -1026,16 +1028,36 @@ function applyRole(){
 // Superuser: stesse potenzialità di admin (inserisce, approva RDA) ma con l'elenco attività
 // limitato a uno "scope" (Tipologia/Corso) che l'admin imposta da Admin → Utenti. Uno scope con
 // array vuoto o assente per una dimensione = nessuna restrizione su quella dimensione.
-function canManage(){ return CURRENT.role==='admin' || CURRENT.role==='superuser'; }
+function canManage(){ return CURRENT.role==='admin' || CURRENT.role==='superuser' || CURRENT.role==='responsabile'; }
+// centri di costo (Luigi, 2026-10-02): 6400 Direct Domestic = le sole tipologie Test/Eventi PG,
+// 6000 Domestic on Field = tutte le altre. "responsabile" (es. Sofia/Stefano 6000) e "superuser"
+// (es. Roberta 6400) sono limitati ai centri del loro scope, oltre a Tipologia/Corso già esistenti.
+const TIPI_6400=["Test","Eventi PG"];
+function isScopedRole(){ return CURRENT.role==='superuser' || CURRENT.role==='responsabile'; }
 function currentScope(){
-  if(CURRENT.role!=='superuser' || !CURRENT.email) return null;
+  if(!isScopedRole() || !CURRENT.email) return null;
   const u=(STATE.appUsers||{})[CURRENT.email.toLowerCase()];
   return (u && u.scope) || {tipologia:[],area:[]};
 }
+// insieme di tipologie consentite dallo scope (tipologia ∩ centri di costo); null = nessuna restrizione
+function scopeTipiAllowed(){
+  const sc=currentScope(); if(!sc) return null;
+  let allowed=null;
+  if(Array.isArray(sc.centri_costo) && sc.centri_costo.length){
+    allowed=new Set();
+    sc.centri_costo.forEach(id=>{
+      if(id==='6400') TIPI_6400.forEach(t=>allowed.add(t));
+      else if(id==='6000') TIPI.filter(t=>!TIPI_6400.includes(t)).forEach(t=>allowed.add(t));
+    });
+  } else if(CURRENT.role==='responsabile') allowed=new Set(); // senza centro assegnato non vede nulla
+  if(sc.tipologia && sc.tipologia.length){ const st=new Set(sc.tipologia); allowed = allowed ? new Set([...allowed].filter(t=>st.has(t))) : st; }
+  return allowed;
+}
 function activityInScope(a){
-  if(CURRENT.role!=='superuser') return true;
+  if(!isScopedRole()) return true;
   const sc=currentScope();
-  if(sc.tipologia && sc.tipologia.length && !sc.tipologia.includes(a.tipo)) return false;
+  const al=scopeTipiAllowed();
+  if(al && !al.has(a.tipo)) return false;
   if(sc.area && sc.area.length && !sc.area.includes(a.area)) return false;
   return true;
 }
@@ -1043,15 +1065,14 @@ function activityInScope(a){
 // sono raggruppate per docente+mese+tipo, quindi lo scope Tipologia si applica lì in modo esatto —
 // lo scope Corso/Area invece filtra solo le attività (una RDA può comunque coprire più corsi)
 function scopedTipi(){
-  if(CURRENT.role!=='superuser') return TIPI;
-  const sc=currentScope();
-  return (sc.tipologia && sc.tipologia.length) ? TIPI.filter(t=>sc.tipologia.includes(t)) : TIPI;
+  const al=scopeTipiAllowed();
+  return al ? TIPI.filter(t=>al.has(t)) : TIPI;
 }
 function visibleActivities(){
   if(CURRENT.interfaceId){ const ids=myTeacherIds()||[]; return STATE.activities.filter(a=>ids.includes(a.teacher_id)); }
   const f=myFilter();
   let list=f?STATE.activities.filter(a=>a.teacher_id===f):STATE.activities;
-  if(CURRENT.role==='superuser') list=list.filter(activityInScope);
+  if(isScopedRole()) list=list.filter(activityInScope);
   return list;
 }
 function renderDueBanner(){
@@ -1877,8 +1898,8 @@ function renderChiusuraList(){
     // RDA storiche da prima di questa modifica (2026-09-16), senza tipologia: restano visibili così
     // come sono, mai fuse con le nuove RDA per tipologia — a un Superuser con scope Tipologia
     // impostato non le mostriamo, perché senza tipo non c'è modo di verificare se rientrano nel suo ambito
-    const scopeTip=CURRENT.role==='superuser' ? (currentScope().tipologia||[]) : [];
-    if(!scopeTip.length){
+    const scopeTipRestricted=!!scopeTipiAllowed();
+    if(!scopeTipRestricted){
       const legacyRdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && !r.tipo);
       if(legacyRdas.length) units.push({tid,tipo:null,rdas:legacyRdas,acts:[],pending:[]});
     }
@@ -2804,6 +2825,8 @@ async function syncBudgetMovement(r){
         data_ordine:r.rif_rda_data||null,
         num_ordine:r.rif_rda,
         categoria:'CONS. COMM. MKTG',
+        // centro di costo: Test ed Eventi PG vanno al 6400 (Direct Domestic), il resto al 6000
+        centro_costo: TIPI_6400.includes(r.tipo) ? '6400' : '6000',
         importo:Number(r.importo_totale)||0,
         comp_da:dates[0]||r.mese,
         comp_a:dates[dates.length-1]||r.mese,

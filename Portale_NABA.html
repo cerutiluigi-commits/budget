@@ -243,6 +243,7 @@ input,select{font-family:inherit;font-size:14px}
         <input type="email" id="uNewEmail" placeholder="email@naba.it" style="flex:1;min-width:220px">
         <select id="uNewRole">
           <option value="admin">Admin</option>
+          <option value="responsabile">Responsabile</option>
           <option value="superuser">Superuser</option>
           <option value="orientatore" selected>Orientatore</option>
           <option value="docente">Docente</option>
@@ -374,7 +375,7 @@ document.getElementById("uAddBtn").onclick=()=>{
   const role=get("uNewRole");
   if(!email||!/^[^@]+@[^@]+\.[^@]+$/.test(email)){ toast("Inserisci un'email valida"); return; }
   if(UTENTI_DATA.users[email]){ toast("Esiste già un utente con questa email"); return; }
-  const u={role,attivo:true,extra_roles:[],scope:role==='superuser'?{tipologia:[],area:[]}:null};
+  const u={role,attivo:true,extra_roles:[],scope:(role==='superuser'||role==='responsabile')?{tipologia:[],area:[],centri_costo:[]}:null};
   UTENTI_DATA.users[email]=u;
   document.getElementById("uNewEmail").value="";
   renderUtentiTable();
@@ -572,13 +573,20 @@ function linkedEntityHtml(email,role,extraRoles){
   if(!parts.length) parts.push(`<span class="usub">—</span>`);
   return parts.join('');
 }
+// centri di costo (stessa lista di Gestione_budget_NABA_v2.html): servono per Responsabile e Superuser
+const CENTRI_COSTO_PORTALE=[{id:'6000',nome:'Domestic on Field'},{id:'6400',nome:'Direct Domestic'}];
 function superuserScopeRowHtml(email,u){
   const sc=u.scope||{tipologia:[],area:[]};
+  const ccChips=CENTRI_COSTO_PORTALE.map(c=>`<button type="button" class="uchip uScopeCc ${sc.centri_costo&&sc.centri_costo.includes(c.id)?'on':''}" data-email="${esc(email)}" data-v="${esc(c.id)}">${esc(c.id)} · ${esc(c.nome)}</button>`).join(' ');
+  const ccWarn=(u.role==='responsabile' && !(sc.centri_costo&&sc.centri_costo.length)) ? `<div class="uwarn" style="margin-bottom:8px">⚠ nessun centro di costo assegnato: questo responsabile non vede alcun dato</div>` : '';
   const tipChips=TIPI_DOCENTI.map(t=>`<button type="button" class="uchip uScopeTipo ${sc.tipologia&&sc.tipologia.includes(t)?'on':''}" data-email="${esc(email)}" data-v="${esc(t)}">${esc(t)}</button>`).join(' ');
   const areas=allKnownAreasPortale();
   const areaChips=areas.length ? areas.map(a=>`<button type="button" class="uchip uScopeArea ${sc.area&&sc.area.includes(a)?'on':''}" data-email="${esc(email)}" data-v="${esc(a)}">${esc(a)}</button>`).join(' ') : `<span class="usub">Nessun corso configurato.</span>`;
   return `<tr><td colspan="7" style="background:var(--paper)">
-    <div style="font-size:11px;font-weight:700;color:var(--ink-mute);margin-bottom:6px">AMBITO SUPERUSER (Docenti) — nessuna selezione su una riga = nessuna restrizione</div>
+    <div style="font-size:11px;font-weight:700;color:var(--ink-mute);margin-bottom:6px">AMBITO ${u.role==='responsabile'?'RESPONSABILE':'SUPERUSER'} — nessuna selezione su una riga = nessuna restrizione${u.role==='responsabile'?' (tranne i centri di costo: senza centro non vede nulla)':''}</div>
+    ${ccWarn}
+    <div class="usub" style="margin-bottom:4px">Centro di costo (Budget, Docenti, Spese EC)</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${ccChips}</div>
     <div class="usub" style="margin-bottom:4px">Tipologia</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${tipChips}</div>
     <div class="usub" style="margin-bottom:4px">Corso/Area</div>
@@ -600,6 +608,7 @@ function renderUtentiTable(){
       <td><b>${esc(email)}</b></td>
       <td><select class="uRoleSel" data-email="${esc(email)}">
         <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
+        <option value="responsabile" ${u.role==='responsabile'?'selected':''}>Responsabile</option>
         <option value="superuser" ${u.role==='superuser'?'selected':''}>Superuser</option>
         <option value="orientatore" ${u.role==='orientatore'?'selected':''}>Orientatore</option>
         <option value="docente" ${u.role==='docente'?'selected':''}>Docente</option>
@@ -613,7 +622,7 @@ function renderUtentiTable(){
         <button type="button" class="urowbtn danger" data-del="${esc(email)}" title="Rimuovi">Elimina</button>
       </td>
     </tr>`;
-    if(u.role==='superuser') h+=superuserScopeRowHtml(email,u);
+    if(u.role==='superuser' || u.role==='responsabile') h+=superuserScopeRowHtml(email,u);
   });
   h+=`</tbody>`;
   document.getElementById('utentiTable').innerHTML=h;
@@ -627,7 +636,7 @@ function wireUtentiTable(){
   document.querySelectorAll('.uRoleSel').forEach(s=>s.onchange=()=>{
     const email=s.dataset.email, u=UTENTI_DATA.users[email]; if(!u) return;
     u.role=s.value;
-    if(u.role==='superuser' && !u.scope) u.scope={tipologia:[],area:[]};
+    if((u.role==='superuser'||u.role==='responsabile') && !u.scope) u.scope={tipologia:[],area:[],centri_costo:[]};
     u.extra_roles=(u.extra_roles||[]).filter(r=>r!==u.role); // il ruolo primario non resta anche come tag
     renderUtentiTable();
     upsertAppUser(email,u);
@@ -644,10 +653,10 @@ function wireUtentiTable(){
     renderUtentiTable();
     upsertAppUser(email,u);
   });
-  document.querySelectorAll('.uScopeTipo,.uScopeArea').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.uScopeTipo,.uScopeArea,.uScopeCc').forEach(b=>b.onclick=()=>{
     const email=b.dataset.email, u=UTENTI_DATA.users[email]; if(!u) return;
-    if(!u.scope) u.scope={tipologia:[],area:[]};
-    const dim=b.classList.contains('uScopeTipo')?'tipologia':'area';
+    if(!u.scope) u.scope={tipologia:[],area:[],centri_costo:[]};
+    const dim=b.classList.contains('uScopeTipo')?'tipologia':(b.classList.contains('uScopeCc')?'centri_costo':'area');
     if(!u.scope[dim]) u.scope[dim]=[];
     const i=u.scope[dim].indexOf(b.dataset.v);
     if(i>=0) u.scope[dim].splice(i,1); else u.scope[dim].push(b.dataset.v);
