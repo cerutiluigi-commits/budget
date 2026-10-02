@@ -1051,8 +1051,12 @@ let DOC_CC=null, _docCcFor=null; // "ALL" | "6000" | "6400"; riparte dal centro 
 function defaultCcDoc(){
   const sc=currentScope();
   const l=sc&&Array.isArray(sc.centri_costo)?sc.centri_costo.map(String).filter(id=>CENTRI_DOC.some(c=>c.id===id)):[];
+  const cd=sc&&sc.centro_default;
+  if(cd==="ALL" || CENTRI_DOC.some(c=>c.id===cd)) return cd;
   return l.length===1 ? l[0] : "ALL";
 }
+// chiamata dal Portale ogni volta che si (ri)entra nella scheda: torna al centro predefinito
+function resetCcToDefault(){ if(canManage()){ DOC_CC=defaultCcDoc(); _docCcFor=CURRENT.email; syncCcUI(); renderAll(); } }
 function currentCc(){
   if(!canManage()) return "ALL";
   if(DOC_CC===null || _docCcFor!==CURRENT.email){ _docCcFor=CURRENT.email; DOC_CC=defaultCcDoc(); }

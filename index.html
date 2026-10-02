@@ -452,6 +452,10 @@ function showScreen(name){
   document.getElementById('btnHome').style.display = (name==='app'||name==='backend'||name==='utenti') ? '' : 'none';
 }
 function showApp(app){
+  // a ogni (ri)ingresso nella scheda il centro di costo torna al predefinito dell'utente
+  if(screen!=='app' || currentApp!==app){
+    try{ const w=(app==='budget'?frameBudget:app==='docenti'?frameDocenti:null); if(w && w.contentWindow.resetCcToDefault) w.contentWindow.resetCcToDefault(); }catch(e){}
+  }
   currentApp=app;
   frameBudget.classList.toggle('on', app==='budget');
   frameSpese.classList.toggle('on', app==='spese');
@@ -590,6 +594,12 @@ function superuserScopeRowHtml(email,u){
     ${ccWarn}
     <div class="usub" style="margin-bottom:4px">Centro di costo (Budget, Docenti, Spese EC)</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${ccChips}</div>
+    <div class="usub" style="margin-bottom:4px">Centro predefinito (con cui si apre Budget/Docenti a ogni ingresso nella scheda)</div>
+    <select class="uCcDefault" data-email="${esc(email)}" style="margin-bottom:10px">
+      <option value="" ${!sc.centro_default?"selected":""}>Automatico (il centro se ne ha uno solo, altrimenti Tutti)</option>
+      <option value="ALL" ${sc.centro_default==="ALL"?"selected":""}>Tutti i centri</option>
+      ${CENTRI_COSTO_PORTALE.map(c=>`<option value="${c.id}" ${sc.centro_default===c.id?"selected":""}>${c.id} · ${esc(c.nome)}</option>`).join("")}
+    </select>
     <div class="usub" style="margin-bottom:4px">Tipologia</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${tipChips}</div>
     <div class="usub" style="margin-bottom:4px">Corso/Area</div>
@@ -654,6 +664,12 @@ function wireUtentiTable(){
     const i=u.extra_roles.indexOf(tag);
     if(i>=0) u.extra_roles.splice(i,1); else u.extra_roles.push(tag);
     renderUtentiTable();
+    upsertAppUser(email,u);
+  });
+  document.querySelectorAll('.uCcDefault').forEach(s=>s.onchange=()=>{
+    const email=s.dataset.email, u=UTENTI_DATA.users[email]; if(!u) return;
+    if(!u.scope) u.scope={tipologia:[],area:[],centri_costo:[]};
+    if(s.value) u.scope.centro_default=s.value; else delete u.scope.centro_default;
     upsertAppUser(email,u);
   });
   document.querySelectorAll('.uScopeTipo,.uScopeArea,.uScopeCc').forEach(b=>b.onclick=()=>{

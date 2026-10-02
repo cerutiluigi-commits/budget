@@ -813,9 +813,13 @@ function defaultCcForUser(){
   if(!email || typeof cloudReady!=='function' || !cloudReady()) return "ALL";
   const u=(STATE.appUsers||{})[email.toLowerCase()];
   const sc=u&&u.scope&&Array.isArray(u.scope.centri_costo)?u.scope.centri_costo.map(String).filter(id=>CENTRI_COSTO.some(c=>c.id===id)):[];
+  const cd=u&&u.scope&&u.scope.centro_default;
+  if(cd==="ALL" || CENTRI_COSTO.some(c=>c.id===cd)) return cd;
   return sc.length===1 ? sc[0] : "ALL";
 }
 let _ccDefaulted=false;
+// chiamata dal Portale ogni volta che si (ri)entra nella scheda: torna al centro predefinito
+function resetCcToDefault(){ if(cloudReady()){ STATE.ccSel=defaultCcForUser(); renderAll(); } }
 // centri effettivamente mostrati ora: la selezione corrente ristretta a quelli consentiti
 function ccInView(){
   const allowed=allowedCcs();
