@@ -485,18 +485,21 @@ function updateLanding(){
   if(pending){
     document.getElementById('landingLoading').style.display='block';
     document.getElementById('landingGrid').style.display='none';
-    if(_landingRetries<60){ _landingRetries++; setTimeout(updateLanding,150); }
+    // dopo ~9s a 150ms si continua più piano invece di fermarsi: prima, con un cloud lento, restava
+    // per sempre "Caricamento" senza card (pulsanti spariti dopo il refresh)
+    _landingRetries++; setTimeout(updateLanding,_landingRetries<60?150:1000);
     return;
   }
   _landingRetries=0;
   document.getElementById('landingLoading').style.display='none'; // risolto: la card giusta rimpiazza il messaggio, non ci convivono
-  const role=frameRole(), isAdmin=role==='admin';
+  const role=frameRole(), isAdmin=role==='admin'||role==='responsabile'; // il responsabile ha il Backend (tranne la gestione Utenti)
   const hasBudget=bState==='visible', hasSpese=sState==='visible', hasDocenti=dState==='visible';
   document.getElementById('landingSub').textContent = cloudUser() ? ('Connesso come '+cloudUser()) : '';
   document.getElementById('cardBudget').style.display = hasBudget ? '' : 'none';
   document.getElementById('cardSpese').style.display = hasSpese ? '' : 'none';
   document.getElementById('cardDocenti').style.display = hasDocenti ? '' : 'none';
   document.getElementById('cardBackend').style.display = isAdmin ? '' : 'none';
+  const cu=document.querySelector('.app-card[data-backend="users"]'); if(cu) cu.style.display = role==='admin' ? '' : 'none';
   const none = !hasBudget && !hasSpese && !hasDocenti && !isAdmin;
   document.getElementById('landingEmptyRole').textContent = role||'';
   document.getElementById('landingEmpty').style.display = none ? 'block' : 'none';
@@ -516,7 +519,7 @@ function recheckSoon(){
    "Visibilità" che vivevano duplicate identiche nel Pannello Admin di
    Budget/Spese EC/Docenti (Luigi, 2026-09-25).
    ============================================================ */
-const TIPI_DOCENTI=["Workshop","Open Day","NabaIncontra","NabaExperience","Webinar","Test","Altro"]; // stessa lista di docenti.html, per l'ambito Superuser
+const TIPI_DOCENTI=["Workshop","Open Day","NabaIncontra","NabaExperience","Webinar","Test","Eventi PG","Altro"]; // stessa lista di docenti.html, per l'ambito Superuser
 let UTENTI_DATA=null; // {users:{email:{...}}, travelers:[], interfaces:[], teachers:[]}
 async function loadUtentiScreen(){
   const hint=document.getElementById('utentiLoadHint');
@@ -578,12 +581,12 @@ const CENTRI_COSTO_PORTALE=[{id:'6000',nome:'Domestic on Field'},{id:'6400',nome
 function superuserScopeRowHtml(email,u){
   const sc=u.scope||{tipologia:[],area:[]};
   const ccChips=CENTRI_COSTO_PORTALE.map(c=>`<button type="button" class="uchip uScopeCc ${sc.centri_costo&&sc.centri_costo.includes(c.id)?'on':''}" data-email="${esc(email)}" data-v="${esc(c.id)}">${esc(c.id)} · ${esc(c.nome)}</button>`).join(' ');
-  const ccWarn=(u.role==='responsabile' && !(sc.centri_costo&&sc.centri_costo.length)) ? `<div class="uwarn" style="margin-bottom:8px">⚠ nessun centro di costo assegnato: questo responsabile non vede alcun dato</div>` : '';
+  const ccWarn=(u.role==='responsabile' && !(sc.centri_costo&&sc.centri_costo.length)) ? `<div class="uwarn" style="margin-bottom:8px">nessun centro di costo di partenza: aprirà Budget e Docenti su «Tutti i centri»</div>` : '';
   const tipChips=TIPI_DOCENTI.map(t=>`<button type="button" class="uchip uScopeTipo ${sc.tipologia&&sc.tipologia.includes(t)?'on':''}" data-email="${esc(email)}" data-v="${esc(t)}">${esc(t)}</button>`).join(' ');
   const areas=allKnownAreasPortale();
   const areaChips=areas.length ? areas.map(a=>`<button type="button" class="uchip uScopeArea ${sc.area&&sc.area.includes(a)?'on':''}" data-email="${esc(email)}" data-v="${esc(a)}">${esc(a)}</button>`).join(' ') : `<span class="usub">Nessun corso configurato.</span>`;
   return `<tr><td colspan="7" style="background:var(--paper)">
-    <div style="font-size:11px;font-weight:700;color:var(--ink-mute);margin-bottom:6px">AMBITO ${u.role==='responsabile'?'RESPONSABILE':'SUPERUSER'} — nessuna selezione su una riga = nessuna restrizione${u.role==='responsabile'?' (tranne i centri di costo: senza centro non vede nulla)':''}</div>
+    <div style="font-size:11px;font-weight:700;color:var(--ink-mute);margin-bottom:6px">AMBITO ${u.role==='responsabile'?'RESPONSABILE':'SUPERUSER'} — nessuna selezione su una riga = nessuna restrizione${' · il centro di costo è la vista di partenza (cambiabile dal menù in alto), non una restrizione'}</div>
     ${ccWarn}
     <div class="usub" style="margin-bottom:4px">Centro di costo (Budget, Docenti, Spese EC)</div>
     <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px">${ccChips}</div>

@@ -580,7 +580,23 @@ function positionCursor(targetKey){
 
 function estimateMs(text){ return Math.max(2200, Math.min(9000, text.length*58)) / speedX; }
 
-function speak(text, onDone){
+// voce registrata (audio-spese-ec-NN.mp3, generata da genera_audio_guide.js con voce maschile italiana):
+// uguale per tutti i colleghi. Se il file manca o non parte, ripiega sulla voce di sintesi del browser.
+var curAudio=null;
+function stopAudio(){ if(curAudio){ var a=curAudio; curAudio=null; try{ a.pause(); }catch(e){} } }
+function speak(text, onDone, stepIdx){
+  if(!voiceOn || stepIdx==null){ return speakTTS(text, onDone); }
+  try{
+    stopAudio();
+    var a=new Audio("audio-spese-ec-"+("0"+(stepIdx+1)).slice(-2)+".mp3");
+    curAudio=a; a.playbackRate=speedX;
+    function fallback(){ if(curAudio===a){ curAudio=null; speakTTS(text, onDone); } }
+    a.onended=function(){ if(curAudio===a){ curAudio=null; onDone(); } };
+    a.onerror=fallback;
+    var p=a.play(); if(p && p.catch) p.catch(fallback);
+  }catch(e){ speakTTS(text, onDone); }
+}
+function speakTTS(text, onDone){
   if(!voiceOn || !('speechSynthesis' in window)){ advanceTimer=setTimeout(onDone, estimateMs(text)); return; }
   try{
     speechSynthesis.cancel();
@@ -594,7 +610,7 @@ function speak(text, onDone){
   }catch(e){ advanceTimer=setTimeout(onDone, estimateMs(text)); }
 }
 
-function clearAdvance(){ if(advanceTimer){ clearTimeout(advanceTimer); advanceTimer=null; } try{ speechSynthesis.cancel(); }catch(e){} }
+function clearAdvance(){ stopAudio(); if(advanceTimer){ clearTimeout(advanceTimer); advanceTimer=null; } try{ speechSynthesis.cancel(); }catch(e){} }
 
 function goTo(i, autoChain){
   if(i<0) i=0; if(i>=STEPS.length) i=STEPS.length-1;
@@ -622,7 +638,7 @@ function goTo(i, autoChain){
     btnPrev.disabled = (i===0);
     btnNext.disabled = (i===STEPS.length-1);
     if(autoChain){
-      speak(step.speech, function(){ if(playing && idx<STEPS.length-1) goTo(idx+1, true); else if(playing && idx===STEPS.length-1) setPlaying(false); });
+      speak(step.speech, function(){ if(playing && idx<STEPS.length-1) goTo(idx+1, true); else if(playing && idx===STEPS.length-1) setPlaying(false); }, i);
     }
   }); });
 }
@@ -657,11 +673,11 @@ btnVoice.addEventListener('click', function(){
   btnVoice.classList.toggle('on', voiceOn);
   btnVoice.classList.toggle('off', !voiceOn);
   voiceLabel.textContent = voiceOn ? 'Voce attiva' : 'Voce spenta';
-  if(!voiceOn){ try{ speechSynthesis.cancel(); }catch(e){} }
+  if(!voiceOn){ if(curAudio){ var d=curDone; stopAudio(); if(d && playing) advanceTimer=setTimeout(d,800); } try{ speechSynthesis.cancel(); }catch(e){} }
 });
 btnSpeed.addEventListener('click', function(){
   speedX = speedX===1 ? 2 : 1;
-  btnSpeed.textContent = speedX+'×';
+  if(curAudio) curAudio.playbackRate=speedX; btnSpeed.textContent = speedX+'×';
   btnSpeed.classList.toggle('active', speedX===2);
   stageShell.classList.toggle('speed2x', speedX===2);
 });

@@ -804,16 +804,18 @@ function ccLabel(id){ const c=CENTRI_COSTO.find(x=>x.id===id); return c ? `${c.i
 function ccOf(e){ return (e && e.centroCosto) || CC_DEFAULT; }
 // centri che l'utente può vedere: admin e uso locale = tutti; responsabile = solo quelli del suo
 // scope (fail-closed se manca); superuser/altri ruoli senza scope per centro = tutti (come prima)
-function allowedCcs(){
-  const all=CENTRI_COSTO.map(c=>c.id);
+// (Luigi, 2026-10-02) il centro nello scope dell'utente NON è più una restrizione: è solo la vista
+// di partenza a ogni apertura (vedi defaultCcForUser), il menù in alto permette di cambiarla
+function allowedCcs(){ return CENTRI_COSTO.map(c=>c.id); }
+// centro di partenza: l'unico centro dello scope dell'utente, altrimenti "ALL"
+function defaultCcForUser(){
   const email=(typeof cloudUser==='function')?cloudUser():null;
-  if(!email || typeof cloudReady!=='function' || !cloudReady()) return all;
+  if(!email || typeof cloudReady!=='function' || !cloudReady()) return "ALL";
   const u=(STATE.appUsers||{})[email.toLowerCase()];
-  if(!u || u.role==='admin') return all;
-  const sc=u.scope&&Array.isArray(u.scope.centri_costo)?u.scope.centri_costo.map(String):null;
-  if(sc&&sc.length) return all.filter(id=>sc.includes(id));
-  return u.role==='responsabile' ? [] : all;
+  const sc=u&&u.scope&&Array.isArray(u.scope.centri_costo)?u.scope.centri_costo.map(String).filter(id=>CENTRI_COSTO.some(c=>c.id===id)):[];
+  return sc.length===1 ? sc[0] : "ALL";
 }
+let _ccDefaulted=false;
 // centri effettivamente mostrati ora: la selezione corrente ristretta a quelli consentiti
 function ccInView(){
   const allowed=allowedCcs();
@@ -1139,6 +1141,8 @@ window.addEventListener("scroll",()=>{ if(_tipEl) hideTip(); }, true);
 // selettore del centro di costo: mostra solo i centri consentiti all'utente (con uno solo è fisso)
 function syncCcUI(){
   const sel=document.getElementById("ccSel"), grp=document.getElementById("ccGroup"); if(!sel) return;
+  // una volta per apertura, appena i ruoli/scope sono caricati: parte dal centro dell'utente
+  if(!_ccDefaulted && typeof dataReady!=='undefined' && dataReady && cloudReady()){ _ccDefaulted=true; STATE.ccSel=defaultCcForUser(); }
   const allowed=allowedCcs();
   sel.innerHTML=(allowed.length>1?[`<option value="ALL">Tutti i centri</option>`]:[]).concat(allowed.map(id=>`<option value="${id}">${esc(ccLabel(id))}</option>`)).join("");
   const inView=ccInView();
@@ -2195,7 +2199,10 @@ function effectiveRoles(){
 function tabVisible(tool,tabKey,role){
   const cfg=STATE.tabVisibility && STATE.tabVisibility[tool] && STATE.tabVisibility[tool][tabKey];
   if(cfg && Object.prototype.hasOwnProperty.call(cfg,role)) return !!cfg[role];
-  return role==='admin';
+  // "responsabile" = admin limitato al centro: senza riga propria (es. tab aggiunta dopo la migrazione)
+  // segue la riga admin invece di sparire, altrimenti dopo un refresh mancano pulsanti
+  if(role==='responsabile' && cfg && Object.prototype.hasOwnProperty.call(cfg,'admin')) return !!cfg.admin;
+  return role==='admin' || role==='responsabile';
 }
 // true una volta che sb.auth.getSession() ha risposto (con o senza sessione). Bug reale (Luigi,
 // 2026-09-21): un utente con ruolo diverso da admin vedeva per alcuni secondi TUTTI i pulsanti

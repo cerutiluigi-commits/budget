@@ -684,12 +684,9 @@ function baseIdentity(){
       if(trav) return {role:'orientatore',travelerId:trav.id,preview:false,email,name:trav.nome};
       return {role:'none',travelerId:null,preview:false,email,name:null};
     }
-    // responsabile di centro di costo (Luigi, 2026-10-02): Spese EC è tutta del centro 6000, quindi chi
-    // ha il 6000 nel proprio scope lavora qui come un admin; chi non lo ha (es. 6400) non vede nulla
-    if(role==='responsabile'){
-      const sc=u&&u.scope&&Array.isArray(u.scope.centri_costo)?u.scope.centri_costo.map(String):[];
-      return sc.includes('6000') ? {role:'admin',travelerId:null,preview:false,email,name:null} : {role:'none',travelerId:null,preview:false,email,name:null};
-    }
+    // responsabile di centro di costo (Luigi, 2026-10-02): il centro dello scope è solo la vista di
+    // partenza (non una restrizione), quindi qui lavora come un admin
+    if(role==='responsabile') return {role:'admin',travelerId:null,preview:false,email,name:null};
     if(role==='docente') return {role:'docente',travelerId:trav?trav.id:null,preview:false,email,name:trav?trav.nome:null};
     return {role:'none',travelerId:null,preview:false,email,name:null};
   }
@@ -707,7 +704,9 @@ function myFilter(){ return CURRENT.travelerId?CURRENT.travelerId:(STATE.view!==
 function tabVisible(tool,tabKey,role){
   const cfg=STATE.tabVisibility&&STATE.tabVisibility[tool]&&STATE.tabVisibility[tool][tabKey];
   if(cfg && Object.prototype.hasOwnProperty.call(cfg,role)) return !!cfg[role];
-  return role==='admin';
+  // "responsabile" = admin limitato al centro: senza riga propria segue la riga admin
+  if(role==='responsabile' && cfg && Object.prototype.hasOwnProperty.call(cfg,'admin')) return !!cfg.admin;
+  return role==='admin' || role==='responsabile';
 }
 // ruolo principale + eventuali "tag" extra (bdg_app_users.extra_roles, es. un orientatore reso
 // anche docente) — la visibilità di una tab è l'unione tra tutti questi ruoli, gestiti dalla

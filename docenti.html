@@ -453,6 +453,7 @@ tfoot td.l{text-align:left}
       <span class="s">NABA · Attività retribuite</span>
     </div>
     <div class="hctl">
+      <div class="hgroup"><label>Centro</label><select id="ccSel"></select></div>
       <div class="hgroup"><label>Vista</label><select id="viewSel"></select></div>
       <button class="hbtn" id="btnCloud"><span id="cloudDot" class="cloud-dot off"></span><span id="cloudLbl">Cloud</span></button>
       <button class="hbtn" id="btnAdmin" title="Pannello amministrazione" style="display:none">Admin</button>
@@ -802,7 +803,7 @@ tfoot td.l{text-align:left}
 <div id="toast"></div>
 <script>
 /* ============================ DOCENTI ============================ */
-const TIPI=["Workshop","Open Day","NabaIncontra","NabaExperience","Webinar","Test","Altro"];
+const TIPI=["Workshop","Open Day","NabaIncontra","NabaExperience","Webinar","Test","Eventi PG","Altro"];
 // da Docenti.xlsx: [VOCI / RUOLI] e [CASSA/RITENUTA D'ACCONTO] (rinominati "Ruoli" e "Contributi" in UI).
 // "Contributi" serve a calcolare l'importo effettivamente da versare al docente (cassa 4% vs ritenuta).
 const RUOLI=["Docente","Collaboratore","Tutor"];
@@ -912,7 +913,9 @@ function myFilter(){ return STATE.view!=="ALL"?STATE.view:null; }
 function tabVisible(tool,tabKey,role){
   const cfg=STATE.tabVisibility&&STATE.tabVisibility[tool]&&STATE.tabVisibility[tool][tabKey];
   if(cfg && Object.prototype.hasOwnProperty.call(cfg,role)) return !!cfg[role];
-  return role==='admin' || role==='superuser';
+  // "responsabile" = admin limitato al centro: senza riga propria segue la riga admin
+  if(role==='responsabile' && cfg && Object.prototype.hasOwnProperty.call(cfg,'admin')) return !!cfg.admin;
+  return role==='admin' || role==='superuser' || role==='responsabile';
 }
 // ruolo principale + eventuali "tag" extra (bdg_app_users.extra_roles, es. un orientatore reso
 // anche docente) — la visibilità di una tab è l'unione tra tutti questi ruoli, gestiti dalla
@@ -983,7 +986,8 @@ function applyRole(){
   document.getElementById('tabs').style.display='';
   const isAdmin=CURRENT.role==='admin', teach=!!CURRENT.interfaceId, manage=canManage();
   const q=s=>document.querySelector(s);
-  const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display=isAdmin?'':'none'; // Admin panel: mai al Superuser, solo Admin vero
+  const ab=document.getElementById('btnAdmin'); if(ab) ab.style.display=(isAdmin||CURRENT.role==='responsabile')?'':'none'; // Admin panel: mai al Superuser, solo Admin e Responsabile
+  syncCcUI();
   const vg=document.getElementById('viewSel').closest('.hgroup'); if(vg) vg.style.display=manage?'':'none';
   updateViewIndicator();
   const active=document.querySelector('nav.tabs button.on');
@@ -1015,8 +1019,8 @@ function applyRole(){
     if(sc.area && sc.area.length) parts.push('Corso/Area: '+sc.area.join(', '));
     banner.style.display='block'; banner.className='role-banner';
     banner.innerHTML = parts.length
-      ? `Accesso ${CURRENT.role==='responsabile'?'Responsabile':'Superuser'} — ambito: <b>${esc(parts.join(' · '))}</b>`
-      : `Accesso ${CURRENT.role==='responsabile'?'Responsabile — nessun centro di costo assegnato: non vedi attività.':'Superuser — nessuna restrizione impostata: vedi tutte le attività.'}`;
+      ? `Accesso ${CURRENT.role==='responsabile'?'Responsabile':'Superuser'} — ambito: <b>${esc(parts.join(' · '))}</b> (il centro di costo è la vista di partenza, cambiabile dal menù "Centro")`
+      : `Accesso ${CURRENT.role==='responsabile'?'Responsabile — nessun centro di costo assegnato: vedi tutti i centri.':'Superuser — nessuna restrizione impostata: vedi tutte le attività.'}`;
   }
   else banner.style.display='none';
   document.getElementById('btnNewAct').style.display=(manage||teach)?'':'none';
@@ -1039,26 +1043,44 @@ function currentScope(){
   const u=(STATE.appUsers||{})[CURRENT.email.toLowerCase()];
   return (u && u.scope) || {tipologia:[],area:[]};
 }
-// insieme di tipologie consentite dallo scope (tipologia ∩ centri di costo); null = nessuna restrizione
+// (Luigi, 2026-10-02) il centro di costo dello scope NON è una restrizione: è la vista di partenza a
+// ogni apertura; il menù "Centro" in alto permette di passare all'altro centro o a "Tutti".
+// Il filtro per centro vale per chi gestisce (admin/responsabile/superuser), non per docenti/interfacce.
+const CENTRI_DOC=[{id:"6000",nome:"Domestic on Field"},{id:"6400",nome:"Direct Domestic"}];
+let DOC_CC=null, _docCcFor=null; // "ALL" | "6000" | "6400"; riparte dal centro dell'utente a ogni cambio utente
+function defaultCcDoc(){
+  const sc=currentScope();
+  const l=sc&&Array.isArray(sc.centri_costo)?sc.centri_costo.map(String).filter(id=>CENTRI_DOC.some(c=>c.id===id)):[];
+  return l.length===1 ? l[0] : "ALL";
+}
+function currentCc(){
+  if(!canManage()) return "ALL";
+  if(DOC_CC===null || _docCcFor!==CURRENT.email){ _docCcFor=CURRENT.email; DOC_CC=defaultCcDoc(); }
+  return DOC_CC;
+}
+function syncCcUI(){
+  const sel=document.getElementById("ccSel"), grp=sel&&sel.closest('.hgroup'); if(!sel) return;
+  if(grp) grp.style.display=canManage()?'':'none';
+  if(!canManage()) return;
+  sel.innerHTML=`<option value="ALL">Tutti i centri</option>`+CENTRI_DOC.map(c=>`<option value="${c.id}">${c.id} · ${esc(c.nome)}</option>`).join("");
+  sel.value=currentCc();
+}
+// insieme di tipologie consentite (scope Tipologia ∩ centro di costo in vista); null = nessuna restrizione
 function scopeTipiAllowed(){
-  const sc=currentScope(); if(!sc) return null;
   let allowed=null;
-  if(Array.isArray(sc.centri_costo) && sc.centri_costo.length){
-    allowed=new Set();
-    sc.centri_costo.forEach(id=>{
-      if(id==='6400') TIPI_6400.forEach(t=>allowed.add(t));
-      else if(id==='6000') TIPI.filter(t=>!TIPI_6400.includes(t)).forEach(t=>allowed.add(t));
-    });
-  } else if(CURRENT.role==='responsabile') allowed=new Set(); // senza centro assegnato non vede nulla
-  if(sc.tipologia && sc.tipologia.length){ const st=new Set(sc.tipologia); allowed = allowed ? new Set([...allowed].filter(t=>st.has(t))) : st; }
+  const cc=currentCc();
+  if(cc==='6400') allowed=new Set(TIPI_6400);
+  else if(cc==='6000') allowed=new Set(TIPI.filter(t=>!TIPI_6400.includes(t)));
+  const sc=currentScope();
+  if(sc && sc.tipologia && sc.tipologia.length){ const st=new Set(sc.tipologia); allowed = allowed ? new Set([...allowed].filter(t=>st.has(t))) : st; }
   return allowed;
 }
 function activityInScope(a){
-  if(!isScopedRole()) return true;
-  const sc=currentScope();
+  if(!canManage()) return true;
   const al=scopeTipiAllowed();
   if(al && !al.has(a.tipo)) return false;
-  if(sc.area && sc.area.length && !sc.area.includes(a.area)) return false;
+  const sc=currentScope();
+  if(sc && sc.area && sc.area.length && !sc.area.includes(a.area)) return false;
   return true;
 }
 // le Tipologie di competenza di un Superuser, usate ovunque la Chiusura mensile itera TIPI: le RDA
@@ -1072,7 +1094,7 @@ function visibleActivities(){
   if(CURRENT.interfaceId){ const ids=myTeacherIds()||[]; return STATE.activities.filter(a=>ids.includes(a.teacher_id)); }
   const f=myFilter();
   let list=f?STATE.activities.filter(a=>a.teacher_id===f):STATE.activities;
-  if(isScopedRole()) list=list.filter(activityInScope);
+  if(canManage()) list=list.filter(activityInScope);
   return list;
 }
 function renderDueBanner(){
@@ -2256,6 +2278,7 @@ const TIPO_HINTS={
   "NabaExperience":"Richiede una Sede tra quelle NABA (o Online), non una scuola esterna.",
   "Webinar":"Non richiede una sede: è online. Indica eventuali dettagli della piattaforma in Note.",
   "Test":"Richiede una Sede tra quelle NABA (o Online), non una scuola esterna.",
+  "Eventi PG":"Richiede una Sede tra quelle NABA (o Online). Centro di costo 6400 (Direct Domestic), categoria Budget CONS. COMM. MKTG.",
   "Altro":"Nessun campo Scuola/Sede richiesto."
 };
 function updateTipoHint(){
@@ -2272,7 +2295,7 @@ function updateLuogoField(){
     wrap.style.display=''; document.getElementById("aLuogoLabel").textContent='Scuola';
     searchEl.style.display=''; selectEl.style.display='none';
     hintEl.textContent="Cerca la scuola nell'anagrafica CRM: le parole possono essere in qualsiasi ordine. Se non la trovi, contatta l'amministrazione prima di procedere.";
-  } else if(tipo==='Open Day'||tipo==='Test'||tipo==='NabaIncontra'||tipo==='NabaExperience'){
+  } else if(tipo==='Open Day'||tipo==='Test'||tipo==='Eventi PG'||tipo==='NabaIncontra'||tipo==='NabaExperience'){
     wrap.style.display=''; document.getElementById("aLuogoLabel").textContent='Sede';
     searchEl.style.display='none'; selectEl.style.display='';
     if(!selectEl.options.length) selectEl.innerHTML=`<option value="">— seleziona —</option>`+CAMPUS_OPTIONS.map(c=>`<option>${c}</option>`).join("");
@@ -2603,7 +2626,7 @@ function saveActivity(){
   const area=document.getElementById("aArea").value||null;
   const tipo=document.getElementById("aTipo").value;
   const schoolId = tipo==='Workshop' ? (document.getElementById("aScuolaId").value||null) : null;
-  const luogo = (tipo==='Open Day'||tipo==='Test'||tipo==='NabaIncontra'||tipo==='NabaExperience') ? (document.getElementById("aLuogoSelect").value||null) : null;
+  const luogo = (tipo==='Open Day'||tipo==='Test'||tipo==='Eventi PG'||tipo==='NabaIncontra'||tipo==='NabaExperience') ? (document.getElementById("aLuogoSelect").value||null) : null;
   const t=teacherById(teacherId);
   const scuolaNome = schoolId ? (SCHOOL_CACHE[schoolId]?SCHOOL_CACHE[schoolId].nome:schoolId) : null;
   const nome = [tipo, luogo||scuolaNome, area, t.nome].filter(Boolean).join(' · ');
@@ -2895,6 +2918,7 @@ document.getElementById("calPreviewClose").onclick=closeCalPreview;
 document.getElementById("calPreviewClose2").onclick=closeCalPreview;
 document.getElementById("calPreviewOpen").onclick=()=>{ const id=calPreviewId; closeCalPreview(); if(id) openActivity(id); };
 document.getElementById("calPreviewOverlay").onclick=e=>{ if(e.target.id==="calPreviewOverlay") e.currentTarget.classList.remove("on"); };
+document.getElementById("ccSel").onchange=e=>{ DOC_CC=e.target.value; renderAll(); };
 document.getElementById("viewSel").onchange=e=>{ STATE.view=e.target.value; save(); renderAll(); updateViewIndicator(); };
 document.getElementById("riepFySel").onchange=e=>{ STATE.riepFy=+e.target.value; STATE.riepMonths=[]; save(); renderRiepMonthChips(); renderRiepilogo(); };
 document.getElementById("riepFiltersToggle").onclick=()=>{
