@@ -345,7 +345,9 @@ tfoot td.l{text-align:left}
   <div class="hctl">
     <div class="hgroup"><label>Anno fiscale</label><select id="fySel"></select></div>
     <div class="hgroup"><label>Vista</label><select id="viewSel"></select></div>
-    <button class="hbtn" id="btnCloud"><span id="cloudDot" class="cloud-dot off"></span><span id="cloudLbl">Cloud</span></button>
+    <button class="hbtn" id="btnSaveFilters" style="display:none" title="Salva i filtri attuali come predefiniti: si riapriranno cosi a ogni accesso">☆ Salva filtri</button>
+      <button class="hbtn" id="btnClearFilters" style="display:none" title="Togli i filtri predefiniti salvati">✕ Filtri</button>
+      <button class="hbtn" id="btnCloud"><span id="cloudDot" class="cloud-dot off"></span><span id="cloudLbl">Cloud</span></button>
     <button class="hbtn" id="btnAdmin" title="Pannello amministrazione" style="display:none">Admin</button>
     <button class="hbtn" id="btnLogout" title="Cambia utente / esci">Esci</button>
   </div>
@@ -358,6 +360,7 @@ tfoot td.l{text-align:left}
   <button data-tab="riepilogo" style="display:none">Riepilogo</button>
   <button data-tab="calendario" style="display:none">Calendario</button>
   <button data-tab="impostazioni" style="display:none">Impostazioni</button>
+  <button data-tab="log" style="display:none">Log</button>
 </nav>
 
 <main>
@@ -422,6 +425,18 @@ tfoot td.l{text-align:left}
   </section>
 
   <!-- IMPOSTAZIONI -->
+  <!-- LOG -->
+  <section class="panel" id="panel-log">
+    <h2 class="sec">Log delle modifiche</h2>
+    <p class="sec-desc">Chi ha aggiunto, modificato o eliminato cosa e quando (con il valore prima e dopo). Visibile solo ad admin e responsabili.</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px">
+      <input id="logSearch" type="search" placeholder="Cerca utente, oggetto, valore…" style="flex:1;min-width:220px;padding:9px 12px;border:1px solid var(--line);border-radius:8px;font:inherit">
+      <select id="logAction" style="padding:9px 12px;border:1px solid var(--line);border-radius:8px;font:inherit"><option value="">Tutte le azioni</option><option value="aggiunta">Aggiunte</option><option value="modifica">Modifiche</option><option value="eliminazione">Eliminazioni</option></select>
+      <button class="btn ghost small" id="logRefresh" type="button">Aggiorna</button>
+    </div>
+    <div class="card scroll"><table id="logTable"></table></div>
+  </section>
+
   <section class="panel" id="panel-impostazioni">
     <h2 class="sec">Viaggiatori</h2>
     <p class="sec-desc">Dati mockup. La classificazione staff / no-staff determina la categoria budget delle spese.</p>
@@ -702,6 +717,7 @@ function effectiveIdentity(){
 function myFilter(){ return CURRENT.travelerId?CURRENT.travelerId:(STATE.view!=="ALL"?STATE.view:null); }
 /* visibilità tab per ruolo (condivisa via cloud, per tool); admin sempre visibile se manca config */
 function tabVisible(tool,tabKey,role){
+  if(tabKey==="log") return role==="admin"||role==="responsabile"; // Log: solo admin e responsabile (Luigi, 2026-10-02)
   const cfg=STATE.tabVisibility&&STATE.tabVisibility[tool]&&STATE.tabVisibility[tool][tabKey];
   if(cfg && Object.prototype.hasOwnProperty.call(cfg,role)) return !!cfg[role];
   // "responsabile" = admin limitato al centro: senza riga propria segue la riga admin
@@ -1298,15 +1314,16 @@ async function saveTrip(){
   if(!dataInizio){ setFieldError(daEl,"La data inizio è obbligatoria."); hasError=true; }
   if(!dataFine){ setFieldError(aEl,"La data fine è obbligatoria."); hasError=true; }
   if(dataInizio && dataFine && dataFine<dataInizio){ setFieldError(aEl,"La data fine non può essere antecedente alla data inizio."); hasError=true; }
-  // non si può restringere il periodo del viaggio sotto le date delle voci già presenti — altrimenti
-  // una voce resterebbe "orfana", fuori dal perimetro del suo stesso viaggio (Luigi, 2026-09-30)
+  // il periodo del viaggio non può escludere le date di SERVIZIO (Servizio da / Servizio a) delle voci già
+  // presenti; la data di acquisto invece non c'entra: un servizio si può acquistare anche molto prima
+  // dell'evento (Luigi, 2026-10-02)
   if(editTripId){
     const its=tripItems(editTripId);
-    const dates=its.flatMap(it=>[it.data_acquisto,it.comp_da,it.comp_a]).filter(Boolean);
+    const dates=its.flatMap(it=>[it.comp_da,it.comp_a]).filter(Boolean);
     if(dates.length){
       const minDate=dates.reduce((a,b)=>a<b?a:b), maxDate=dates.reduce((a,b)=>a>b?a:b);
-      if(dataInizio && dataInizio>minDate){ setFieldError(daEl,`Non puoi spostare l'inizio dopo il ${fmtD(minDate)}: c'è già una voce con quella data.`); hasError=true; }
-      if(dataFine && dataFine<maxDate){ setFieldError(aEl,`Non puoi anticipare la fine prima del ${fmtD(maxDate)}: c'è già una voce con quella data.`); hasError=true; }
+      if(dataInizio && dataInizio>minDate){ setFieldError(daEl,`Non puoi spostare l'inizio dopo il ${fmtD(minDate)}: c'è già una voce con "Servizio da" in quella data.`); hasError=true; }
+      if(dataFine && dataFine<maxDate){ setFieldError(aEl,`Non puoi anticipare la fine prima del ${fmtD(maxDate)}: c'è già una voce con "Servizio a" in quella data.`); hasError=true; }
     }
   }
   if(hasError) return;
@@ -1416,7 +1433,6 @@ function saveItem(){
     if(r.importo===''||isNaN(parseFloat(r.importo))){ setFieldError(impEl,"Inserisci l'importo."); hasError=true; }
     if(!r.dataAcquisto){ setFieldError(acqEl,"La data di acquisto è obbligatoria."); hasError=true; }
     else if(r.dataAcquisto>today){ setFieldError(acqEl,"La data di acquisto non può essere nel futuro: deve essere odierna o passata."); hasError=true; }
-    else if(trip && trip.data_fine && r.dataAcquisto>trip.data_fine){ setFieldError(acqEl,`La data di acquisto non può essere successiva alla fine del viaggio (${fmtD(trip.data_fine)}).`); hasError=true; }
     if(!r.compDa){ setFieldError(cdaEl,"\"Servizio da\" è obbligatorio."); hasError=true; }
     else if(r.dataAcquisto && r.compDa<r.dataAcquisto){ setFieldError(cdaEl,"\"Servizio da\" non può essere precedente alla data di acquisto."); hasError=true; }
     else if(trip && trip.data_inizio && r.compDa<trip.data_inizio){ setFieldError(cdaEl,`"Servizio da" non può precedere l'inizio del viaggio (${fmtD(trip.data_inizio)}).`); hasError=true; }
@@ -1518,6 +1534,7 @@ async function cloudPullAll(silent){
     // qui si lancia un'eccezione non gestita, salta anche il gate()/renderAll() qui sotto e l'utente
     // resta bloccato su ruolo "none" (bug reale, Luigi 2026-09-25)
     try{ Promise.resolve(sb.rpc('bdg_touch_last_seen')).catch(()=>{}); }catch(e){}
+    prefsApplyOnce();
     dataReady=true;
     save(); fillSelects(); renderAll(); gate(); cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud"); cloudRealtimeSubscribe();
   }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore sync: "+(e.message||e)); dataReady=true; gate(); }
@@ -1525,12 +1542,72 @@ async function cloudPullAll(silent){
 /* ruoli/visibilità tab: tabelle condivise con il budget. Fetch protetta a parte
    (un errore qui non deve rompere la sync di viaggi/spese); su errore si tiene
    la config già in cache invece di azzerarla. */
+/* ---- filtri predefiniti per utente (bdg_app_users.prefs, scritti via RPC bdg_save_prefs; migrazione supabase_migration_prefs.sql) ---- */
+const PREF_TOOL="spese";
+function prefsGet(){ const e=(typeof cloudUser==="function")?cloudUser():null; const u=e&&(STATE.appUsers||{})[e.toLowerCase()]; return (u&&u.prefs&&u.prefs[PREF_TOOL])||null; }
+function prefsCollect(){ return {view:STATE.view, fyStart:STATE.fyStart, riepMonths:STATE.riepMonths||[], riepTravs:STATE.riepTravs||[], riepTipi:STATE.riepTipi||[]}; }
+function prefsApplyState(){ const p=prefsGet(); if(!p) return; if(p.view && (p.view==="ALL" || STATE.travelers.some(t=>t.id===p.view))) STATE.view=p.view; if(p.fyStart) STATE.fyStart=+p.fyStart; if(Array.isArray(p.riepMonths)) STATE.riepMonths=p.riepMonths; if(Array.isArray(p.riepTravs)) STATE.riepTravs=p.riepTravs; if(Array.isArray(p.riepTipi)) STATE.riepTipi=p.riepTipi; }
+let _prefsApplied=false;
+function prefsApplyOnce(){ if(_prefsApplied) return; _prefsApplied=true; try{ prefsApplyState(); }catch(e){ console.error("prefs",e); } prefsSyncUI(); }
+function prefsSyncUI(){
+  const on=(typeof cloudReady==="function")&&cloudReady();
+  const b=document.getElementById("btnSaveFilters"), c=document.getElementById("btnClearFilters");
+  if(b) b.style.display=on?"":"none";
+  if(c) c.style.display=(on&&prefsGet())?"":"none";
+}
+async function prefsSave(clear){
+  if(!cloudReady()) return;
+  const email=cloudUser();
+  const {error}=await sb.rpc("bdg_save_prefs",{p_tool:PREF_TOOL,p_prefs:clear?null:prefsCollect()});
+  if(error){ console.error(error); toast("Salvataggio filtri non riuscito: "+error.message+" (serve la migrazione supabase_migration_prefs.sql)"); return; }
+  const u=(STATE.appUsers||{})[String(email).toLowerCase()];
+  if(u){ u.prefs=u.prefs||{}; if(clear) delete u.prefs[PREF_TOOL]; else u.prefs[PREF_TOOL]=prefsCollect(); }
+  prefsSyncUI(); toast(clear?"Filtri predefiniti rimossi":"Filtri salvati come predefiniti");
+}
+document.getElementById("btnSaveFilters").onclick=()=>prefsSave(false);
+document.getElementById("btnClearFilters").onclick=()=>{ if(confirm("Togliere i filtri predefiniti salvati?")) prefsSave(true); };
+
+/* ---- Log delle modifiche (bdg_audit_log, scritto da trigger sul database: migrazione supabase_migration_log.sql) ---- */
+const LOG_ENTITIES=["bdg_travel_trips","bdg_travel_items"];
+let LOG_ROWS=[];
+const LOG_ENT_LABEL={bdg_teacher_activities:'Attività',bdg_teacher_rda:'RDA',bdg_teachers:'Docente',bdg_travel_trips:'Viaggio',bdg_travel_items:'Voce di spesa'};
+const LOG_ACT_LABEL={aggiunta:'Aggiunta',modifica:'Modifica',eliminazione:'Eliminazione'};
+async function fetchLog(){
+  const box=document.getElementById('logTable');
+  if(!cloudReady()){ box.innerHTML='<tbody><tr><td>Il log è disponibile solo con il cloud collegato.</td></tr></tbody>'; return; }
+  box.innerHTML='<tbody><tr><td>Caricamento…</td></tr></tbody>';
+  const {data,error}=await sb.from('bdg_audit_log').select('*').in('entity',LOG_ENTITIES).order('ts',{ascending:false}).limit(500);
+  if(error){ console.error(error); box.innerHTML='<tbody><tr><td>Errore nel caricamento del log: '+esc(error.message)+'</td></tr></tbody>'; return; }
+  LOG_ROWS=data||[]; renderLog();
+}
+function logVal(v){ if(v===null||v===undefined||v==='') return '—'; if(typeof v==='object') return JSON.stringify(v); return String(v); }
+function logDetail(r){
+  const d=r.details; if(!d||typeof d!=='object') return '';
+  if(r.action==='modifica') return Object.entries(d).map(([k,v])=>'<div><b>'+esc(k)+'</b>: '+esc(logVal(v&&v.da))+' → '+esc(logVal(v&&v.a))+'</div>').join('');
+  const keys=['tipo','data','importo','stato','nome','destinazione','scopo','data_inizio','data_fine','fornitore','rif_rda','mese','comp_da','comp_a','data_acquisto'];
+  return keys.filter(k=>d[k]!==undefined&&d[k]!==null&&d[k]!=='').map(k=>'<span style="margin-right:10px"><b>'+esc(k)+'</b>: '+esc(logVal(d[k]))+'</span>').join('');
+}
+function renderLog(){
+  const q=(document.getElementById('logSearch').value||'').trim().toLowerCase(), act=document.getElementById('logAction').value;
+  const rows=LOG_ROWS.filter(r=>(!act||r.action===act) && (!q || [r.user_email,r.summary,r.entity,r.action,JSON.stringify(r.details||{})].join(' ').toLowerCase().includes(q)));
+  let h='<thead><tr><th>Data e ora</th><th>Utente</th><th>Azione</th><th>Oggetto</th><th>Dettaglio</th></tr></thead><tbody>';
+  if(!rows.length) h+='<tr><td colspan="5" style="color:var(--ink-mute)">Nessun movimento registrato.</td></tr>';
+  rows.forEach(r=>{
+    const when=r.ts?new Date(r.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
+    const color=r.action==='eliminazione'?'var(--over)':(r.action==='aggiunta'?'var(--accent)':'var(--ink-soft)');
+    h+='<tr><td style="white-space:nowrap">'+esc(when)+'</td><td>'+esc(r.user_email||'—')+'</td><td style="color:'+color+';font-weight:600">'+esc(LOG_ACT_LABEL[r.action]||r.action)+'</td><td><div>'+esc(LOG_ENT_LABEL[r.entity]||r.entity)+'</div><div style="color:var(--ink-mute);font-size:12px">'+esc(r.summary||'')+'</div></td><td style="font-size:12px">'+logDetail(r)+'</td></tr>';
+  });
+  document.getElementById('logTable').innerHTML=h+'</tbody>';
+}
+document.getElementById('logSearch').addEventListener('input',renderLog);
+document.getElementById('logAction').onchange=renderLog;
+document.getElementById('logRefresh').onclick=fetchLog;
 async function cloudFetchRoles(){
   if(!cloudReady()) return;
   try{
     const {data:au,error:eu}=await sb.from('bdg_app_users').select('*'); if(eu) throw eu;
     const {data:tvz,error:et}=await sb.from('bdg_tab_visibility').select('*'); if(et) throw et;
-    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,scope:r.scope||null,extra_roles:r.extra_roles||[],last_seen_at:r.last_seen_at||null}; });
+    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,scope:r.scope||null,extra_roles:r.extra_roles||[],last_seen_at:r.last_seen_at||null,prefs:r.prefs||{}}; });
     const vis={}; (tvz||[]).forEach(r=>{ if(!vis[r.tool])vis[r.tool]={}; if(!vis[r.tool][r.tab_key])vis[r.tool][r.tab_key]={}; vis[r.tool][r.tab_key][r.role]=!!r.visible; });
     STATE.appUsers=users; STATE.tabVisibility=vis;
   }catch(e){ console.error('roles fetch',e); }
@@ -1550,9 +1627,10 @@ async function cloudPushAll(){
 }
 function cloudUpsertTraveler(t){ if(!cloudReady())return; sb.from('bdg_travelers').upsert(travRow(t)).then(({error})=>{ error?cloudErr('viaggiatore',error):flashSynced(); }); }
 function cloudUpsertTrip(t){ if(!cloudReady())return; sb.from('bdg_travel_trips').upsert(tripRow(t)).then(({error})=>{ error?cloudErr('trasferta',error):flashSynced(); }); }
-function cloudDeleteTrip(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_travel_trips').delete().eq('id',id).then(({error})=>{ error?cloudErr('eliminazione trasferta',error):flashSynced(); }); }
+// eliminazione con verifica: .select('id') restituisce le righe davvero cancellate (0 = il DELETE e' stato ignorato)
+function cloudDeleteTrip(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_travel_trips').delete().eq('id',id).select('id').then(({data,error})=>{ if(error) cloudErr('eliminazione trasferta',error); else if(!(data||[]).length) cloudErr('eliminazione trasferta',new Error('nessuna riga eliminata sul database')); else flashSynced(); }); }
 function cloudUpsertItem(it){ if(!cloudReady())return; sb.from('bdg_travel_items').upsert(itemRow(it)).then(({error})=>{ error?cloudErr('voce di spesa',error):flashSynced(); }); }
-function cloudDeleteItem(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_travel_items').delete().eq('id',id).then(({error})=>{ error?cloudErr('eliminazione voce di spesa',error):flashSynced(); }); }
+function cloudDeleteItem(id){ if(!cloudReady()||!isUuid(id))return; sb.from('bdg_travel_items').delete().eq('id',id).select('id').then(({data,error})=>{ if(error) cloudErr('eliminazione voce di spesa',error); else if(!(data||[]).length) cloudErr('eliminazione voce di spesa',new Error('nessuna riga eliminata sul database')); else flashSynced(); }); }
 function cloudRealtimeSubscribe(){ if(!cloudReady()||!sb.channel)return; try{ if(rtChannel){sb.removeChannel(rtChannel);rtChannel=null;} }catch(e){} try{ rtChannel=sb.channel('spese-ec-rt').on('postgres_changes',{event:'*',schema:'public',table:'bdg_travel_items'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_travel_trips'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_travelers'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_app_users'},remoteRefresh).on('postgres_changes',{event:'*',schema:'public',table:'bdg_tab_visibility'},remoteRefresh).subscribe(); }catch(e){ console.error(e); } }
 function remoteRefresh(){ clearTimeout(_rtT); _rtT=setTimeout(()=>{ if(Date.now()<_rtSelfUntil)return; const busy=document.getElementById('tripOverlay').classList.contains('on')||document.getElementById('itemOverlay').classList.contains('on')||document.getElementById('cloudOverlay').classList.contains('on'); if(busy){ remoteRefresh(); return; } cloudPullAll(true).then(()=>toast("Dati aggiornati")); },1200); }
 function renderCloudModal(){
@@ -1565,7 +1643,7 @@ function renderCloudModal(){
 
 /* ============================ WIRING + BOOT ============================ */
 function toast(m,type){ const t=document.getElementById("toast"); t.textContent=m; t.className="on"+(type==='err'?' err':''); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),type==='err'?6000:2200); }
-document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on")); document.getElementById("panel-"+b.dataset.tab).classList.add("on"); });
+document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>{ document.querySelectorAll("nav.tabs button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on")); document.getElementById("panel-"+b.dataset.tab).classList.add("on"); if(b.dataset.tab==="log") fetchLog(); });
 document.getElementById("fySel").onchange=e=>{ STATE.fyStart=+e.target.value; STATE.riepMonths=[]; save(); renderRiepMonthChips(); renderAll(); };
 document.getElementById("riepFiltersToggle").onclick=()=>{
   riepFiltersToggled=true;

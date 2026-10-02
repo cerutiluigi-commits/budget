@@ -443,7 +443,9 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
     <button class="hbtn" id="btnExport" title="Esporta in Excel">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 15V3m0 12l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Esporta
     </button>
-    <button class="hbtn" id="btnCloud" title="Sincronizzazione cloud">
+    <button class="hbtn" id="btnSaveFilters" style="display:none" title="Salva i filtri attuali come predefiniti: si riapriranno cosi a ogni accesso">☆ Salva filtri</button>
+      <button class="hbtn" id="btnClearFilters" style="display:none" title="Togli i filtri predefiniti salvati">✕ Filtri</button>
+      <button class="hbtn" id="btnCloud" title="Sincronizzazione cloud">
       <span id="cloudDot" class="cloud-dot off"></span><span id="cloudLbl">Cloud</span>
     </button>
     <input type="file" id="fileInput" accept=".xlsx,.xls" style="display:none">
@@ -2340,6 +2342,7 @@ async function cloudPullAll(silent){
     // qui si lancia un'eccezione non gestita, salta anche il gate()/renderAll() qui sotto e l'utente
     // resta bloccato su ruolo "none" (bug reale, Luigi 2026-09-25)
     try{ Promise.resolve(sb.rpc('bdg_touch_last_seen')).catch(()=>{}); }catch(e){}
+    prefsApplyOnce();
     dataReady=true;
     save(); initFY(); syncRefDateUI(); renderCalChips(); renderAll();
     cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud");
@@ -2376,12 +2379,37 @@ async function cloudFetchDocentiEstimates(){
 /* ruoli/visibilità tab: tabelle condivise con Spese EC. Fetch protetta a parte
    (un errore qui non deve rompere la sync di spese/budget); su errore si tiene
    la config già in cache invece di azzerarla. */
+/* ---- filtri predefiniti per utente (bdg_app_users.prefs, scritti via RPC bdg_save_prefs; migrazione supabase_migration_prefs.sql) ---- */
+const PREF_TOOL="budget";
+function prefsGet(){ const e=(typeof cloudUser==="function")?cloudUser():null; const u=e&&(STATE.appUsers||{})[e.toLowerCase()]; return (u&&u.prefs&&u.prefs[PREF_TOOL])||null; }
+function prefsCollect(){ return {fyStart:STATE.fyStart, ccSel:STATE.ccSel, calCat:STATE.calCat, calMode:STATE.calMode}; }
+function prefsApplyState(){ const p=prefsGet(); if(!p) return; if(p.fyStart!=null && STATE.years[String(p.fyStart)]) STATE.fyStart=+p.fyStart; if(p.calCat) STATE.calCat=p.calCat; if(p.calMode){ STATE.calMode=p.calMode; document.querySelectorAll("#calMode button").forEach(x=>x.classList.toggle("on",x.dataset.m===STATE.calMode)); } }
+let _prefsApplied=false;
+function prefsApplyOnce(){ if(_prefsApplied) return; _prefsApplied=true; try{ prefsApplyState(); }catch(e){ console.error("prefs",e); } prefsSyncUI(); }
+function prefsSyncUI(){
+  const on=(typeof cloudReady==="function")&&cloudReady();
+  const b=document.getElementById("btnSaveFilters"), c=document.getElementById("btnClearFilters");
+  if(b) b.style.display=on?"":"none";
+  if(c) c.style.display=(on&&prefsGet())?"":"none";
+}
+async function prefsSave(clear){
+  if(!cloudReady()) return;
+  const email=cloudUser();
+  const {error}=await sb.rpc("bdg_save_prefs",{p_tool:PREF_TOOL,p_prefs:clear?null:prefsCollect()});
+  if(error){ console.error(error); toast("Salvataggio filtri non riuscito: "+error.message+" (serve la migrazione supabase_migration_prefs.sql)"); return; }
+  const u=(STATE.appUsers||{})[String(email).toLowerCase()];
+  if(u){ u.prefs=u.prefs||{}; if(clear) delete u.prefs[PREF_TOOL]; else u.prefs[PREF_TOOL]=prefsCollect(); }
+  prefsSyncUI(); toast(clear?"Filtri predefiniti rimossi":"Filtri salvati come predefiniti");
+}
+document.getElementById("btnSaveFilters").onclick=()=>prefsSave(false);
+document.getElementById("btnClearFilters").onclick=()=>{ if(confirm("Togliere i filtri predefiniti salvati?")) prefsSave(true); };
+
 async function cloudFetchRoles(){
   if(!cloudReady()) return;
   try{
     const {data:au,error:eu}=await sb.from('bdg_app_users').select('*'); if(eu) throw eu;
     const {data:tvz,error:et}=await sb.from('bdg_tab_visibility').select('*'); if(et) throw et;
-    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,scope:r.scope||null,extra_roles:r.extra_roles||[],last_seen_at:r.last_seen_at||null}; });
+    const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,scope:r.scope||null,extra_roles:r.extra_roles||[],last_seen_at:r.last_seen_at||null,prefs:r.prefs||{}}; });
     const vis={}; (tvz||[]).forEach(r=>{ if(!vis[r.tool])vis[r.tool]={}; if(!vis[r.tool][r.tab_key])vis[r.tool][r.tab_key]={}; vis[r.tool][r.tab_key][r.role]=!!r.visible; });
     STATE.appUsers=users; STATE.tabVisibility=vis;
   }catch(e){ console.error('roles fetch',e); }
