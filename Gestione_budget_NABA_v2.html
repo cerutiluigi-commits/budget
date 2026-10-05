@@ -457,6 +457,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
   <button data-tab="calendario" style="display:none">Calendario</button>
   <button data-tab="movimenti" style="display:none">Movimenti</button>
   <button data-tab="budget" style="display:none">Budget annuale</button>
+  <button data-tab="contabilita" style="display:none">Contabilità</button>
   <button data-tab="finance" style="display:none">Finance</button>
   <button data-tab="registro" style="display:none">Registro</button>
 </nav>
@@ -528,7 +529,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
           <input id="mvSearch" placeholder="Cerca fornitore, oggetto, categoria…">
         </div>
         <select id="mvCatFilter" class="btn ghost" style="padding:9px 12px"></select>
-        <button class="btn ghost" id="btnLedger" title="Importa un estratto contabile SAP (Dettagli per Sum of Dare/Avere)">Importa contabilità</button>
+        <button class="btn ghost" id="btnLedger" title="Importa le RDA da Excel (esportazione StatisticaDetails). Importi già IVA inclusa. L'estratto contabile si carica dalla scheda Contabilità.">Importa RDA da file</button>
         <input type="file" id="ledgerFileInput" accept=".xlsx,.xls" style="display:none">
         <button class="btn" id="btnAdd">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Aggiungi spesa
@@ -573,6 +574,47 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
         <div class="bhide"></div>
         <div class="num" id="budgetTotal" data-mlab="IVA incl." style="text-align:right"></div>
         <div class="miniuse" id="budgetTotUse" data-mlab="Impegnato"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- CONTABILITA' -->
+  <section class="panel" id="panel-contabilita">
+    <div class="mv-top">
+      <div>
+        <h2 class="sec" id="ctbTitle">Contabilità · estratto contabile</h2>
+        <span class="mv-count" id="ctbCount"></span>
+      </div>
+      <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+        <button class="btn" id="btnCtbImport" title="Importa l'estratto contabile SAP (Dettagli per Sum of Dare/Avere). Importi già IVA inclusa.">Importa estratto contabile</button>
+        <input type="file" id="ctbFileInput" accept=".xlsx,.xls" style="display:none">
+      </div>
+    </div>
+    <p class="sec-desc">I valori dell'estratto contabile (IVA inclusa) servono come controllo sulle RDA inserite nei Movimenti: qui non si modificano i Movimenti. Stesse viste del Calendario, con in più il confronto Contabile ↔ Movimenti fino all'ultimo mese presente nell'estratto.</p>
+    <div class="kpis" id="ctbKpis" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:16px"></div>
+    <details id="ctbImports" class="card" style="display:none;margin-bottom:12px"><summary style="cursor:pointer;padding:10px 14px;font-weight:600;font-size:13px"></summary><div id="ctbImportsList" style="padding:0 14px 12px"></div></details>
+    <div id="ctbBody">
+      <div class="calbar">
+        <div class="chips" id="ctbChips"></div>
+        <div class="seg" id="ctbMode">
+          <button data-m="mensile" class="on">Mensile</button>
+          <button data-m="cumulato">Cumulato</button>
+        </div>
+      </div>
+      <div class="card calwrap">
+        <svg id="ctbSvg"></svg>
+        <div class="calhint">Suggerimento: clicca una colonna per vedere il dettaglio del mese.</div>
+      </div>
+      <div style="margin-top:14px" class="legend">
+        <span><i class="sw" style="background:var(--speso)"></i>Contabile (estratto)</span>
+        <span><i class="sw" style="background:var(--allocato)"></i>Movimenti (RDA e manuali)</span>
+        <span><i class="sw" style="background:var(--allocato);opacity:.4"></i>Movimenti dopo l'ultimo mese contabile (non confrontabili)</span>
+      </div>
+      <div id="ctbMonthDetail" style="display:none;margin-top:18px"></div>
+      <h2 class="sec" style="margin:26px 0 4px">Confronto per categoria e mese</h2>
+      <p class="sec-desc">Valori contabili per mese (IVA inclusa). A destra il totale contabile, i Movimenti nello stesso periodo e la differenza: positiva = in contabilità c'è più di quanto inserito nei Movimenti. Clicca una cella per il dettaglio.</p>
+      <div class="card scroll">
+        <table id="ctbTable" class="heat"></table>
       </div>
     </div>
   </section>
@@ -1220,6 +1262,7 @@ function renderAll(){
   renderMovimenti();
   renderBudget(d);
   renderFinance();
+  renderContabilita(d);
   renderRegistro();
   applyRole();
   save();
@@ -2214,55 +2257,315 @@ function ledgerSupplier(memo,type){
   s=s.replace(/\(storno\).*$/i,"").replace(/\s+prot\..*$/i,"").replace(/\s+-\s+\d{5,}.*$/,"").replace(/\s+/g," ").trim();
   return s.slice(0,80);
 }
-// Importa un estratto contabile SAP ("Dettagli per Sum of Dare/Avere"): ogni riga di registrazione diventa un
-// movimento (importo = Dare − Avere, quindi gli storni sono negativi), nel centro di costo della colonna
-// Department e nella categoria del conto SAP. L'importazione è AGGIUNTIVA (mai sostituisce), le righe già
-// presenti (stessa chiave) vengono saltate, e ogni carico ha un id per poterlo eliminare in blocco.
+// Importa movimenti da file Excel, in due formati riconosciuti dall'intestazione:
+//  1) estratto contabile SAP ("Dettagli per Sum of Dare/Avere", colonna transtype): una riga contabile = un
+//     movimento, importo = Dare − Avere (gli storni sono negativi), data = registrazione, tipo "Contabile";
+//  2) esportazione RDA/ordini ("StatisticaDetails", colonne SUPPLIER / RDA DATE / COMPETENCE FROM): una riga
+//     = una riga d'ordine, importo = TOT PRICE − TOT DISCOUNT, data = RDA DATE, competenza dal file, tipo "RDA".
+// In entrambi i casi gli importi del file sono GIÀ IVA INCLUSA (Luigi, 2026-10-05): il Budget ragiona sul
+// netto e moltiplica per l'IVA di categoria, quindi qui si salva netto = importo del file / fattore IVA di
+// categoria, così "IVA incl." mostra esattamente la cifra del file. L'importazione è AGGIUNTIVA (mai
+// sostituisce), le righe già presenti vengono saltate e ogni carico ha un id per eliminarlo in blocco.
+function ccFromDept(dep){
+  const s=String(dep==null?"":dep).trim(); if(!s) return null;
+  if(CENTRI_COSTO.some(c=>c.id===s)) return s;
+  const low=s.toLowerCase();
+  const hit=CENTRI_COSTO.find(c=>c.nome.toLowerCase()===low) || CENTRI_COSTO.find(c=>low.includes(c.nome.toLowerCase()));
+  return hit?hit.id:null;
+}
 function importLedger(file){
   const rd=new FileReader();
   rd.onload=async ev=>{
     try{
       const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array",cellDates:true});
       const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null,raw:true});
-      const hi=rows.findIndex(r=>r && String(r[0]||"").trim().toLowerCase()==="transtype");
-      if(hi<0){ toast("Formato non riconosciuto: manca l'intestazione «transtype»"); return; }
-      const H=rows[hi].map(x=>String(x||"").trim()); const ix=n=>H.indexOf(n);
-      const iType=ix("transtype"), iDoc=ix("DocumentoDiBase"), iDate=ix("DataRegistrazione"), iDare=ix("Dare"), iAve=ix("Avere"), iAcc=ix("Account"), iDesc=ix("DescrAccount"), iDep=ix("Department"), iMemo=ix("LineMemo");
-      if([iDoc,iDate,iDare,iAve,iAcc,iDep].some(i=>i<0)){ toast("Colonne mancanti: servono DocumentoDiBase, DataRegistrazione, Dare, Avere, Account, Department"); return; }
+      const norm=x=>String(x==null?"":x).replace(/\s+/g," ").trim().toUpperCase();
+      let hi=rows.findIndex(r=>r && norm(r[0])==="TRANSTYPE"), fmt="ledger";
+      if(hi<0){ hi=rows.findIndex(r=>r && r.map(norm).includes("SUPPLIER") && r.map(norm).includes("RDA DATE")); fmt="rda"; }
+      if(hi<0){ toast("Formato non riconosciuto: servono l'estratto contabile SAP (colonna «transtype») o l'esportazione RDA (colonne SUPPLIER / RDA DATE)","err"); return; }
+      if(fmt==="ledger"){ toast("Questo è un estratto contabile: si carica dalla scheda Contabilità. Da qui si importano le RDA (esportazione StatisticaDetails).","err"); return; }
+      const H=rows[hi].map(norm); const ix=n=>H.indexOf(norm(n));
+      const nn=v=>typeof v==="number"?v:(parseFloat(String(v==null?"":v).replace(",","."))||0);
       const batch=new Date().toISOString()+"|"+file.name;
       const existing=new Set(allExpensesWithFy().map(({e})=>e.sourceKey).filter(Boolean));
-      const seen={}, fresh=[]; let dup=0, noCc=0, noDate=0, unmapped=new Set(), tot=0, dmin=null, dmax=null; const ccs=new Set();
-      for(let i=hi+1;i<rows.length;i++){
-        const r=rows[i]; if(!r || !r[iAcc]) continue;
-        const dep=String(r[iDep]||"").trim(), cc=CENTRI_COSTO.some(c=>c.id===dep)?dep:null;
-        if(!cc){ noCc++; continue; }
-        const date=excelDateToISO(r[iDate]); if(!date){ noDate++; continue; }
-        const nn=v=>typeof v==="number"?v:(parseFloat(String(v||"").replace(",","."))||0);
-        const amount=Math.round((nn(r[iDare])-nn(r[iAve]))*100)/100;
-        const acc=String(r[iAcc]).trim(), desc=r[iDesc]?String(r[iDesc]).trim():"", memo=r[iMemo]?String(r[iMemo]).trim():"", doc=r[iDoc]!=null?String(r[iDoc]).trim():"", type=r[iType]?String(r[iType]).trim():"";
+      const allRows=allExpensesWithFy().map(x=>x.e);
+      const seen={}, fresh=[]; let dup=0, noCc=0, noDate=0, tot=0, dmin=null, dmax=null; const unmapped=new Set(), ccs=new Set();
+      const need=fmt==="ledger" ? ["DocumentoDiBase","DataRegistrazione","Dare","Avere","Account","Department"] : ["SUPPLIER","DEPARTEMENT","RDA DATE","NUMBER","ACCOUNT","TOT PRICE"];
+      const miss=need.filter(n=>ix(n)<0); if(miss.length){ toast("Colonne mancanti nel file: "+miss.join(", "),"err"); return; }
+      const push=(cc,gross,e)=>{
+        const f=ivaFactor(e.categoria);
+        e.importo=Math.round(gross/f*10000)/10000;       // netto: IVA incl. = importo del file
+        e.centroCosto=cc; e.id=uuid(); e.importBatch=batch;
+        let key=e.sourceKey; seen[key]=(seen[key]||0)+1; if(seen[key]>1) key+="#"+seen[key];
+        e.sourceKey=key;
+        if(existing.has(key)){ dup++; return; }
+        // RDA già presenti a mano nel Budget (stesso numero, categoria, competenza e importo): non si raddoppiano
+        if(fmt==="rda" && allRows.some(x=>x.numOrdine===e.numOrdine && x.categoria===e.categoria && ccOf(x)===cc && (x.compDa||"")===(e.compDa||"") && (x.compA||"")===(e.compA||"") && Math.abs((+x.importo||0)-e.importo)<0.01)){ dup++; return; }
+        fresh.push(e); tot+=gross; ccs.add(cc);
+        const d=e.dataOrdine; if(!dmin||d<dmin) dmin=d; if(!dmax||d>dmax) dmax=d;
+      };
+      for(let k=hi+1;k<rows.length;k++){
+        const r=rows[k]; if(!r) continue;
+        if(fmt==="ledger"){
+          if(!r[ix("Account")]) continue;
+          const cc=ccFromDept(r[ix("Department")]); if(!cc){ noCc++; continue; }
+          const date=excelDateToISO(r[ix("DataRegistrazione")]); if(!date){ noDate++; continue; }
+          const gross=Math.round((nn(r[ix("Dare")])-nn(r[ix("Avere")]))*100)/100;
+          const acc=String(r[ix("Account")]).trim(), desc=r[ix("DescrAccount")]?String(r[ix("DescrAccount")]).trim():"";
+          const memo=r[ix("LineMemo")]?String(r[ix("LineMemo")]).trim():"", doc=r[ix("DocumentoDiBase")]!=null?String(r[ix("DocumentoDiBase")]).trim():"", type=r[ix("transtype")]?String(r[ix("transtype")]).trim():"";
+          const map=cc==="6600"?SAP2CAT_DIGITAL:SAP2CAT;
+          const cat=map[acc]||"ALTRO"; if(!map[acc]) unmapped.add(acc+" "+desc);
+          push(cc,gross,{ dataOrdine:date, numOrdine:doc, tipoPagamento:"Contabile", categoria:cat, catAltro:cat==="ALTRO"?desc:"", fornitore:ledgerSupplier(memo,type), compDa:date, compA:date, dataConsegna:null, oggetto:memo, note:[type,desc].filter(Boolean).join(" · "),
+            sourceKey:[cc,doc,acc,date,gross.toFixed(2),memo.slice(0,60)].join("|") });
+        } else {
+          const acc0=r[ix("ACCOUNT")]; if(acc0==null||acc0==="") continue;
+          const cc=ccFromDept(r[ix("DEPARTEMENT")]); if(!cc){ noCc++; continue; }
+          const date=excelDateToISO(r[ix("RDA DATE")]); if(!date){ noDate++; continue; }
+          const gross=Math.round((nn(r[ix("TOT PRICE")])-(ix("TOT DISCOUNT")>=0?nn(r[ix("TOT DISCOUNT")]):0))*100)/100;
+          const acc=String(acc0).trim(), desc=ix("ACCOUNT DESCRIPTION")>=0&&r[ix("ACCOUNT DESCRIPTION")]?String(r[ix("ACCOUNT DESCRIPTION")]).trim():"";
+          const num=r[ix("NUMBER")]!=null?String(r[ix("NUMBER")]).trim():"", order=ix("ORDER")>=0&&r[ix("ORDER")]!=null?String(r[ix("ORDER")]).trim():"";
+          const sup=String(r[ix("DESCR SUPPLIER")>=0?ix("DESCR SUPPLIER"):ix("SUPPLIER")]||"").replace(/\s+/g," ").trim();
+          const item=ix("ITEM DESCRIPTION")>=0&&r[ix("ITEM DESCRIPTION")]?String(r[ix("ITEM DESCRIPTION")]).replace(/\s+/g," ").trim():"";
+          const title=ix("TITLE")>=0&&r[ix("TITLE")]?String(r[ix("TITLE")]).replace(/\s+/g," ").trim():"";
+          const cda=excelDateToISO(r[ix("COMPETENCE FROM")]), ca=excelDateToISO(r[ix("COMPETENCE TO")]), cons=ix("DELIVERY DATE")>=0?excelDateToISO(r[ix("DELIVERY DATE")]):null;
+          const map=cc==="6600"?SAP2CAT_DIGITAL:SAP2CAT;
+          const cat=map[acc]||"ALTRO"; if(!map[acc]) unmapped.add(acc+" "+desc);
+          const open=ix("TO BE FULFILLED")>=0?nn(r[ix("TO BE FULFILLED")]):0, done=ix("PROCESSED")>=0?nn(r[ix("PROCESSED")]):0;
+          push(cc,gross,{ dataOrdine:date, numOrdine:num, tipoPagamento:"RDA", categoria:cat, catAltro:cat==="ALTRO"?desc:"", fornitore:sup, compDa:cda, compA:ca||cda, dataConsegna:cons, oggetto:item||title,
+            note:[order?("Ordine "+order):"", title&&title!==item?title:"", (done||open)?("evaso "+eur2(done)+" · da evadere "+eur2(open)):""].filter(Boolean).join(" · "),
+            sourceKey:["rda",cc,num,order,acc,cda||"",ca||"",gross.toFixed(2),item.slice(0,40)].join("|") });
+        }
+      }
+      if(!fresh.length){ toast(dup?`Nessun movimento nuovo: ${dup} righe erano già presenti`:"Nessuna riga valida nel file"); return; }
+      const msg=`Importare ${fresh.length} movimenti da «${file.name}»?\n\nFormato: ${fmt==="ledger"?"estratto contabile SAP":"esportazione RDA/ordini"}\nCentro: ${[...ccs].map(ccLabel).join(", ")}\nPeriodo: ${fmtD(dmin)} – ${fmtD(dmax)}\nTotale IVA inclusa: ${eur2(tot)}  (gli importi del file sono già IVA inclusa)\n`
+        +(dup?`\n${dup} righe già presenti verranno saltate.`:"")+(noCc?`\n${noCc} righe di un centro non gestito verranno ignorate.`:"")+(noDate?`\n${noDate} righe senza data valida ignorate.`:"")
+        +(unmapped.size?`\n\nConti senza categoria (andranno in ALTRO): ${[...unmapped].slice(0,5).join("; ")}`:"")
+        +`\n\nSe sbagli potrai eliminare l'intera importazione in un colpo solo.`;
+      if(!confirm(msg)) return;
+      // anno fiscale in cui l'importo ricade davvero: quello del mese più tardo tra data ordine e inizio competenza
+      const items=fresh.map(e=>({e,fy:fyOfISO(e.compDa&&e.compDa>e.dataOrdine?e.compDa:e.dataOrdine)}));
+      if(cloudReady()){ toast("Salvataggio sul cloud…"); const ok=await cloudUpsertExpensesBulk(items); if(!ok){ toast("Importazione annullata: salvataggio cloud non riuscito (hai eseguito la migrazione SQL?)","err"); return; } }
+      items.forEach(({e,fy})=>ensureYear(fy).expenses.push(e));
+      renderAll();
+      toast(`Importati ${fresh.length} movimenti (${eur2(tot)} IVA incl.)`);
+      cloudAudit('import movimenti','spesa',STATE.fyStart,`${file.name} · ${fmt==="ledger"?"contabilità":"RDA"} · ${fresh.length} movimenti · ${eur2(tot)} IVA incl. · centro ${[...ccs].join(",")}`);
+    }catch(err){ console.error(err); toast("Errore lettura file: "+err.message,"err"); }
+  };
+  rd.readAsArrayBuffer(file);
+}
+/* ============================================================
+   CONTABILITÀ — estratto contabile SAP per il controllo incrociato con i Movimenti (Luigi, 2026-10-05)
+   Le RDA vanno nei Movimenti; l'estratto contabile (consuntivo) sta a parte, in bdg_ledger, e si confronta
+   con i Movimenti nelle stesse viste del Calendario. Importi del file già IVA inclusa: nessun ricalcolo.
+   ============================================================ */
+let LEDGER=[];   // {id,fy,cc,date,doc,acc,desc,cat,amount,memo,type,key,batch}
+const LEDGER_LS="naba_ledger_v1";
+const CTB={cat:"ALL",mode:"mensile",month:null};
+function ledgerSaveLocal(){ try{ localStorage.setItem(LEDGER_LS,JSON.stringify(LEDGER)); }catch(e){} }
+(function ledgerLoadLocal(){ try{ const s=JSON.parse(localStorage.getItem(LEDGER_LS)||"null"); if(Array.isArray(s)) LEDGER=s; }catch(e){} })();
+async function cloudFetchLedger(){
+  if(!cloudReady()) return;
+  try{
+    let all=[], from=0; const size=1000;
+    while(true){ const {data,error}=await sb.from('bdg_ledger').select('*').range(from,from+size-1); if(error) throw error; all=all.concat(data||[]); if((data||[]).length<size) break; from+=size; }
+    LEDGER=all.map(r=>({id:r.id,fy:r.fy_start,cc:r.centro_costo,date:String(r.data||"").slice(0,10),doc:r.documento||"",acc:r.conto||"",desc:r.descr_conto||"",cat:r.categoria||"ALTRO",amount:Number(r.importo)||0,memo:r.memo||"",type:r.transtype||"",key:r.source_key,batch:r.import_batch}));
+    ledgerSaveLocal();
+  }catch(e){ console.warn("ledger fetch (migrazione supabase_migration_ledger.sql eseguita?)",e); }
+}
+function ledgerToRow(l){ return {id:l.id,fy_start:l.fy,centro_costo:l.cc,data:l.date,documento:l.doc,conto:l.acc,descr_conto:l.desc,categoria:l.cat,importo:l.amount,memo:l.memo,transtype:l.type,source_key:l.key,import_batch:l.batch,created_by:cloudUser()||null}; }
+async function cloudUpsertLedgerBulk(items){
+  if(!cloudReady()) return true;
+  cloudSetDot('sync');
+  for(let i=0;i<items.length;i+=200){
+    const {error}=await sb.from('bdg_ledger').upsert(items.slice(i,i+200).map(ledgerToRow));
+    if(error){ cloudErr('import estratto contabile',error); return false; }
+  }
+  flashSynced(); return true;
+}
+function ctbMk(l){ return +l.date.slice(0,4)*12+(+l.date.slice(5,7)-1); }
+function ctbRows(){ const ccs=ccInView(); return LEDGER.filter(l=>l.fy===STATE.fyStart && ccs.includes(l.cc)); }
+function fmtShort(v){ const a=Math.abs(v); return a>=10000?fmt.format(Math.round(v/1000))+"k":(a>=1000?(v/1000).toFixed(1).replace(".",",")+"k":fmt.format(Math.round(v))); }
+
+function importAccounting(file){
+  const rd=new FileReader();
+  rd.onload=async ev=>{
+    try{
+      const wb=XLSX.read(new Uint8Array(ev.target.result),{type:"array",cellDates:true});
+      const rows=XLSX.utils.sheet_to_json(wb.Sheets[wb.SheetNames[0]],{header:1,defval:null,raw:true});
+      const norm=x=>String(x==null?"":x).replace(/\s+/g," ").trim().toUpperCase();
+      const hi=rows.findIndex(r=>r && norm(r[0])==="TRANSTYPE");
+      if(hi<0){ toast("Formato non riconosciuto: serve l'estratto contabile SAP (colonna «transtype»). Le RDA si importano dai Movimenti.","err"); return; }
+      const H=rows[hi].map(norm); const ix=n=>H.indexOf(norm(n));
+      const need=["DocumentoDiBase","DataRegistrazione","Dare","Avere","Account","Department"];
+      const miss=need.filter(n=>ix(n)<0); if(miss.length){ toast("Colonne mancanti nel file: "+miss.join(", "),"err"); return; }
+      const nn=v=>typeof v==="number"?v:(parseFloat(String(v==null?"":v).replace(",","."))||0);
+      const batch=new Date().toISOString()+"|"+file.name;
+      const existing=new Set(LEDGER.map(l=>l.key));
+      const seen={}, fresh=[]; let dup=0, noCc=0, noDate=0, tot=0, dmin=null, dmax=null; const unmapped=new Set(), ccs=new Set();
+      for(let k=hi+1;k<rows.length;k++){
+        const r=rows[k]; if(!r || !r[ix("Account")]) continue;
+        const cc=ccFromDept(r[ix("Department")]); if(!cc){ noCc++; continue; }
+        const date=excelDateToISO(r[ix("DataRegistrazione")]); if(!date){ noDate++; continue; }
+        const amount=Math.round((nn(r[ix("Dare")])-nn(r[ix("Avere")]))*100)/100;
+        const acc=String(r[ix("Account")]).trim(), desc=r[ix("DescrAccount")]?String(r[ix("DescrAccount")]).trim():"";
+        const memo=r[ix("LineMemo")]?String(r[ix("LineMemo")]).trim():"", doc=r[ix("DocumentoDiBase")]!=null?String(r[ix("DocumentoDiBase")]).trim():"", type=r[ix("transtype")]?String(r[ix("transtype")]).trim():"";
         const map=cc==="6600"?SAP2CAT_DIGITAL:SAP2CAT;
         const cat=map[acc]||"ALTRO"; if(!map[acc]) unmapped.add(acc+" "+desc);
         let key=[cc,doc,acc,date,amount.toFixed(2),memo.slice(0,60)].join("|");
         seen[key]=(seen[key]||0)+1; if(seen[key]>1) key+="#"+seen[key];
         if(existing.has(key)){ dup++; continue; }
-        fresh.push({ id:uuid(), centroCosto:cc, dataOrdine:date, numOrdine:doc, tipoPagamento:"Contabile", categoria:cat, catAltro:cat==="ALTRO"?desc:"", fornitore:ledgerSupplier(memo,type), importo:amount, compDa:date, compA:date, dataConsegna:null, oggetto:memo, note:[type,desc].filter(Boolean).join(" · "), importBatch:batch, sourceKey:key });
+        fresh.push({id:uuid(),fy:fyOfISO(date),cc,date,doc,acc,desc,cat,amount,memo,type,key,batch});
         tot+=amount; ccs.add(cc); if(!dmin||date<dmin) dmin=date; if(!dmax||date>dmax) dmax=date;
       }
-      if(!fresh.length){ toast(dup?`Nessun movimento nuovo: ${dup} righe erano già presenti`:"Nessuna riga valida nel file"); return; }
-      const msg=`Importare ${fresh.length} movimenti da «${file.name}»?\n\nCentro: ${[...ccs].map(ccLabel).join(", ")}\nPeriodo: ${fmtD(dmin)} – ${fmtD(dmax)}\nTotale netto: ${eur2(tot)}\n`
-        +(dup?`\n${dup} righe già presenti verranno saltate.`:"")+(noCc?`\n${noCc} righe di un centro non gestito verranno ignorate.`:"")+(noDate?`\n${noDate} righe senza data valida ignorate.`:"")
-        +(unmapped.size?`\n\nConti senza categoria (andranno in ALTRO): ${[...unmapped].slice(0,5).join("; ")}`:"")
-        +`\n\nSe sbagli potrai eliminare l'intera importazione in un colpo solo.`;
+      if(!fresh.length){ toast(dup?`Nessuna riga nuova: ${dup} righe erano già presenti`:"Nessuna riga valida nel file"); return; }
+      const msg=`Importare ${fresh.length} righe contabili da «${file.name}»?\n\nCentro: ${[...ccs].map(ccLabel).join(", ")}\nPeriodo: ${fmtD(dmin)} – ${fmtD(dmax)}\nTotale IVA inclusa: ${eur2(tot)}\n\nNon modifica i Movimenti: serve solo per il confronto.`
+        +(dup?`\n\n${dup} righe già presenti verranno saltate.`:"")+(noCc?`\n${noCc} righe di un centro non gestito ignorate.`:"")+(noDate?`\n${noDate} righe senza data valida ignorate.`:"")
+        +(unmapped.size?`\n\nConti senza categoria (andranno in ALTRO): ${[...unmapped].slice(0,5).join("; ")}`:"");
       if(!confirm(msg)) return;
-      const items=fresh.map(e=>({e,fy:fyOfISO(e.dataOrdine)}));
-      if(cloudReady()){ toast("Salvataggio sul cloud…"); const ok=await cloudUpsertExpensesBulk(items); if(!ok){ toast("Importazione annullata: salvataggio cloud non riuscito (hai eseguito la migrazione SQL?)","err"); return; } }
-      items.forEach(({e,fy})=>ensureYear(fy).expenses.push(e));
+      if(cloudReady()){ toast("Salvataggio sul cloud…"); const ok=await cloudUpsertLedgerBulk(fresh); if(!ok){ toast("Importazione annullata: salvataggio cloud non riuscito (hai eseguito supabase_migration_ledger.sql?)","err"); return; } }
+      LEDGER=LEDGER.concat(fresh); ledgerSaveLocal();
+      // l'anno fiscale della scheda segue i dati appena caricati
+      const f0=fresh[0].fy; if(!fresh.some(x=>x.fy===STATE.fyStart)){ STATE.fyStart=f0; ensureYear(f0); initFY(); }
       renderAll();
-      toast(`Importati ${fresh.length} movimenti (${eur2(tot)} netto)`);
-      cloudAudit('import contabilità','spesa',STATE.fyStart,`${file.name} · ${fresh.length} movimenti · ${eur2(tot)} netto · centro ${[...ccs].join(",")}`);
+      toast(`Importate ${fresh.length} righe contabili (${eur2(tot)})`);
+      cloudAudit('import contabilità','contabilita',STATE.fyStart,`${file.name} · ${fresh.length} righe · ${eur2(tot)} · centro ${[...ccs].join(",")}`);
     }catch(err){ console.error(err); toast("Errore lettura file: "+err.message,"err"); }
   };
   rd.readAsArrayBuffer(file);
+}
+async function deleteLedgerBatch(b){
+  const inf=importBatchInfo(b), n=LEDGER.filter(l=>l.batch===b).length;
+  if(!confirm(`Eliminare l'intera importazione contabile «${inf.file}» del ${fmtD(inf.ts.slice(0,10))}?\n\n${n} righe. Non è reversibile, ma puoi ricaricare il file.`)) return;
+  if(cloudReady()){ const {error}=await sb.from('bdg_ledger').delete().eq('import_batch',b); if(error){ cloudErr('eliminazione estratto contabile',error); return; } }
+  LEDGER=LEDGER.filter(l=>l.batch!==b); ledgerSaveLocal(); renderAll();
+  toast(n+" righe contabili eliminate");
+  cloudAudit('eliminazione estratto contabile','contabilita',STATE.fyStart,`${inf.file} · ${n} righe`);
+}
+
+// movimenti (speso+allocato, IVA incl.) di una categoria in un mese, da compute()
+function ctbMov(d,c,mk){ const o=d.cats[c], m=o&&o.months[mk]; return m?(m.speso+m.allocato):0; }
+function renderContabilita(d){
+  if(!document.getElementById("panel-contabilita")) return;
+  d=d||compute();
+  const rows=ctbRows(), keys=fyMonthKeys();
+  const ccs=ccInView();
+  document.getElementById("ctbTitle").textContent="Contabilità · estratto contabile · "+(ccs.length===1?ccLabel(ccs[0]):"tutti i centri")+" · AF "+STATE.fyStart+"–"+String((STATE.fyStart+1)%100).padStart(2,"0");
+  // elenco importazioni
+  const groups={}; LEDGER.forEach(l=>{ const g=groups[l.batch]||(groups[l.batch]={n:0,tot:0,ccs:new Set()}); g.n++; g.tot+=l.amount; g.ccs.add(l.cc); });
+  const bk=Object.keys(groups).sort().reverse(), det=document.getElementById("ctbImports");
+  if(!bk.length) det.style.display="none";
+  else {
+    det.style.display=""; det.querySelector("summary").textContent="Importazioni caricate ("+bk.length+") — elimina un'importazione sbagliata in un colpo solo";
+    document.getElementById("ctbImportsList").innerHTML=bk.map(b=>{ const g=groups[b], inf=importBatchInfo(b);
+      return '<div style="display:flex;align-items:center;gap:12px;padding:6px 0;border-top:1px solid var(--line);font-size:13px"><div style="flex:1"><b>'+esc(inf.file)+'</b> <span class="meta">· '+esc(fmtD(inf.ts.slice(0,10)))+' · centro '+esc([...g.ccs].join(", "))+' · '+g.n+' righe · '+eur(g.tot)+'</span></div><button class="btn danger small" type="button" data-batch="'+esc(b)+'">Elimina importazione</button></div>'; }).join("");
+    det.querySelectorAll("[data-batch]").forEach(btn=>btn.onclick=()=>deleteLedgerBatch(btn.dataset.batch));
+  }
+  const body=document.getElementById("ctbBody"), kp=document.getElementById("ctbKpis");
+  if(!rows.length){
+    body.style.display="none"; document.getElementById("ctbCount").textContent="";
+    kp.innerHTML='<div style="padding:22px 20px;color:var(--ink-soft);font-size:13px">Nessun estratto contabile caricato per questo anno fiscale e centro di costo. Cambia anno o centro dai selettori in alto, oppure carica un estratto con «Importa estratto contabile».</div>';
+    return;
+  }
+  body.style.display="";
+  // contabile per categoria e mese
+  const led={}; rows.forEach(l=>{ const mk=ctbMk(l); const o=led[l.cat]||(led[l.cat]={}); o[mk]=(o[mk]||0)+l.amount; });
+  const cutoff=Math.max(...rows.map(ctbMk));                      // ultimo mese presente nell'estratto
+  const cy=keyYM(cutoff), cutTxt=MESI[cy.m-1]+" "+cy.y;
+  const catList=[...new Set([...Object.keys(led), ...viewCats(d).filter(c=>d.cats[c] && keys.some(k=>ctbMov(d,c,k)))])]
+    .sort((a,b)=>CATEGORIES.indexOf(a)-CATEGORIES.indexOf(b));
+  if(CTB.cat!=="ALL" && !catList.includes(CTB.cat)) CTB.cat="ALL";
+  const sel=CTB.cat==="ALL"?catList:[CTB.cat];
+  const ledV=(c,k)=>(led[c]&&led[c][k])||0;
+  const serL=keys.map(k=>sel.reduce((s,c)=>s+ledV(c,k),0));
+  const serM=keys.map(k=>sel.reduce((s,c)=>s+ctbMov(d,c,k),0));
+  const totL=serL.reduce((a,b)=>a+b,0);
+  const totM=keys.reduce((s,k,i)=>s+(k<=cutoff?serM[i]:0),0);
+  const delta=totL-totM, cov=totM>0?Math.round(totL/totM*100):null;
+  document.getElementById("ctbCount").textContent=rows.length+" righe contabili · ultimo mese "+cutTxt;
+  kp.innerHTML=`
+    <div class="kpi"><div class="lab"><span class="sw" style="background:var(--speso)"></span><span class="eyebrow">Contabile (estratto)</span></div><div class="v">${eur(totL)}</div><div class="sub">IVA incl. · fino a ${cutTxt}</div></div>
+    <div class="kpi"><div class="lab"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Movimenti stesso periodo</span></div><div class="v">${eur(totM)}</div><div class="sub">RDA e manuali · fino a ${cutTxt}</div></div>
+    <div class="kpi"><div class="lab"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Differenza</span></div><div class="v" style="${Math.abs(delta)>1?'color:#B5462F':''}">${delta>=0?'+':''}${eur(delta)}</div><div class="sub">contabile − movimenti</div></div>
+    <div class="kpi"><div class="lab"><span class="sw" style="background:var(--residuo)"></span><span class="eyebrow">Copertura</span></div><div class="v">${cov==null?'—':cov+'%'}</div><div class="sub">contabile / movimenti</div></div>`;
+
+  // chip categorie
+  let chips='<button class="chip '+(CTB.cat==="ALL"?"on":"")+'" data-c="ALL"><span class="sw" style="background:var(--ink)"></span>Tutte</button>';
+  catList.forEach(c=>{ chips+='<button class="chip '+(CTB.cat===c?"on":"")+'" data-c="'+esc(c)+'"><span class="sw" style="background:'+(CAT_COLOR[c]||"#8A8F88")+'"></span>'+esc(c)+'</button>'; });
+  const chipEl=document.getElementById("ctbChips"); chipEl.innerHTML=chips;
+  chipEl.querySelectorAll(".chip[data-c]").forEach(b=>b.onclick=()=>{ CTB.cat=b.dataset.c; CTB.month=null; renderContabilita(); });
+  document.querySelectorAll("#ctbMode button").forEach(b=>{ b.classList.toggle("on",b.dataset.m===CTB.mode); b.onclick=()=>{ CTB.mode=b.dataset.m; renderContabilita(); }; });
+
+  // grafico: due serie per mese (barre affiancate) oppure due linee cumulate
+  const W=980, Hh=300, padL=54, padR=20, padT=18, padB=42, plotW=W-padL-padR, plotH=Hh-padT-padB, n=keys.length, gap=14, bw=(plotW-gap*(n-1))/n;
+  let cumL=0, cumM=0; const cL=serL.map((v,i)=>keys[i]<=cutoff?(cumL+=v):null), cM=serM.map(v=>(cumM+=v));
+  const vals = CTB.mode==="cumulato" ? [...cL.filter(v=>v!=null),...cM] : [...serL,...serM];
+  const maxV=Math.max(...vals,1)*1.1, minV=Math.min(0,...vals)*1.1;
+  const y=v=>padT+plotH-((v-minV)/(maxV-minV))*plotH;
+  let g='<svg id="ctbSvg" viewBox="0 0 '+W+' '+Hh+'" xmlns="http://www.w3.org/2000/svg" font-family="\'JetBrains Mono\',monospace">';
+  for(let i=0;i<=4;i++){ const v=minV+(maxV-minV)*i/4, yy=y(v); g+='<line x1="'+padL+'" y1="'+yy+'" x2="'+(W-padR)+'" y2="'+yy+'" stroke="#EDEBE4"/><text x="'+(padL-8)+'" y="'+(yy+3)+'" text-anchor="end" font-size="9.5" fill="#9A9E97">'+fmt.format(Math.round(v/1000))+'k</text>'; }
+  g+='<line x1="'+padL+'" y1="'+y(0)+'" x2="'+(W-padR)+'" y2="'+y(0)+'" stroke="#CFCCC1"/>';
+  keys.forEach((k,i)=>{
+    const x=padL+i*(bw+gap), ym=keyYM(k);
+    if(CTB.mode!=="cumulato"){
+      const half=(bw-3)/2, vl=serL[i], vm=serM[i], dim=k>cutoff;
+      const bar=(xx,v,fill,op,tt)=>{ const y0=y(0), y1=y(v); return '<rect x="'+xx+'" y="'+Math.min(y0,y1)+'" width="'+half+'" height="'+Math.max(Math.abs(y0-y1),v?1:0)+'" rx="2" fill="'+fill+'" opacity="'+op+'"><title>'+lblMonth(k)+' · '+tt+' '+eur(v)+'</title></rect>'; };
+      if(!dim && vl) g+=bar(x,vl,"var(--speso)",1,"contabile");
+      if(vm) g+=bar(x+half+3,vm,"var(--allocato)",dim?0.4:1,"movimenti");
+      const top=Math.min(y(vl||0),y(vm||0)); if(vl||vm) g+='<text x="'+(x+bw/2)+'" y="'+(top-6)+'" text-anchor="middle" font-size="9" fill="#6A6F6A" font-weight="700">'+fmtShort(Math.max(vl||0,vm||0))+'</text>';
+    }
+    g+='<text x="'+(x+bw/2)+'" y="'+(Hh-24)+'" text-anchor="middle" font-size="10.5" fill="#1B1D1C" font-weight="600">'+MESI[ym.m-1]+'</text><text x="'+(x+bw/2)+'" y="'+(Hh-12)+'" text-anchor="middle" font-size="8.5" fill="#9A9E97">\''+String(ym.y).slice(2)+'</text>';
+  });
+  if(CTB.mode==="cumulato"){
+    const pt=(i,v)=>(padL+i*(bw+gap)+bw/2)+" "+y(v);
+    const lp=cL.map((v,i)=>v==null?null:pt(i,v)).filter(Boolean);
+    g+='<path d="M '+cM.map((v,i)=>pt(i,v)).join(" L ")+'" fill="none" stroke="var(--allocato)" stroke-width="2" stroke-dasharray="5 4"/>';
+    if(lp.length) g+='<path d="M '+lp.join(" L ")+'" fill="none" stroke="var(--speso)" stroke-width="2.4"/>';
+    cL.forEach((v,i)=>{ if(v!=null) g+='<circle cx="'+(padL+i*(bw+gap)+bw/2)+'" cy="'+y(v)+'" r="3.5" fill="var(--speso)" stroke="#fff" stroke-width="1.5"><title>'+lblMonth(keys[i])+' · contabile cumulato '+eur(v)+'</title></circle>'; });
+    cM.forEach((v,i)=>{ g+='<circle cx="'+(padL+i*(bw+gap)+bw/2)+'" cy="'+y(v)+'" r="3" fill="var(--allocato)" stroke="#fff" stroke-width="1.2"><title>'+lblMonth(keys[i])+' · movimenti cumulati '+eur(v)+'</title></circle>'; });
+  }
+  keys.forEach((k,i)=>{ const x=padL+i*(bw+gap); g+='<rect data-mk="'+k+'" x="'+(x-gap/2)+'" y="'+padT+'" width="'+(bw+gap)+'" height="'+plotH+'" fill="transparent" style="cursor:pointer"/>'; });
+  g+="</svg>";
+  document.getElementById("ctbSvg").outerHTML=g;
+  document.querySelectorAll("#ctbSvg rect[data-mk]").forEach(r=>r.addEventListener("click",()=>{ CTB.month=+r.getAttribute("data-mk"); renderCtbMonth(d,led,catList,cutoff); }));
+
+  // tabella: categoria × mese (contabile) + totali e confronto
+  let head='<thead><tr><th class="l">Categoria</th>'; keys.forEach(k=>{ const q=keyYM(k); head+='<th>'+MESI[q.m-1]+'<br><span style="color:var(--ink-mute);font-weight:400">\''+String(q.y).slice(2)+'</span></th>'; });
+  head+='<th>Tot. contabile</th><th>Movimenti fino a '+MESI[cy.m-1]+'</th><th>Δ</th></tr></thead>';
+  let tb="<tbody>", colT={}, gL=0, gM=0; keys.forEach(k=>colT[k]=0);
+  catList.forEach(c=>{
+    const rv=keys.map(k=>ledV(c,k)), rmax=Math.max(...rv.map(Math.abs),1);
+    const tl=rv.reduce((a,b)=>a+b,0), tm=keys.reduce((s,k)=>s+(k<=cutoff?ctbMov(d,c,k):0),0), dl=tl-tm;
+    gL+=tl; gM+=tm;
+    tb+='<tr><td class="l"><span class="catdot" style="background:'+(CAT_COLOR[c]||"#8A8F88")+'"></span>'+esc(c)+'</td>';
+    keys.forEach((k,i)=>{ const v=rv[i]; colT[k]+=v; tb+='<td class="cell '+(v===0?"z":"")+'" data-c="'+esc(c)+'" data-mk="'+k+'" style="background:'+(v>0?heatColor(v,rmax):(v<0?"rgba(181,70,47,.12)":"transparent"))+'">'+(v!==0?fmtShort(v):"·")+'</td>'; });
+    tb+='<td class="tot">'+eur(tl)+'</td><td class="tot" style="color:var(--ink-mute)">'+eur(tm)+'</td><td class="tot" style="color:'+(Math.abs(dl)>1?"#B5462F":"var(--ink-mute)")+'">'+(dl>=0?"+":"")+eur(dl)+'</td></tr>';
+  });
+  tb+="</tbody>";
+  let ft='<tfoot><tr><td class="l">Totale</td>'; keys.forEach(k=>{ ft+='<td>'+(colT[k]!==0?fmtShort(colT[k]):"·")+'</td>'; }); const gd=gL-gM;
+  ft+='<td>'+eur(gL)+'</td><td>'+eur(gM)+'</td><td style="color:'+(Math.abs(gd)>1?"#B5462F":"inherit")+'">'+(gd>=0?"+":"")+eur(gd)+'</td></tr></tfoot>';
+  const t=document.getElementById("ctbTable"); t.innerHTML=head+tb+ft;
+  t.querySelectorAll("td.cell[data-mk]").forEach(td=>td.addEventListener("click",()=>{ CTB.cat=td.getAttribute("data-c"); CTB.month=+td.getAttribute("data-mk"); renderContabilita(d); }));
+  if(CTB.month!=null) renderCtbMonth(d,led,catList,cutoff); else document.getElementById("ctbMonthDetail").style.display="none";
+}
+// dettaglio mese: confronto per categoria + righe contabili del mese
+function renderCtbMonth(d,led,catList,cutoff){
+  const box=document.getElementById("ctbMonthDetail"), mk=CTB.month; if(mk==null){ box.style.display="none"; return; }
+  const q=keyYM(mk), label=MESI_LONG[q.m-1]+" "+q.y+(CTB.cat!=="ALL"?" · "+CTB.cat:"");
+  const comparable=mk<=cutoff;
+  const catRows=catList.map(c=>({c,l:(led[c]&&led[c][mk])||0,m:ctbMov(d,c,mk)})).filter(r=>r.l||r.m);
+  const lines=ctbRows().filter(l=>ctbMk(l)===mk && (CTB.cat==="ALL"||l.cat===CTB.cat)).sort((a,b)=>Math.abs(b.amount)-Math.abs(a.amount));
+  const tot=catRows.reduce((s,r)=>({l:s.l+r.l,m:s.m+r.m}),{l:0,m:0});
+  box.style.display="";
+  box.innerHTML='<div class="card" style="padding:16px 18px"><div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><h3 class="sec" style="margin:0;font-size:15px;flex:1">Dettaglio '+esc(label)+'</h3><button class="btn ghost small" type="button" id="ctbMdClose">Chiudi</button></div>'
+    +(comparable?'':'<p class="hint" style="margin:0 0 8px">Mese successivo all\'ultimo dell\'estratto: i Movimenti sono previsionali, non confrontabili.</p>')
+    +'<table class="mv-table" style="width:100%"><thead><tr><th class="l">Categoria</th><th>Contabile</th><th>Movimenti</th><th>Δ</th></tr></thead><tbody>'
+    +catRows.map(r=>'<tr><td class="l"><span class="catdot" style="background:'+(CAT_COLOR[r.c]||"#8A8F88")+'"></span>'+esc(r.c)+'</td><td>'+eur2(r.l)+'</td><td style="color:var(--ink-mute)">'+eur2(r.m)+'</td><td style="color:'+(comparable&&Math.abs(r.l-r.m)>1?"#B5462F":"var(--ink-mute)")+'">'+(comparable?((r.l-r.m>=0?"+":"")+eur2(r.l-r.m)):"—")+'</td></tr>').join("")
+    +'<tr style="font-weight:700"><td class="l">Totale</td><td>'+eur2(tot.l)+'</td><td>'+eur2(tot.m)+'</td><td>'+(comparable?((tot.l-tot.m>=0?"+":"")+eur2(tot.l-tot.m)):"—")+'</td></tr></tbody></table>'
+    +'<h4 style="margin:16px 0 6px;font-size:13px">Righe contabili del mese ('+lines.length+')</h4><div class="scroll"><table class="mv-table" style="width:100%"><thead><tr><th class="l">Data</th><th class="l">Documento</th><th class="l">Categoria</th><th class="l">Descrizione</th><th>Importo</th></tr></thead><tbody>'
+    +lines.slice(0,150).map(l=>'<tr><td class="l">'+esc(fmtD(l.date))+'</td><td class="l">'+esc(l.doc)+'</td><td class="l"><span class="tag" style="background:'+hex2rgba(CAT_COLOR[l.cat]||"#8A8F88",.13)+';color:'+(CAT_COLOR[l.cat]||"#6A6F6A")+'">'+esc(l.cat)+'</span></td><td class="l"><span class="meta">'+esc(l.memo)+'</span></td><td style="color:'+(l.amount<0?"#B5462F":"inherit")+'">'+eur2(l.amount)+'</td></tr>').join("")
+    +(lines.length>150?'<tr><td colspan="5" class="l"><span class="meta">… altre '+(lines.length-150)+' righe</span></td></tr>':"")
+    +'</tbody></table></div></div>';
+  document.getElementById("ctbMdClose").onclick=()=>{ CTB.month=null; box.style.display="none"; };
 }
 async function cloudUpsertExpensesBulk(items){
   if(!cloudReady()) return true;
@@ -2422,6 +2725,7 @@ document.getElementById("tabs").querySelectorAll("button").forEach(b=>{
     document.querySelectorAll(".panel").forEach(p=>p.classList.remove("on"));
     document.getElementById("panel-"+b.dataset.tab).classList.add("on");
     if(b.dataset.tab==="registro"){ renderTrash(); fetchAudit(); }
+    if(b.dataset.tab==="contabilita") renderContabilita();
   };
 });
 document.getElementById("btnSnapshot").onclick=exportSnapshot;
@@ -2477,6 +2781,8 @@ document.addEventListener("click",e=>{ if(!e.target.closest("#fFornField")) clos
 document.getElementById("btnImport").onclick=()=>document.getElementById("fileInput").click();
 document.getElementById("fileInput").onchange=e=>{ if(e.target.files[0]) importFile(e.target.files[0]); e.target.value=""; };
 document.getElementById("btnExport").onclick=exportFile;
+document.getElementById("btnCtbImport").onclick=()=>document.getElementById("ctbFileInput").click();
+document.getElementById("ctbFileInput").onchange=e=>{ if(e.target.files[0]) importAccounting(e.target.files[0]); e.target.value=""; };
 document.getElementById("btnLedger").onclick=()=>document.getElementById("ledgerFileInput").click();
 document.getElementById("ledgerFileInput").onchange=e=>{ if(e.target.files[0]) importLedger(e.target.files[0]); e.target.value=""; };
 document.getElementById("finRepSel").onchange=e=>{ STATE.finSel=e.target.value; renderFinance(); };
@@ -2662,6 +2968,7 @@ async function cloudPullAll(silent){
     await cloudFetchTravelEstimates();
     await cloudFetchDocentiEstimates();
     await cloudFetchRoles();
+    await cloudFetchLedger();
     // "ultimo accesso" per la schermata Utenti del Portale — richiede la migrazione backend_utenti;
     // try/catch DOPPIO (sincrono + .catch sulla promise) perché sb.rpc(...) su alcune versioni del
     // client Supabase torna un builder senza .catch finché non lo si avvolge in una vera Promise — se
