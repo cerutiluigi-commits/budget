@@ -496,11 +496,13 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
     <div class="card calwrap">
       <svg id="calSvg"></svg>
       <div id="calSpill"></div>
+      <div id="calPrecNote"></div>
       <div class="calhint" id="calHint">Suggerimento: clicca una colonna per vedere il dettaglio del mese.</div>
     </div>
     <div style="margin-top:14px" class="legend">
       <span><i class="sw" style="background:var(--speso)"></i>Speso</span>
       <span><i class="sw" style="background:var(--allocato)"></i>Allocato</span>
+      <span><i class="sw" style="background:repeating-linear-gradient(45deg,var(--ink-soft) 0 2px,#fff 2px 4px)"></i>Da anno fiscale precedente</span>
       <span id="calBudgetLeg"></span>
     </div>
 
@@ -575,15 +577,17 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
   <section class="panel" id="panel-finance">
     <div class="mv-top">
       <div>
-        <h2 class="sec">Report finance · centro di costo 6000</h2>
+        <h2 class="sec" id="finTitle">Report finance</h2>
         <span class="mv-count" id="finMeta"></span>
       </div>
+      <select id="finRepSel" class="btn ghost" style="padding:9px 12px;display:none" title="Report finance caricati per questo anno fiscale e centro"></select>
+      <button class="hbtn" id="btnFinDel" title="Elimina il report selezionato" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4a2 2 0 012-2h4a2 2 0 012 2v2m2 0v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6"/></svg>Elimina report</button>
       <button class="hbtn" id="btnFinImport" style="background:var(--accent);border-color:var(--accent)">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Importa report finance
       </button>
       <input type="file" id="finFileInput" accept=".xlsx,.xls" style="display:none">
     </div>
-    <p class="sec-desc">Confronto tra i dati ufficiali di finance (Actual e Forecast a fine periodo, YTD) e il tracciamento del tool. Le prime dieci voci corrispondono per codice SAP alle categorie a budget; le altre sono voci di costo del centro 6000 fuori dalle categorie del tool.</p>
+    <p class="sec-desc">Confronto tra i dati ufficiali di finance (Actual e Forecast a fine periodo, YTD) e il tracciamento del tool, per il centro di costo e l'anno fiscale scelti in alto. Ogni mese caricato resta disponibile: reimportare lo stesso mese lo sostituisce, mesi diversi si accumulano. Le prime dieci voci corrispondono per codice SAP alle categorie a budget; le altre sono voci di costo fuori dalle categorie del tool.</p>
 
     <div class="kpis" id="finKpis" style="border:1px solid var(--line);border-radius:10px;overflow:hidden;margin-bottom:18px"></div>
 
@@ -1026,6 +1030,15 @@ function distribute(e){
 }
 
 /* ---------- aggregazione ---------- */
+// una spesa "viene dall'anno fiscale precedente" se è stata ordinata prima dell'inizio dell'AF in vista
+// oppure la sua competenza parte prima (Luigi, 2026-10-05): nel grafico mensile la quota che ricade
+// nell'AF corrente è tratteggiata
+function isFromPrevFY(e,fs){
+  const ms=competenceMonths(e);
+  if(ms.length && ms[0]<fs) return true;
+  const o=e.dataOrdine?ym(e.dataOrdine):null;
+  return !!(o && o.key<fs);
+}
 function compute(){
   const fs=fyStartKey(), fe=fyEndKey(), rk=refKey();
   const DS=cur();
@@ -1035,20 +1048,26 @@ function compute(){
   const BUD={}; CATEGORIES.forEach(c=>{ BUD[c]=CCS.reduce((s,cc)=>s+Number(budgetOf(DS,cc)[c]||0),0); });
   const EXP=DS.expenses.filter(e=>CCS.includes(ccOf(e)));
   const cats={};
-  CATEGORIES.forEach(c=>cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,stimaECSpeso:0,stimaDocenti:0,fuori:0,months:{}});
+  CATEGORIES.forEach(c=>cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,stimaECSpeso:0,stimaDocenti:0,fuori:0,fuoriPrec:0,prec:0,months:{}});
   // includi categorie extra eventualmente presenti nei dati
-  EXP.forEach(e=>{ const c=e.categoria; if(c && !cats[c]) cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,stimaECSpeso:0,stimaDocenti:0,fuori:0,months:{}}; });
+  EXP.forEach(e=>{ const c=e.categoria; if(c && !cats[c]) cats[c]={budget:Number(BUD[c]||0)*ivaFactor(c),budgetNet:Number(BUD[c]||0),speso:0,allocato:0,stimaEC:0,stimaECSpeso:0,stimaDocenti:0,fuori:0,fuoriPrec:0,prec:0,months:{}}; });
 
   for(const e of EXP){
     const c=e.categoria; if(!c||!cats[c]) continue;
     const f=rowIvaFactor(e);
     const dist=distribute(e);
+    const fromPrev=isFromPrevFY(e,fs);   // spesa "ereditata" dall'anno fiscale precedente (evidenziata nel grafico)
     for(const mkS in dist){
       const mk=+mkS, amt=dist[mkS]*f;   // valore IVA inclusa
-      if(mk<fs || mk>fe){ cats[c].fuori+=amt; continue; }
+      if(mk<fs || mk>fe){ cats[c].fuori+=amt; if(mk<fs) cats[c].fuoriPrec+=amt; continue; }
       if(mk<=rk){ cats[c].speso+=amt; } else { cats[c].allocato+=amt; }
       if(!cats[c].months[mk]) cats[c].months[mk]={speso:0,allocato:0,stimaEC:0,stimaECSpeso:0,stimaDocenti:0};
       if(mk<=rk) cats[c].months[mk].speso+=amt; else cats[c].months[mk].allocato+=amt;
+      if(fromPrev){
+        cats[c].prec+=amt;
+        const mm=cats[c].months[mk];
+        if(mk<=rk) mm.precS=(mm.precS||0)+amt; else mm.precA=(mm.precA||0)+amt;
+      }
     }
   }
   // stime da Spese EC (viaggi/alberghi non ancora riconciliati con un movimento budget reale):
@@ -1302,10 +1321,10 @@ function renderCalendar(d){
   // dati per mese secondo filtro categoria
   const rows = STATE.calCat==="ALL" ? Object.values(d.cats) : [d.cats[STATE.calCat]].filter(Boolean);
   const monthData = keys.map(k=>{
-    let s=0,a=0; rows.forEach(o=>{ if(o.months[k]){ s+=o.months[k].speso; a+=o.months[k].allocato; } });
-    return {k,s,a,tot:s+a};
+    let s=0,a=0,ps=0,pa=0; rows.forEach(o=>{ if(o.months[k]){ s+=o.months[k].speso; a+=o.months[k].allocato; ps+=o.months[k].precS||0; pa+=o.months[k].precA||0; } });
+    return {k,s,a,ps,pa,tot:s+a};
   });
-  let fuori=0; rows.forEach(o=>fuori+=o.fuori);
+  let fuori=0, fuoriPrec=0, prec=0; rows.forEach(o=>{ fuori+=o.fuori-(o.fuoriPrec||0); fuoriPrec+=o.fuoriPrec||0; prec+=o.prec||0; });
   const budgetSel = STATE.calCat==="ALL" ? d.gBudget : (d.cats[STATE.calCat]?d.cats[STATE.calCat].budget:0);
 
   const W=980, H=300, padL=54, padR=20, padT=18, padB=42;
@@ -1322,6 +1341,9 @@ function renderCalendar(d){
   const y = v => padT + plotH - (v/maxV)*plotH;
 
   let g=`<svg id="calSvg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono',monospace">`;
+  // tratteggio per la quota che arriva dall'anno fiscale precedente (colore pieno + righe bianche)
+  g+=`<defs><pattern id="hatchS" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--speso)"/><rect width="2.6" height="6" fill="#fff" fill-opacity=".6"/></pattern>
+    <pattern id="hatchA" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--allocato)"/><rect width="2.6" height="6" fill="#fff" fill-opacity=".6"/></pattern></defs>`;
   // gridlines + y labels
   const steps=4;
   for(let i=0;i<=steps;i++){
@@ -1345,8 +1367,11 @@ function renderCalendar(d){
       // stack: speso in basso, allocato sopra
       const ySpeso=padT+plotH-hS;
       const yAlloc=ySpeso-hA;
-      if(m.s>0) g+=`<rect x="${x}" y="${ySpeso}" width="${bw}" height="${hS}" rx="3" fill="var(--speso)"><title>${lblMonth(m.k)} · speso ${eur(m.s)}</title></rect>`;
-      if(m.a>0) g+=`<rect x="${x}" y="${yAlloc}" width="${bw}" height="${hA}" rx="3" fill="var(--allocato)"><title>${lblMonth(m.k)} · allocato ${eur(m.a)}</title></rect>`;
+      if(m.s>0) g+=`<rect x="${x}" y="${ySpeso}" width="${bw}" height="${hS}" rx="3" fill="var(--speso)"><title>${lblMonth(m.k)} · speso ${eur(m.s)}${m.ps>0.5?' (di cui '+eur(m.ps)+' da anno fiscale precedente)':''}</title></rect>`;
+      if(m.a>0) g+=`<rect x="${x}" y="${yAlloc}" width="${bw}" height="${hA}" rx="3" fill="var(--allocato)"><title>${lblMonth(m.k)} · allocato ${eur(m.a)}${m.pa>0.5?' (di cui '+eur(m.pa)+' da anno fiscale precedente)':''}</title></rect>`;
+      // quota da AF precedente: tratteggiata, in basso dentro il proprio segmento
+      if(m.ps>0.5){ const hh=(m.ps/maxV)*plotH; g+=`<rect x="${x}" y="${ySpeso+hS-hh}" width="${bw}" height="${hh}" rx="3" fill="url(#hatchS)" pointer-events="none"/>`; }
+      if(m.pa>0.5){ const hh=(m.pa/maxV)*plotH; g+=`<rect x="${x}" y="${yAlloc+hA-hh}" width="${bw}" height="${hh}" rx="3" fill="url(#hatchA)" pointer-events="none"/>`; }
       if(m.tot>0) g+=`<text x="${x+bw/2}" y="${yAlloc-6}" text-anchor="middle" font-size="9.5" fill="#6A6F6A" font-weight="700">${fmt.format(Math.round(m.tot/1000))}k</text>`;
       const ymm=keyYM(m.k);
       g+=`<text x="${x+bw/2}" y="${H-24}" text-anchor="middle" font-size="10.5" fill="#1B1D1C" font-weight="600">${MESI[ymm.m-1]}</text>`;
@@ -1394,6 +1419,14 @@ function renderCalendar(d){
     spillEl.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--allocato)"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
       <span>Spese a cavallo d'anno fiscale: <b>${eur(fuori)}</b> ricade oltre giugno ${STATE.fyStart+1} e sarà imputato al prossimo anno fiscale.</span>`;
   } else spillEl.className="", spillEl.innerHTML="";
+  // spese che arrivano dall'anno fiscale precedente (tratteggiate nel grafico)
+  const precEl=document.getElementById("calPrecNote");
+  if(prec>0.5 || fuoriPrec>0.5){
+    const extra=precEl;
+    extra.className="spill";
+    extra.innerHTML=`<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="color:var(--ink-soft)"><path d="M3 12a9 9 0 1 0 2.64-6.36L3 8"/><path d="M3 3v5h5"/></svg>
+      <span>Dall'anno fiscale precedente: ${prec>0.5?`<b>${eur(prec)}</b> in questo anno fiscale (barre <i>tratteggiate</i>)`:''}${prec>0.5&&fuoriPrec>0.5?' · ':''}${fuoriPrec>0.5?`<b>${eur(fuoriPrec)}</b> di competenza precedente non imputato a questo anno`:''}.</span>`;
+  } else { precEl.className=""; precEl.innerHTML=""; }
 
   document.getElementById("calBudgetLeg").innerHTML = STATE.calMode==="cumulato"
     ? `<i class="sw" style="background:var(--residuo)"></i>Budget ${STATE.calCat==='ALL'?'totale':'categoria'}` : "";
@@ -1514,6 +1547,15 @@ function renderMonthDetail(monthKey, onlyCat){
 function catOptions(sel){
   return CATEGORIES.map(c=>`<option value="${c}" ${c===sel?'selected':''}>${c}</option>`).join("");
 }
+// stato di ordinamento/filtri per colonna dei Movimenti (solo in memoria, si azzera al ricaricamento)
+const MV={ sort:{key:"ord",dir:"desc"}, f:{ord:"",cat:"",forn:"",comp:"",net:"",gross:""} };
+function mvNumFilter(expr,v){
+  expr=String(expr||"").trim().replace(/,/g,".").replace(/\s/g,""); if(!expr) return true;
+  let m;
+  if((m=expr.match(/^(>=|<=|>|<|=)(-?[\d.]+)$/))){ const n=parseFloat(m[2]); switch(m[1]){ case">":return v>n; case"<":return v<n; case">=":return v>=n; case"<=":return v<=n; default:return Math.abs(v-n)<0.005; } }
+  if((m=expr.match(/^(-?[\d.]+)-(-?[\d.]+)$/))) return v>=parseFloat(m[1]) && v<=parseFloat(m[2]);
+  return String(Math.round(v*100)/100).includes(expr);
+}
 function renderMovimenti(){
   // filtro categoria
   const cf=document.getElementById("mvCatFilter");
@@ -1528,22 +1570,47 @@ function renderMovimenti(){
   let list=cur().expenses.filter(e=>ccsView.includes(ccOf(e)));
   if(catF!=="ALL") list=list.filter(e=>e.categoria===catF);
   if(q) list=list.filter(e=>((e.fornitore||"")+" "+(e.oggetto||"")+" "+(e.categoria||"")+" "+(e.numOrdine||"")+" "+(e.note||"")).toLowerCase().includes(q));
-  list.sort((a,b)=>String(b.dataOrdine||"").localeCompare(String(a.dataOrdine||"")));
+  // filtri e ordinamento per colonna (Luigi, 2026-10-05): clic sull'intestazione per ordinare, riga di
+  // filtri sotto l'intestazione (testo = "contiene"; Netto/IVA accettano >100, <500, =359, 100-500)
+  const rowComp=e=>(e.compDa&&e.compA) ? `${fmtD(e.compDa)} → ${fmtD(e.compA)} ${e.compDa} ${e.compA}` : (e.dataConsegna ? `cons. ${fmtD(e.dataConsegna)} ${e.dataConsegna}` : "one-shot");
+  const grossOf=e=>(+e.importo||0)*rowIvaFactor(e);
+  const F=MV.f, has=s=>String(s||"").toLowerCase();
+  if(F.ord)  list=list.filter(e=>has((fmtD(e.dataOrdine)||"")+" "+(e.dataOrdine||"")+" "+(e.numOrdine||"")).includes(has(F.ord)));
+  if(F.cat)  list=list.filter(e=>has(e.categoria).includes(has(F.cat)) || (e.sourceRdaId && "auto docenti".includes(has(F.cat))));
+  if(F.forn) list=list.filter(e=>has((e.fornitore||"")+" "+(e.oggetto||"")).includes(has(F.forn)));
+  if(F.comp) list=list.filter(e=>has(rowComp(e)).includes(has(F.comp)));
+  if(F.net)  list=list.filter(e=>mvNumFilter(F.net,+e.importo||0));
+  if(F.gross)list=list.filter(e=>mvNumFilter(F.gross,grossOf(e)));
+  const sk=MV.sort.key, sd=MV.sort.dir==="asc"?1:-1;
+  const keyOf={ ord:e=>e.dataOrdine||"", cat:e=>has(e.categoria), forn:e=>has(e.fornitore), comp:e=>e.compDa||e.dataConsegna||"", net:e=>+e.importo||0, gross:e=>grossOf(e) }[sk];
+  list.sort((a,b)=>{ const x=keyOf(a), y=keyOf(b); const c=(typeof x==="number")?(x-y):String(x).localeCompare(String(y)); return c*sd || String(b.dataOrdine||"").localeCompare(String(a.dataOrdine||"")); });
 
   const totNet=list.reduce((s,e)=>s+(+e.importo||0),0);
-  const totGross=list.reduce((s,e)=>s+(+e.importo||0)*rowIvaFactor(e),0);
+  const totGross=list.reduce((s,e)=>s+grossOf(e),0);
   document.getElementById("mvCount").textContent=`${list.length} movimenti · ${eur(totNet)} netto · ${eur(totGross)} IVA incl.`;
 
+  // intestazione costruita una volta sola (così le caselle di filtro non perdono il focus mentre si scrive)
+  const t=document.getElementById("mvTable");
+  if(!t.querySelector("thead.mvhead")){
+    const cols=[["ord","Ordine","l"],["cat","Categoria","l"],["forn","Fornitore / oggetto","l"],["comp","Competenza","l"],["net","Netto",""],["gross","IVA incl.",""]];
+    t.innerHTML=`<thead class="mvhead"><tr>${cols.map(([k,l,c])=>`<th class="${c} mv-sort" data-k="${k}" style="cursor:pointer;user-select:none" title="Clicca per ordinare">${l} <span class="arr"></span></th>`).join("")}<th></th></tr>
+      <tr class="mv-filters">${cols.map(([k,l,c])=>`<th class="${c}" style="padding:4px 6px"><input data-f="${k}" placeholder="${k==='net'||k==='gross'?'>100, 50-200':'filtra…'}" value="${esc(MV.f[k]||'')}" style="width:100%;min-width:70px;padding:5px 7px;border:1px solid var(--line);border-radius:6px;font:inherit;font-size:11px;background:var(--surface)"></th>`).join("")}<th style="padding:4px 6px"><button type="button" class="rowbtn" id="mvFiltReset" title="Azzera i filtri di colonna" style="display:none">✕</button></th></tr></thead><tbody></tbody>`;
+    t.querySelectorAll("th.mv-sort").forEach(th=>th.onclick=()=>{ const k=th.dataset.k; if(MV.sort.key===k) MV.sort.dir=MV.sort.dir==="asc"?"desc":"asc"; else { MV.sort.key=k; MV.sort.dir=(k==="net"||k==="gross"||k==="ord")?"desc":"asc"; } renderMovimenti(); });
+    t.querySelectorAll("input[data-f]").forEach(inp=>inp.addEventListener("input",()=>{ MV.f[inp.dataset.f]=inp.value; renderMovimenti(); }));
+    t.querySelector("#mvFiltReset").onclick=()=>{ Object.keys(MV.f).forEach(k=>MV.f[k]=""); t.querySelectorAll("input[data-f]").forEach(i=>i.value=""); renderMovimenti(); };
+  }
+  t.querySelectorAll("th.mv-sort").forEach(th=>{ const on=th.dataset.k===MV.sort.key; th.querySelector(".arr").textContent=on?(MV.sort.dir==="asc"?"▲":"▼"):""; th.style.color=on?"var(--ink)":""; });
+  t.querySelector("#mvFiltReset").style.display=Object.values(MV.f).some(Boolean)?"":"none";
+  const tb=t.querySelector("tbody");
+
   if(!list.length){
-    document.getElementById("mvTable").innerHTML=`<tbody><tr><td><div class="empty">
+    tb.innerHTML=`<tr><td colspan="7"><div class="empty">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6"><path d="M9 11H5a2 2 0 00-2 2v6a2 2 0 002 2h14a2 2 0 002-2v-6a2 2 0 00-2-2h-4M9 11V5a2 2 0 012-2h2a2 2 0 012 2v6M9 11h6"/></svg>
-      <div>Nessun movimento trovato.</div></div></td></tr></tbody>`;
+      <div>Nessun movimento trovato.</div></div></td></tr>`;
     renderMvEstimates(catF,q);
     return;
   }
-  let html=`<thead><tr>
-    <th class="l">Ordine</th><th class="l">Categoria</th><th class="l">Fornitore / oggetto</th>
-    <th class="l">Competenza</th><th>Netto</th><th>IVA incl.</th><th></th></tr></thead><tbody>`;
+  let html="";
   for(const e of list){
     const comp = (e.compDa&&e.compA) ? `${fmtD(e.compDa)} → ${fmtD(e.compA)}`
       : e.dataConsegna ? `cons. ${fmtD(e.dataConsegna)}`
@@ -1559,10 +1626,8 @@ function renderMovimenti(){
       <td class="cell-act" data-label=""><button class="rowbtn" data-id="${e.id}" title="Modifica"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/><path d="M18.5 2.5a2.1 2.1 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/></svg></button></td>
     </tr>`;
   }
-  html+=`</tbody>`;
-  const t=document.getElementById("mvTable");
-  t.innerHTML=html;
-  t.querySelectorAll(".rowbtn").forEach(b=>b.onclick=()=>openModal(b.dataset.id));
+  tb.innerHTML=html;
+  tb.querySelectorAll(".rowbtn").forEach(b=>b.onclick=()=>openModal(b.dataset.id));
   renderMvEstimates(catF,q);
 }
 // righe non ancora spesa reale (attività Docenti senza Codice RDA, voci Spese EC non ALLOCATED->reali):
@@ -1682,7 +1747,7 @@ function renderBudget(d){
 /* ============================================================
    FINANCE (report centro di costo 6000)
    ============================================================ */
-const MESI_IT = {GEN:1,FEB:2,MAR:3,APR:4,MAG:5,GIU:6,LUG:7,AGO:8,SET:9,OTT:10,NOV:11,DIC:12};
+const MESI_IT = {GEN:1,FEB:2,MAR:3,APR:4,MAG:5,GIU:6,LUG:7,AGO:8,SET:9,OTT:10,NOV:11,DIC:12,JAN:1,MAY:5,JUN:6,JUL:7,AUG:8,SEP:9,OCT:10,DEC:12};   // anche nomi inglesi
 // Il report finance porta solo un'etichetta testuale del mese di chiusura (es. "APR"): la traduciamo
 // nella stessa chiave anno*12+mese usata ovunque nel tool, per poter allineare i due periodi.
 function financeMonthKey(F){
@@ -1692,39 +1757,82 @@ function financeMonthKey(F){
   const y = (m>=7) ? F.fyStart : F.fyStart+1;   // luglio-dicembre = fyStart, gennaio-giugno = fyStart+1
   return y*12+(m-1);
 }
+/* ---------- Report finance: uno per (centro di costo, anno fiscale, mese) ----------
+   (Luigi, 2026-10-05) prima ne esisteva uno solo e ogni import sovrascriveva il precedente, legato all'AF
+   aperto in quel momento. Ora si tiene lo storico: reimportare lo STESSO mese per lo stesso AF e centro lo
+   sostituisce, mesi diversi si accumulano. Si vedono quelli del centro e dell'AF scelti nei selettori in
+   alto; se non ce ne sono, la scheda è vuota. Salvati in bdg_settings.finance_reports. */
+function finMakeReport(source,month,fyStart,cc,lines){
+  return { id:cc+"|"+fyStart+"|"+String(month).trim().toUpperCase().slice(0,3), cc, fyStart, month, source, lines, importedAt:new Date().toISOString(), by:(typeof cloudUser==="function"?cloudUser():null)||null };
+}
+// converte il vecchio report unico (STATE.finance) nel nuovo elenco, una sola volta
+function finMigrate(){
+  if(Array.isArray(STATE.financeReports)) return;
+  STATE.financeReports=[];
+  const F=STATE.finance;
+  if(F && F.lines && F.lines.length && F.month && F.month!=="—") { const r=finMakeReport(F.source,F.month,F.fyStart,CC_DEFAULT,F.lines); r.importedAt=null; r.by=null; STATE.financeReports.push(r); }
+}
+// centro di cui si guardano/caricano i report: quello scelto nel selettore; con "Tutti i centri" il 6000
+function finCc(){ const v=ccInView(); return v.length===1 ? v[0] : CC_DEFAULT; }
+function finReportsView(){
+  finMigrate();
+  const cc=finCc();
+  return STATE.financeReports.filter(r=>r.cc===cc && r.fyStart===STATE.fyStart).sort((a,b)=>(financeMonthKey(a)||0)-(financeMonthKey(b)||0));
+}
 // "Speso tool" nello stesso perimetro temporale del report finance (competenza fino al mese di chiusura
-// importato, non l'intero anno fiscale): è la cifra davvero confrontabile con l'Actual YTD di finance.
-// Le stime Spese EC con competenza in quel perimetro ma non ancora liquidate sono tracciate a parte
-// (stimaAperta) invece di essere sommate allo speso, perché finance non le vede ancora come actual.
+// importato, non l'intero anno fiscale) e dello stesso centro di costo: è la cifra davvero confrontabile
+// con l'Actual YTD di finance. Le stime Spese EC con competenza in quel perimetro ma non ancora liquidate
+// sono tracciate a parte (stimaAperta) invece di essere sommate allo speso, perché finance non le vede
+// ancora come actual.
 function toolActualByCat(F){
   const res={}; CATEGORIES.forEach(c=>res[c]={speso:0,stimaAperta:0});
+  const cc=F.cc||CC_DEFAULT;
   const ds=STATE.years[String(F.fyStart)];
   const fs=F.fyStart*12+6, fe=fs+11;
   const fmk=financeMonthKey(F);
   const cutoff = fmk!=null ? Math.min(fmk,fe) : fe;
+  let nExp=0;
   if(ds) ds.expenses.forEach(e=>{
+    if(ccOf(e)!==cc) return;
+    nExp++;
     const c=e.categoria; if(!c) return;
     if(!res[c]) res[c]={speso:0,stimaAperta:0};
     const dist=distribute(e);
     for(const k in dist){ const mk=+k; if(mk<fs||mk>cutoff) continue; res[c].speso+=dist[k]; }
   });
   (STATE.travelEstimates||[]).forEach(r=>{
+    if((r.centro||CC_DEFAULT)!==cc) return;
     const c=r.categoria; if(!c) return;
     const my=ym(r.mese); if(!my) return; const mk=my.key;
     if(mk<fs||mk>cutoff) return;
     if(!res[c]) res[c]={speso:0,stimaAperta:0};
     res[c].stimaAperta+=Number(r.importo)||0;
   });
-  return {byCat:res, cutoff, fmkRecognized: fmk!=null};
+  return {byCat:res, cutoff, fmkRecognized: fmk!=null, nExp};
 }
+function finFyLabel(fy){ return fy+"–"+String((fy+1)%100).padStart(2,"0"); }
 function renderFinance(){
-  const F=STATE.finance;
-  if(!F||!F.lines){ document.getElementById("finMeta").textContent="Nessun dato finance"; return; }
+  const cc=finCc();
+  const sel=document.getElementById("finRepSel"), delBtn=document.getElementById("btnFinDel");
+  document.getElementById("finTitle").textContent="Report finance · centro "+ccLabel(cc);
+  const reports=finReportsView();
+  const kp=document.getElementById("finKpis");
+  if(!reports.length){
+    sel.style.display="none"; delBtn.style.display="none";
+    document.getElementById("finMeta").textContent="AF "+finFyLabel(STATE.fyStart)+" · centro "+ccLabel(cc)+(ccInView().length>1?" (per un altro centro usa il selettore in alto)":"");
+    kp.innerHTML='<div style="padding:22px 20px;color:var(--ink-soft);font-size:13px">Nessun report finance caricato per questo anno fiscale e centro di costo. Cambia anno o centro dai selettori in alto, oppure carica un report con «Importa report finance».</div>';
+    document.getElementById("finTableMapped").innerHTML=""; document.getElementById("finTableOther").innerHTML="";
+    return;
+  }
+  if(!reports.some(r=>r.id===STATE.finSel)) STATE.finSel=reports[reports.length-1].id;   // di default l'ultimo mese caricato
+  const F=reports.find(r=>r.id===STATE.finSel);
+  sel.style.display=""; delBtn.style.display="";
+  sel.innerHTML=reports.map(r=>'<option value="'+esc(r.id)+'"'+(r.id===F.id?" selected":"")+'>'+esc(r.month)+''+(r.importedAt?' · importato il '+esc(fmtD(r.importedAt.slice(0,10))):'')+'</option>').join("");
   const mapped=F.lines.filter(l=>l.cat);
   const other =F.lines.filter(l=>!l.cat);
   const A=v=>Math.abs(v||0);
-  const {byCat:tool, cutoff, fmkRecognized}=toolActualByCat(F);
-  const cutoffYM=keyYM(cutoff), cutoffTxt=`${String(cutoffYM.m).padStart(2,'0')}/${cutoffYM.y}`;
+  const {byCat:tool, cutoff, fmkRecognized, nExp}=toolActualByCat(F);
+  const cutoffYM=keyYM(cutoff), cutoffTxt=String(cutoffYM.m).padStart(2,'0')+"/"+cutoffYM.y;
 
   const totActMap=mapped.reduce((s,l)=>s+A(l.ytdA),0);
   const totFcMap =mapped.reduce((s,l)=>s+A(l.ytdF),0);
@@ -1733,20 +1841,23 @@ function renderFinance(){
   const totToolSpeso=CATEGORIES.reduce((s,c)=>s+(tool[c]?tool[c].speso:0),0);
   const totStimaAperta=CATEGORIES.reduce((s,c)=>s+(tool[c]?tool[c].stimaAperta:0),0);
 
-  document.getElementById("finMeta").textContent=`Fonte: ${F.source} · mese ${F.month} (YTD) · AF ${F.fyStart}–${(F.fyStart+1)%100}${fmkRecognized?'':' · mese non riconosciuto, confronto su tutto l’anno'}`;
+  document.getElementById("finMeta").textContent="Fonte: "+F.source+" · mese "+F.month+" (YTD) · AF "+finFyLabel(F.fyStart)+(fmkRecognized?'':" · mese non riconosciuto, confronto su tutto l’anno")
+    +(nExp===0?" · nel tool non ci sono movimenti per questo anno e centro: lo «Speso tool» è 0 perché non c’è nulla da confrontare":"");
 
   // KPI
-  document.getElementById("finKpis").innerHTML=`
+  kp.innerHTML=`
     <div class="kpi"><div class="lab"><span class="sw" style="background:var(--speso)"></span><span class="eyebrow">Actual YTD (finance)</span></div><div class="v">${eur(totActMap+totActOth)}</div><div class="sub">categorie ${eur(totActMap)}</div></div>
     <div class="kpi"><div class="lab"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Forecast YTD (finance)</span></div><div class="v">${eur(totFcMap+totFcOth)}</div><div class="sub">categorie ${eur(totFcMap)}</div></div>
     <div class="kpi"><div class="lab"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Voci incluse</span></div><div class="v">${F.lines.length}</div><div class="sub">${mapped.length} a budget · ${other.length} altre</div></div>
     <div class="kpi"><div class="lab"><span class="sw" style="background:var(--residuo)"></span><span class="eyebrow">Speso tool fino a ${cutoffTxt}</span></div><div class="v">${eur(totToolSpeso)}</div><div class="sub">${totStimaAperta>0?`+ ${eur(totStimaAperta)} stima EC non ancora a consuntivo`:'stesso periodo del report finance'}</div></div>`;
 
   // tabella mappate
+  const dsF=STATE.years[String(F.fyStart)];
+  const budCc=dsF?budgetOf(dsF,F.cc||CC_DEFAULT):{};
   let h=`<thead><tr><th class="l">Categoria</th><th class="l">SAP</th><th>Actual YTD</th><th>Forecast YTD</th><th>Budget netto</th><th>Speso tool</th><th>Δ tool−actual</th></tr></thead><tbody>`;
   CATEGORIES.forEach(c=>{
     const l=mapped.find(x=>x.cat===c); if(!l) return;
-    const act=A(l.ytdA), fc=A(l.ytdF), bud=Number((STATE.years[String(F.fyStart)]||{budget:{}}).budget[c]||0);
+    const act=A(l.ytdA), fc=A(l.ytdF), bud=Number(budCc[c]||0);
     const t=tool[c]||{speso:0,stimaAperta:0}, delta=t.speso-act;
     h+=`<tr>
       <td class="l"><span class="catdot" style="background:${CAT_COLOR[c]||'#8A8F88'}"></span>${c}${catInfoIcon(c)}</td>
@@ -1763,7 +1874,7 @@ function renderFinance(){
 
   // tabella altre
   let h2=`<thead><tr><th class="l">SAP</th><th class="l">Voce finance</th><th>Actual YTD</th><th>Forecast YTD</th><th>Var. YTD</th></tr></thead><tbody>`;
-  other.sort((a,b)=>A(b.ytdA)-A(a.ytdA)).forEach(l=>{
+  other.slice().sort((a,b)=>A(b.ytdA)-A(a.ytdA)).forEach(l=>{
     const act=A(l.ytdA), fc=A(l.ytdF);
     h2+=`<tr><td class="l"><span class="tag">${l.sap}</span></td><td class="l">${esc(l.desc)}</td><td>${eur(act)}</td><td>${fc>0?eur(fc):'—'}</td><td class="${act>fc&&fc>0?'neg':''}">${fc>0?eur(fc-act):'—'}</td></tr>`;
   });
@@ -1794,14 +1905,32 @@ function importFinance(file){
           lines.push({sap:s,desc,cat:MAP[s]||null,mtdA:+mtdA.toFixed(2),mtdF:+mtdF.toFixed(2),ytdA:+ytdA.toFixed(2),ytdF:+ytdF.toFixed(2)});
       }
       if(!lines.length){ toast("Nessuna voce di costo riconosciuta nel report"); return; }
-      STATE.finance={source:wb.SheetNames[0],month:month||"—",fyStart:STATE.fyStart,lines};
+      if(!month){ toast("Mese del report non riconosciuto nel file"); return; }
+      // il report va nell'anno fiscale e nel centro scelti nei selettori: si chiede conferma per evitare
+      // di caricarlo sull'anno sbagliato (prima prendeva in silenzio l'AF aperto in quel momento)
+      const cc=finCc(), fy=STATE.fyStart;
+      finMigrate();
+      const rep=finMakeReport(wb.SheetNames[0],month,fy,cc,lines);
+      const exists=STATE.financeReports.some(r=>r.id===rep.id);
+      if(!confirm("Importare il report finance «"+month+"» come anno fiscale "+finFyLabel(fy)+", centro "+ccLabel(cc)+"?"+(exists?"\n\nEsiste già un report dello stesso mese per questo anno e centro: verrà sostituito.":"\n\nI report degli altri mesi restano disponibili."))) return;
+      STATE.financeReports=STATE.financeReports.filter(r=>r.id!==rep.id).concat([rep]);
+      STATE.finSel=rep.id;
       renderFinance(); save();
-      cloudSetSetting("finance",STATE.finance);
-      cloudAudit('import finance','finance',STATE.fyStart,`${lines.length} voci · mese ${month||'—'}`);
-      toast(`Report finance importato · ${lines.length} voci (mese ${month||"—"})`);
+      cloudSetSetting("finance_reports",STATE.financeReports);
+      cloudAudit('import finance','finance',fy,lines.length+" voci · mese "+month+" · centro "+cc+(exists?" (sostituito)":""));
+      toast("Report finance importato · "+lines.length+" voci (mese "+month+")");
     }catch(err){ console.error(err); toast("Errore lettura report: "+err.message); }
   };
   rd.readAsArrayBuffer(file);
+}
+function deleteFinanceReport(){
+  const F=finReportsView().find(r=>r.id===STATE.finSel); if(!F) return;
+  if(!confirm("Eliminare il report finance «"+F.month+"» (AF "+finFyLabel(F.fyStart)+", centro "+ccLabel(F.cc)+")?")) return;
+  STATE.financeReports=STATE.financeReports.filter(r=>r.id!==F.id);
+  renderFinance(); save();
+  cloudSetSetting("finance_reports",STATE.financeReports);
+  cloudAudit('elimina finance','finance',F.fyStart,"mese "+F.month+" · centro "+F.cc);
+  toast("Report finance eliminato");
 }
 
 let editingId=null;
@@ -2157,6 +2286,8 @@ document.addEventListener("click",e=>{ if(!e.target.closest("#fFornField")) clos
 document.getElementById("btnImport").onclick=()=>document.getElementById("fileInput").click();
 document.getElementById("fileInput").onchange=e=>{ if(e.target.files[0]) importFile(e.target.files[0]); e.target.value=""; };
 document.getElementById("btnExport").onclick=exportFile;
+document.getElementById("finRepSel").onchange=e=>{ STATE.finSel=e.target.value; renderFinance(); };
+document.getElementById("btnFinDel").onclick=deleteFinanceReport;
 document.getElementById("btnFinImport").onclick=()=>document.getElementById("finFileInput").click();
 document.getElementById("finFileInput").onchange=e=>{ if(e.target.files[0]) importFinance(e.target.files[0]); e.target.value=""; };
 document.getElementById("btnResetBudget").onclick=()=>{
@@ -2333,6 +2464,8 @@ async function cloudPullAll(silent){
     const smap={}; (sets||[]).forEach(s=>smap[s.key]=s.value);
     if(smap.iva_by_cat){ STATE.ivaByCat=Object.assign(defaultIva(), smap.iva_by_cat); }
     if(smap.finance){ STATE.finance=smap.finance; }
+    STATE.financeReports = Array.isArray(smap.finance_reports) ? smap.finance_reports : null;   // null = ricava dal vecchio report unico
+    finMigrate();
     await cloudFetchTravelEstimates();
     await cloudFetchDocentiEstimates();
     await cloudFetchRoles();
@@ -2440,7 +2573,7 @@ async function cloudPushAll(){
     const trashRows=(STATE.trash||[]).filter(t=>(t.categoria!=null?String(t.categoria):"").trim()!=="").map(t=>{ if(!isUuid(t.id))t.id=uuid(); const r=expToRow(t, t._fy||years[0]||STATE.fyStart); r.deleted_at=t.deletedAt||new Date().toISOString(); r.deleted_by=cloudUser(); return r; });
     for(let i=0;i<trashRows.length;i+=200){ const {error}=await sb.from("bdg_expenses").insert(trashRows.slice(i,i+200)); if(error) throw error; }
     // impostazioni
-    const {error:se}=await sb.from('bdg_settings').upsert([{key:'iva_by_cat',value:STATE.ivaByCat},{key:'finance',value:STATE.finance}]); if(se) throw se;
+    const {error:se}=await sb.from('bdg_settings').upsert([{key:'iva_by_cat',value:STATE.ivaByCat},{key:'finance',value:STATE.finance},{key:'finance_reports',value:(finMigrate(),STATE.financeReports)}]); if(se) throw se;
     cloudAudit('prima configurazione','sistema',null,`${expRows.length} movimenti caricati`);
     cloudSetDot('on'); toast(`Caricati ${expRows.length} movimenti sul cloud${skipped?` (${skipped} righe vuote ignorate)`:''}`);
   }catch(e){ console.error(e); cloudSetDot('err'); toast("Errore caricamento: "+(e.message||e)); }
@@ -2486,7 +2619,7 @@ function scheduleRemoteRefresh(){
 
 /* ---- snapshot backup ---- */
 function exportSnapshot(){
-  const snap={ app:"naba-budget", version:2, ts:new Date().toISOString(), fyStart:STATE.fyStart, ivaByCat:STATE.ivaByCat, years:STATE.years, trash:STATE.trash||[], finance:STATE.finance };
+  const snap={ app:"naba-budget", version:2, ts:new Date().toISOString(), fyStart:STATE.fyStart, ivaByCat:STATE.ivaByCat, years:STATE.years, trash:STATE.trash||[], finance:STATE.finance, financeReports:STATE.financeReports||null };
   const blob=new Blob([JSON.stringify(snap,null,2)],{type:"application/json"});
   const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="snapshot_budget_"+new Date().toISOString().slice(0,10)+".json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
   toast("Snapshot esportato");
@@ -2497,7 +2630,7 @@ function importSnapshot(file){
     const s=JSON.parse(ev.target.result);
     if(!s||!s.years){ toast("File snapshot non valido"); return; }
     if(!confirm("Ripristinare i dati da questo snapshot?\nSostituisce i dati LOCALI correnti (il cloud non viene toccato).")) return;
-    STATE.years=s.years; STATE.ivaByCat=Object.assign(defaultIva(), s.ivaByCat||{}); STATE.trash=s.trash||[]; if(s.finance) STATE.finance=s.finance; if(s.fyStart) STATE.fyStart=s.fyStart;
+    STATE.years=s.years; STATE.ivaByCat=Object.assign(defaultIva(), s.ivaByCat||{}); STATE.trash=s.trash||[]; if(s.finance) STATE.finance=s.finance; if(Array.isArray(s.financeReports)) STATE.financeReports=s.financeReports; if(s.fyStart) STATE.fyStart=s.fyStart;
     sanitizeState(STATE); save(); initFY(); syncRefDateUI(); renderCalChips(); renderAll();
     toast("Dati ripristinati dallo snapshot (in locale)");
   }catch(e){ toast("Errore lettura snapshot: "+e.message); } };
