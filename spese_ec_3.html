@@ -1533,7 +1533,7 @@ async function cloudPullAll(silent){
     // client Supabase torna un builder senza .catch finché non lo si avvolge in una vera Promise — se
     // qui si lancia un'eccezione non gestita, salta anche il gate()/renderAll() qui sotto e l'utente
     // resta bloccato su ruolo "none" (bug reale, Luigi 2026-09-25)
-    try{ Promise.resolve(sb.rpc('bdg_touch_last_seen')).catch(()=>{}); }catch(e){}
+    try{ if(!window._touchedLastSeen){ window._touchedLastSeen=true; Promise.resolve(sb.rpc('bdg_touch_last_seen')).catch(()=>{}); } }catch(e){}
     prefsApplyOnce();
     dataReady=true;
     save(); fillSelects(); renderAll(); gate(); cloudSetDot('on'); if(!silent) toast("Dati scaricati dal cloud"); cloudRealtimeSubscribe();
