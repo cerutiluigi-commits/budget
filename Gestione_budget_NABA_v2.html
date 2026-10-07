@@ -579,6 +579,16 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
       </div>
       <div class="scroll"><table class="mv-table" id="noIvaTable" style="width:100%"></table></div>
     </div>
+    <div class="card" id="proRataCard" style="margin-bottom:18px;padding:16px 18px">
+      <h3 class="sec" style="margin:0 0 4px;font-size:15px">Fornitori con ripartizione sulla competenza</h3>
+      <p class="sec-desc" style="margin:0 0 10px">Di norma le quote dei mesi di competenza precedenti alla data dell'ordine vengono attribuite al mese dell'ordine. Per i fornitori in questo elenco l'importo si divide invece in parti uguali sui mesi da «Competenza da» a «Competenza a», senza spostare niente al mese d'ordine. Vale per tutti i movimenti del fornitore (nome come nei movimenti, maiuscole e spazi ininfluenti) e si ricalcola da solo se modifichi l'elenco.</p>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
+        <input id="proRataCode" placeholder="Codice (facoltativo)" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;width:170px">
+        <input id="proRataName" placeholder="Nome fornitore (obbligatorio, come nei movimenti)" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;flex:1;min-width:200px">
+        <button class="btn small" id="proRataAdd" type="button">+ Aggiungi</button>
+      </div>
+      <div class="scroll"><table class="mv-table" id="proRataTable" style="width:100%"></table></div>
+    </div>
     <div class="card">
       <div class="brow bhead" style="border-bottom:1px solid var(--line-strong)">
         <div class="eyebrow">Categoria</div>
@@ -881,6 +891,11 @@ function catCcs(c){
   if(CAT_SHARED_DIGITAL.has(c)) return ["6000","6400","6600"];
   return ["6000","6400"];
 }
+// una categoria "ha valori" se almeno uno tra budget, speso, allocato, fuori AF, stime è diverso da zero
+function catHasValue(o){ return !!o && [o.budgetNet,o.budget,o.speso,o.allocato,o.fuori,o.stimaEC,o.stimaECSpeso,o.stimaDocenti].some(v=>Math.abs(Number(v)||0)>0.004); }
+// elenchi (Riepilogo, filtri e chip, heatmap, export): solo categorie con valori (Luigi, 2026-10-07).
+// Il Budget annuale e il form di inserimento restano su viewCats(): lì servono tutte le categorie del centro.
+function viewCatsActive(d){ d=d||compute(); return viewCats(d).filter(c=>catHasValue(d.cats[c])); }
 // categorie da mostrare per i centri in vista (più quelle che hanno comunque dati, così i totali tornano)
 function viewCats(d){
   const ccs=ccInView();
@@ -1128,8 +1143,11 @@ function distribute(e){
   const share = (Number(e.importo)||0)/months.length;
   const ordK = e.dataOrdine ? (ym(e.dataOrdine)||{}).key : months[0];
   const order = (ordK==null)?months[0]:ordK;
+  // fornitori con ripartizione "pura" (elenco in Budget annuale, Luigi 2026-10-07): l'importo si divide in parti
+  // uguali sui mesi di competenza da→a, senza spostare al mese d'ordine le quote dei mesi passati
+  const pro = (typeof isProRataRow==="function") && isProRataRow(e);
   for(const mk of months){
-    const target = Math.max(mk, order);   // quote passate → mese d'ordine
+    const target = pro ? mk : Math.max(mk, order);   // quote passate → mese d'ordine (salvo fornitori pro-rata)
     out[target] = (out[target]||0) + share;
   }
   return out;
@@ -1286,11 +1304,13 @@ function renderAll(){
   const d=compute();
   renderKpis(d);
   renderRiep(d);
+  renderCalChips(d);   // i chip seguono centro/anno/dati: solo categorie con valori
   renderCalendar(d);
   if(_mdMonth!=null) renderMonthDetail(_mdMonth, STATE.calCat==="ALL"?null:STATE.calCat);
   renderMovimenti();
   renderBudget(d);
   renderNoIva();
+  renderProRata();
   renderFinance();
   renderContabilita(d);
   renderRegistro();
@@ -1348,10 +1368,16 @@ function riepSubtotalRowHtml(sub,d){
     <td data-label="%">${p}%</td>
   </tr>`;
 }
+function goToMovimentiCat(cat){
+  MV.catPreset=cat;
+  const btn=document.querySelector('nav.tabs button[data-tab="movimenti"]');
+  if(btn) btn.click();
+  renderMovimenti();
+}
 function renderRiep(d){
-  const rows = viewCats(d).filter(c=>d.cats[c]).map(c=>[c,d.cats[c]]);
+  const rows = viewCatsActive(d).map(c=>[c,d.cats[c]]);
   // includi extra cat
-  Object.keys(d.cats).forEach(c=>{ if(!CATEGORIES.includes(c)) rows.push([c,d.cats[c]]); });
+  Object.keys(d.cats).forEach(c=>{ if(!CATEGORIES.includes(c) && catHasValue(d.cats[c])) rows.push([c,d.cats[c]]); });
   // scala per la regione di sforamento (a destra della linea budget)
   const LINE=68;                                   // posizione della linea budget (% larghezza)
   const maxPct=Math.max(1, ...rows.map(([c,o])=> o.budget>0 ? (o.speso+o.allocato)/o.budget : 0));
@@ -1371,7 +1397,7 @@ function renderRiep(d){
     const wOver = (over&&scaleMax>1) ? (over_amt/b)/(scaleMax-1)*(100-LINE) : 0;
     const excluded = c===CAT_NO_TOTALS;
     html += `<tr${excluded?' class="excluded-row"':''}>
-      <td class="l" data-label="Categoria"><span class="catdot" style="background:${CAT_COLOR[c]||'#8A8F88'}"></span>${c}${excluded?' *':''}${catInfoIcon(c)}</td>
+      <td class="l" data-label="Categoria" data-cat="${esc(c)}"><span class="catdot" style="background:${CAT_COLOR[c]||'#8A8F88'}"></span>${c}${excluded?' *':''}${catInfoIcon(c)}</td>
       <td data-label="Budget">${eur(o.budget)}</td>
       <td data-label="Speso">${eur(o.speso)}</td>
       <td data-label="Allocato" style="color:${excluded?'inherit':'var(--allocato)'}">${o.allocato>0?eur(o.allocato):'—'}</td>
@@ -1397,6 +1423,11 @@ function renderRiep(d){
     <td data-label="Residuo" class="${d.gResiduo<0?'neg':''}">${eur(d.gResiduo)}</td>
     <td class="l cell-bar-empty" style="padding-left:20px"></td><td data-label="%" class="${gOver?'neg':''}" style="${gOver?'font-weight:700':''}">${pct(d.gImpegnato,d.gBudget)}%</td></tr></tfoot>`;
   document.getElementById("riepTable").innerHTML=html;
+  // clic sul nome della categoria: apre i Movimenti filtrati per quella categoria
+  document.querySelectorAll('#riepTable td[data-label="Categoria"]').forEach(td=>{
+    td.style.cursor="pointer"; td.title="Apri i movimenti di questa categoria";
+    td.addEventListener("click",ev=>{ if(ev.target.closest(".cat-info")) return; const cat=td.getAttribute("data-cat"); if(cat) goToMovimentiCat(cat); });
+  });
   const note=document.getElementById("riepNote");
   if(note) note.textContent = `* ${CAT_NO_TOTALS}: dato di controllo, non incluso in nessun totale (budget, speso, allocato, impegnato, residuo).`;
 }
@@ -1413,10 +1444,10 @@ function applyCalFilter(cat){
   if(_mdMonth!=null) renderMonthDetail(_mdMonth, STATE.calCat==="ALL"?null:STATE.calCat);
   save();
 }
-function renderCalChips(){
+function renderCalChips(d){
   const el=document.getElementById("calChips");
   let html=`<button class="chip ${STATE.calCat==='ALL'?'on':''}" data-c="ALL"><span class="sw" style="background:var(--ink)"></span>Tutte</button>`;
-  viewCats().forEach(c=>{
+  viewCatsActive(d).forEach(c=>{
     const info=CAT_INFO[c]; const tt=info?`${info.nome}${info.usare?' — '+info.usare:''}`:c;
     html+=`<button class="chip ${STATE.calCat===c?'on':''}" data-c="${c}" title="${tt.replace(/"/g,'&quot;')}"><span class="sw" style="background:${CAT_COLOR[c]}"></span>${c}</button>`;
   });
@@ -1428,7 +1459,7 @@ function renderCalChips(){
 function renderCalendar(d){
   const keys=fyMonthKeys();
   // dati per mese secondo filtro categoria
-  if(STATE.calCat!=="ALL" && !viewCats(d).includes(STATE.calCat)) STATE.calCat="ALL";   // filtro salvato di un altro centro
+  if(STATE.calCat!=="ALL" && !viewCatsActive(d).includes(STATE.calCat)) STATE.calCat="ALL";   // filtro salvato di un altro centro
   const rows = STATE.calCat==="ALL" ? Object.entries(d.cats).filter(([c])=>c!==CAT_NO_TOTALS).map(x=>x[1]) : [d.cats[STATE.calCat]].filter(Boolean);
   const monthData = keys.map(k=>{
     let s=0,a=0,ps=0,pa=0; rows.forEach(o=>{ if(o.months[k]){ s+=o.months[k].speso; a+=o.months[k].allocato; ps+=o.months[k].precS||0; pa+=o.months[k].precA||0; } });
@@ -1547,7 +1578,7 @@ function lblMonth(k){ const {y,m}=keyYM(k); return MESI_LONG[m-1]+" "+y; }
 function heatColor(v,max){ if(v<=0||max<=0) return "transparent"; const t=Math.min(1,v/max); const a=0.10+t*0.72; return `rgba(62,124,100,${a.toFixed(3)})`; }
 function renderHeatmap(d){
   const keys=fyMonthKeys();
-  const cats=viewCats(d).filter(c=>d.cats[c]);
+  const cats=viewCatsActive(d);
   let head=`<thead><tr><th class="l">Categoria</th>`;
   keys.forEach(k=>{ const {y,m}=keyYM(k); head+=`<th>${MESI[m-1]}<br><span style="color:var(--ink-mute);font-weight:400">'${String(y).slice(2)}</span></th>`; });
   head+=`<th>Fuori AF</th><th>Totale</th></tr></thead>`;
@@ -1671,7 +1702,7 @@ function catOptions(sel,cc){
   return list.map(c=>`<option value="${c}" ${c===sel?'selected':''}>${c}</option>`).join("");
 }
 // stato di ordinamento/filtri per colonna dei Movimenti (solo in memoria, si azzera al ricaricamento)
-const MV={ sort:{key:"ord",dir:"desc"}, f:{ord:"",cat:"",cc:"",forn:"",comp:"",net:"",gross:""}, sel:new Set(), listIds:[] };
+const MV={ catPreset:null, sort:{key:"ord",dir:"desc"}, f:{ord:"",cat:"",cc:"",forn:"",comp:"",net:"",gross:""}, sel:new Set(), listIds:[] };
 function mvNumFilter(expr,v){
   expr=String(expr||"").trim().replace(/,/g,".").replace(/\s/g,""); if(!expr) return true;
   let m;
@@ -1686,7 +1717,8 @@ function renderMovimenti(){
     cf.onchange=renderMovimenti;
     cf.dataset.init="1";
   }
-  { const want=viewCats().join("|"); if(cf.dataset.cats!==want){ const keep=cf.value; cf.innerHTML=`<option value="ALL">Tutte le categorie</option>`+viewCats().map(c=>`<option value="${c}">${c}</option>`).join(""); cf.dataset.cats=want; cf.value=[...cf.options].some(o=>o.value===keep)?keep:"ALL"; } }
+  { const act=viewCatsActive(), want=act.join("|"); if(cf.dataset.cats!==want){ const keep=cf.value; cf.innerHTML=`<option value="ALL">Tutte le categorie</option>`+act.map(c=>`<option value="${c}">${c}</option>`).join(""); cf.dataset.cats=want; cf.value=[...cf.options].some(o=>o.value===keep)?keep:"ALL"; }
+    if(MV.catPreset){ if(![...cf.options].some(o=>o.value===MV.catPreset)){ const o=document.createElement("option"); o.value=MV.catPreset; o.textContent=MV.catPreset; cf.appendChild(o); } cf.value=MV.catPreset; MV.catPreset=null; } }
   const q=(document.getElementById("mvSearch").value||"").toLowerCase().trim();
   const catF=cf.value||"ALL";
   const ccsView=ccInView();
@@ -2032,6 +2064,20 @@ function isNoIvaSupplier(code,name){
   return noIvaList().some(x=>(c && normSup(x.code)===c) || (n && x.name && normSup(x.name)===n));
 }
 function saveNoIva(what){ _noIvaSet=null; save(); cloudSetSetting("no_iva_suppliers",noIvaList()); if(what) cloudAudit("collaboratori senza IVA","impostazioni",null,what); renderNoIva(); }
+/* ---------- fornitori con ripartizione proporzionale sulla competenza (Luigi, 2026-10-07) ---------- */
+const PRORATA_SEED=[["F008327","Hearts & Science S.r.l."]];
+function proRataList(){ if(!Array.isArray(STATE.proRataSuppliers)) STATE.proRataSuppliers=PRORATA_SEED.map(([code,name])=>({code,name})); return STATE.proRataSuppliers; }
+let _proRataSet=null;
+function proRataNameSet(){ if(!_proRataSet) _proRataSet=new Set(proRataList().map(x=>normSup(x.name)).filter(Boolean)); return _proRataSet; }
+function isProRataRow(e){ return !!(e && e.fornitore && proRataNameSet().has(normSup(e.fornitore))); }
+function saveProRata(what){ _proRataSet=null; save(); cloudSetSetting("pro_rata_suppliers",proRataList()); if(what) cloudAudit("fornitori ripartizione competenza","impostazioni",null,what); renderAll(); }
+function renderProRata(){
+  const t=document.getElementById("proRataTable"); if(!t) return;
+  const l=proRataList();
+  t.innerHTML='<thead><tr><th class="l">Codice</th><th class="l">Fornitore</th><th></th></tr></thead><tbody>'
+    +(l.length?l.map((x,i)=>'<tr><td class="l">'+esc(x.code||"—")+'</td><td class="l">'+esc(x.name||"")+'</td><td style="text-align:right"><button class="rowbtn" type="button" data-i="'+i+'" title="Togli dall\'elenco">✕</button></td></tr>').join(""):'<tr><td colspan="3" class="l"><span class="meta">Nessun fornitore in elenco.</span></td></tr>')+'</tbody>';
+  t.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{ const x=l[+b.dataset.i]; if(confirm("Togliere «"+(x.name||x.code)+"» dall'elenco con ripartizione sulla competenza?")){ l.splice(+b.dataset.i,1); saveProRata("tolto dall'elenco: "+(x.name||x.code)); toast("Fornitore tolto dall'elenco"); } });
+}
 function renderNoIva(){
   const t=document.getElementById("noIvaTable"); if(!t) return;
   const l=noIvaList();
@@ -2214,9 +2260,9 @@ function updatePreview(){
   }).join("");
   const comp=competenceMonths(e);
   const ord=e.dataOrdine?(ym(e.dataOrdine)||{}).key:comp[0];
-  const nPast=comp.filter(k=>k<ord).length;
+  const nPast=isProRataRow(e)?0:comp.filter(k=>k<ord).length;
   const ivaPctShown = e.ivaPctOverride!=null ? e.ivaPctOverride : rowNoIvaByList(e) ? 0 : (STATE.ivaByCat[e.categoria]!=null?STATE.ivaByCat[e.categoria]:STATE.ivaRate);
-  let note=`${comp.length} ${comp.length===1?'mese':'mesi'} di competenza · quota ${eur((+e.importo)/comp.length*f)}/mese (IVA ${ivaPctShown}%${e.ivaPctOverride!=null?' docente':''} incl.)`;
+  let note=`${comp.length} ${comp.length===1?'mese':'mesi'} di competenza · quota ${eur((+e.importo)/comp.length*f)}/mese (IVA ${ivaPctShown}%${e.ivaPctOverride!=null?' docente':''} incl.)`+(isProRataRow(e)?' · ripartizione proporzionale sulla competenza (fornitore in elenco)':'');
   if(nPast>0) note+=` · ${nPast} ${nPast===1?'mese precedente attribuito':'mesi precedenti attribuiti'} al mese d'ordine`;
   document.getElementById("prevNote").textContent=note;
 }
@@ -2764,15 +2810,15 @@ function exportFile(){
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(det),"DETTAGLIO");
   // RIASSUNTO (valori IVA inclusa; disp. netto come riferimento)
   const ri=[["disp. netto","disp. IVA incl.","IVA %","categoria","speso","allocato","impegnato","residuo"]];
-  viewCats(d).forEach(c=>{ const o=d.cats[c]; const imp=o.speso+o.allocato; const ivaC=(STATE.ivaByCat[c]!=null)?STATE.ivaByCat[c]:STATE.ivaRate;
+  viewCatsActive(d).forEach(c=>{ const o=d.cats[c]; const imp=o.speso+o.allocato; const ivaC=(STATE.ivaByCat[c]!=null)?STATE.ivaByCat[c]:STATE.ivaRate;
     ri.push([o.budgetNet, o.budget, ivaC, c, o.speso, o.allocato, imp, o.budget-imp]); });
-  const totNet=viewCats(d).filter(c=>c!==CAT_NO_TOTALS).reduce((s,c)=>s+(d.cats[c].budgetNet||0),0);
+  const totNet=viewCatsActive(d).filter(c=>c!==CAT_NO_TOTALS).reduce((s,c)=>s+(d.cats[c].budgetNet||0),0);
   ri.push([totNet, d.gBudget,"", "TOTALE", d.gSpeso, d.gAlloc, d.gImpegnato, d.gResiduo]);
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(ri),"RIASSUNTO");
   // MENSILE
   const keys=fyMonthKeys();
   const men=[["categoria",...keys.map(k=>{const {y,m}=keyYM(k);return MESI[m-1]+"-"+String(y).slice(2);}),"fuori AF","totale"]];
-  viewCats(d).forEach(c=>{ const o=d.cats[c];
+  viewCatsActive(d).forEach(c=>{ const o=d.cats[c];
     const row=[c]; let tot=0; keys.forEach(k=>{ const v=o.months[k]?(o.months[k].speso+o.months[k].allocato):0; row.push(Math.round(v*100)/100); tot+=v; });
     row.push(Math.round(o.fuori*100)/100); row.push(Math.round((tot+o.fuori)*100)/100); men.push(row); });
   XLSX.utils.book_append_sheet(wb,XLSX.utils.aoa_to_sheet(men),"MENSILE");
@@ -2865,6 +2911,14 @@ document.addEventListener("click",e=>{ if(!e.target.closest("#fFornField")) clos
 document.getElementById("btnImport").onclick=()=>document.getElementById("fileInput").click();
 document.getElementById("fileInput").onchange=e=>{ if(e.target.files[0]) importFile(e.target.files[0]); e.target.value=""; };
 document.getElementById("btnExport").onclick=exportFile;
+document.getElementById("proRataAdd").onclick=()=>{
+  const code=document.getElementById("proRataCode").value.trim(), name=document.getElementById("proRataName").value.trim();
+  if(!name){ toast("Inserisci il nome del fornitore (come compare nei movimenti)"); return; }
+  const l=proRataList();
+  if(l.some(x=>normSup(x.name)===normSup(name))){ toast("Già presente in elenco"); return; }
+  l.push({code,name}); document.getElementById("proRataCode").value=""; document.getElementById("proRataName").value="";
+  saveProRata("aggiunto all'elenco: "+name); toast("Fornitore aggiunto all'elenco");
+};
 document.getElementById("noIvaAdd").onclick=()=>{
   const code=document.getElementById("noIvaCode").value.trim(), name=document.getElementById("noIvaName").value.trim();
   if(!name){ toast("Inserisci il nome del fornitore (come compare nei movimenti)"); return; }
@@ -3058,6 +3112,7 @@ async function cloudPullAll(silent){
     if(smap.iva_by_cat){ STATE.ivaByCat=Object.assign(defaultIva(), smap.iva_by_cat); }
     if(smap.finance){ STATE.finance=smap.finance; }
     if(Array.isArray(smap.no_iva_suppliers)){ STATE.noIvaSuppliers=smap.no_iva_suppliers; _noIvaSet=null; }
+    if(Array.isArray(smap.pro_rata_suppliers)){ STATE.proRataSuppliers=smap.pro_rata_suppliers; _proRataSet=null; }
     STATE.financeReports = Array.isArray(smap.finance_reports) ? smap.finance_reports : null;   // null = ricava dal vecchio report unico
     finMigrate();
     await cloudFetchTravelEstimates();
