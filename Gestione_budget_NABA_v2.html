@@ -540,7 +540,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
         </div>
         <select id="mvCatFilter" class="btn ghost" style="padding:9px 12px"></select>
         <select id="mvSortMobile" class="btn ghost" style="padding:9px 12px" title="Ordina i movimenti"></select>
-        <button class="btn ghost" id="btnLedger" title="Importa le RDA da Excel (esportazione StatisticaDetails). Importi senza IVA; i collaboratori senza IVA si gestiscono in Budget annuale. L'estratto contabile si carica dalla scheda Contabilità.">Importa RDA da file</button>
+        <button class="btn ghost" id="btnLedger" title="Importa da Excel le RDA (esportazione StatisticaDetails, importi senza IVA; i collaboratori senza IVA si gestiscono in Budget annuale) oppure le richieste carta aziendale (export di anticipi.naba.it: importi in euro già IVA inclusa, centro 6600, categoria Licenze e software marketing). L'estratto contabile si carica dalla scheda Contabilità.">Importa RDA / carta da file</button>
         <input type="file" id="ledgerFileInput" accept=".xlsx,.xls" style="display:none">
         <button class="btn" id="btnAdd">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Aggiungi spesa
@@ -2391,7 +2391,8 @@ function importLedger(file){
       const norm=x=>String(x==null?"":x).replace(/\s+/g," ").trim().toUpperCase();
       let hi=rows.findIndex(r=>r && norm(r[0])==="TRANSTYPE"), fmt="ledger";
       if(hi<0){ hi=rows.findIndex(r=>r && r.map(norm).includes("SUPPLIER") && r.map(norm).includes("RDA DATE")); fmt="rda"; }
-      if(hi<0){ toast("Formato non riconosciuto: servono l'estratto contabile SAP (colonna «transtype») o l'esportazione RDA (colonne SUPPLIER / RDA DATE)","err"); return; }
+      if(hi<0){ hi=rows.findIndex(r=>r && r.map(norm).includes("DIPARTIMENTO") && r.map(norm).includes("IMPORTO EUR")); fmt="carta"; }
+      if(hi<0){ toast("Formato non riconosciuto: servono l'esportazione RDA (colonne SUPPLIER / RDA DATE) o le richieste carta aziendale (colonne DIPARTIMENTO / IMPORTO EUR). L'estratto contabile SAP si carica dalla scheda Contabilità","err"); return; }
       if(fmt==="ledger"){ toast("Questo è un estratto contabile: si carica dalla scheda Contabilità. Da qui si importano le RDA (esportazione StatisticaDetails).","err"); return; }
       const H=rows[hi].map(norm); const ix=n=>H.indexOf(norm(n));
       const nn=v=>typeof v==="number"?v:(parseFloat(String(v==null?"":v).replace(",","."))||0);
@@ -2399,12 +2400,12 @@ function importLedger(file){
       const existing=new Set(allExpensesWithFy().map(({e})=>e.sourceKey).filter(Boolean));
       const allRows=allExpensesWithFy().map(x=>x.e);
       const seen={}, fresh=[]; let dup=0, sameNum=0, noCc=0, noDate=0, tot=0, totIncl=0, nExempt=0, dmin=null, dmax=null; const unmapped=new Set(), ccs=new Set();
-      const need=["SUPPLIER","DEPARTEMENT","RDA DATE","NUMBER","ACCOUNT","TOT PRICE"];
+      const need=fmt==="carta"?["ID","DIPARTIMENTO","DATA DI CREAZIONE","FORNITORE","IMPORTO EUR","STATO LINE DIRECTOR","STATO FINANCE DIRECTOR"]:["SUPPLIER","DEPARTEMENT","RDA DATE","NUMBER","ACCOUNT","TOT PRICE"];
       const miss=need.filter(n=>ix(n)<0); if(miss.length){ toast("Colonne mancanti nel file: "+miss.join(", "),"err"); return; }
       const push=(cc,gross,e)=>{
         // le RDA hanno importi SENZA IVA (Luigi, 2026-10-05): si salvano così, l'IVA di categoria si applica
         // dopo; i collaboratori senza IVA (elenco in Budget annuale) hanno IVA 0% sulla riga
-        e.importo=Math.round(gross*100)/100;
+        e.importo=e.keepPrec?Math.round(gross*1e6)/1e6:Math.round(gross*100)/100; delete e.keepPrec;
         if(e.exempt && !noIvaNameSet().has(normSup(e.fornitore))) e.ivaPctOverride=0;   // match per codice con nome diverso dall'elenco
         delete e.exempt;
         e.centroCosto=cc; e.id=uuid(); e.importBatch=batch;
@@ -2417,9 +2418,54 @@ function importLedger(file){
         fresh.push(e); tot+=gross; totIncl+=gross*rowIvaFactor(e); ccs.add(cc);
         const d=e.dataOrdine; if(!dmin||d<dmin) dmin=d; if(!dmax||d>dmax) dmax=d;
       };
+      // richieste carta aziendale (export di anticipi.naba.it, Luigi 2026-10-08): tutte nel centro 6600 Digital
+      // (sia "Digital" sia "Digital Enrollment"), tutte sotto LICENZE E SOFTWARE MARKETING. L'importo è quello
+      // in EURO (colonna «Importo EUR», convertita col cambio BCE del foglio «Cambi BCE»; se il file non ha i
+      // valori calcolati si rifà la stessa conversione dal foglio dei cambi) e GIÀ IVA INCLUSA (Luigi,
+      // 2026-10-08): il Budget ragiona sul netto, quindi si salva netto = importo / fattore IVA di categoria
+      // (senza arrotondare, così «IVA incl.» riproduce al centesimo la cifra del file).
+      // Si importano solo le richieste approvate sia dal Line Director sia dal Finance Director.
+      let skipCarta=0;
+      const fx={};   // cambi BCE: valuta -> {data ISO: cambio (1 EUR = x valuta)}
+      { const fxs=wb.Sheets[wb.SheetNames.find(n=>/cambi/i.test(n))];
+        if(fxs){ const fr=XLSX.utils.sheet_to_json(fxs,{header:1,defval:null,raw:true}); const fh=(fr[0]||[]).map(norm);
+          fr.slice(1).forEach(x=>{ if(!x) return; const d=excelDateToISO(x[0]); if(!d) return; fh.forEach((cur,j)=>{ if(j>0&&cur&&typeof x[j]==="number") (fx[cur]=fx[cur]||{})[d]=x[j]; }); }); } }
+      const fxRate=(cur,date)=>{ const t=fx[cur]; if(!t) return 0; if(t[date]) return t[date]; const ks=Object.keys(t).filter(k=>k<=date).sort(); return ks.length?t[ks[ks.length-1]]:0; };
+      const ivfCarta=ivaFactor("LICENZE E SOFTWARE MARKETING");
+      const cartaRow=r=>{
+        const rid=r[ix("ID")]; if(typeof rid!=="number") return;   // righe di nota a piè di foglio
+        if(norm(r[ix("STATO LINE DIRECTOR")])!=="APPROVED"||norm(r[ix("STATO FINANCE DIRECTOR")])!=="APPROVED"){ skipCarta++; return; }
+        const cc=ccFromDept(r[ix("DIPARTIMENTO")]); if(cc!=="6600"){ noCc++; return; }
+        const date=excelDateToISO(r[ix("DATA DI CREAZIONE")]); if(!date){ noDate++; return; }
+        const valuta=String(r[ix("VALUTA")]||"EUR").trim().toUpperCase();
+        const oi=H.findIndex(h=>h.startsWith("IMPORTO (")), ri=H.indexOf("CAMBIO BCE (1 EUR =)");
+        const orig=oi>=0?nn(r[oi]):0, rate=ri>=0?nn(r[ri]):0;
+        const rt=valuta==="EUR"?1:(rate||fxRate(valuta,date));
+        let eur=nn(r[ix("IMPORTO EUR")]); if(!eur && orig && rt) eur=orig/rt;
+        eur=Math.round(eur*100)/100; if(!eur){ skipCarta++; return; }
+        const sup=String(r[ix("FORNITORE")]||"").replace(/\s+/g," ").trim().toUpperCase();
+        const desc=ix("DESCRIZIONE ACQUISTO")>=0&&r[ix("DESCRIZIONE ACQUISTO")]?String(r[ix("DESCRIZIONE ACQUISTO")]).replace(/\s+/g," ").trim():"";
+        // competenza: l'importo si divide in parti uguali sui 12 mesi che partono dal mese della data ordine
+        // (il motore di distribute() ragiona per mese). L'anno fiscale va da luglio a giugno e ogni riga sta in un
+        // solo anno: un acquisto a cavallo di due anni viene SPEZZATO, ogni anno riceve le sue mensilità
+        // (es. ordine di gennaio: gen–giu sull'AF corrente, lug–dic sull'AF successivo — Luigi, 2026-10-08).
+        const p2=n=>String(n).padStart(2,"0");
+        const sy=+date.slice(0,4), sm=+date.slice(5,7), k0=sy*12+(sm-1);
+        const monthEnd=k=>{ const y=Math.floor(k/12), m=k%12+1; return `${y}-${p2(m)}-${p2(new Date(Date.UTC(y,m,0)).getUTCDate())}`; };
+        const segs=[]; for(let k=k0;k<k0+12;k++){ const y=Math.floor(k/12), m=k%12+1, f=m>=7?y:y-1, last=segs[segs.length-1]; if(last&&last.fy===f){ last.k1=k; last.n++; } else segs.push({fy:f,k0:k,k1:k,n:1}); }
+        const baseNote=["Richiesta carta n. "+rid, valuta!=="EUR"?(valuta+" "+orig.toLocaleString("it-IT",{minimumFractionDigits:2,maximumFractionDigits:2})+(rt?" @ "+rt:"")):"", String(r[ix("DIPARTIMENTO")]||"").trim()].filter(Boolean).join(" · ");
+        segs.forEach((s,i)=>{
+          const da=i===0?date:`${Math.floor(s.k0/12)}-${p2(s.k0%12+1)}-01`;
+          push(cc,(eur/ivfCarta)*s.n/12,{ keepPrec:true, fyForce:s.fy, dataOrdine:date, numOrdine:"CARTA "+rid, tipoPagamento:"Carta NABA", categoria:"LICENZE E SOFTWARE MARKETING", catAltro:"",
+            fornitore:sup, compDa:da, compA:monthEnd(s.k1), dataConsegna:null, oggetto:desc,
+            note:baseNote+(segs.length>1?` · quota ${s.n}/12 di ${eur2(eur)} (AF ${s.fy}–${p2((s.fy+1)%100)})`:""),
+            sourceKey:["carta",rid,s.fy].join("|") });
+        });
+      };
       for(let k=hi+1;k<rows.length;k++){
         const r=rows[k]; if(!r) continue;
         {
+          if(fmt==="carta"){ cartaRow(r); continue; }
           const acc0=r[ix("ACCOUNT")]; if(acc0==null||acc0==="") continue;
           const cc=ccFromDept(r[ix("DEPARTEMENT")]); if(!cc){ noCc++; continue; }
           const date=excelDateToISO(r[ix("RDA DATE")]); if(!date){ noDate++; continue; }
@@ -2441,19 +2487,26 @@ function importLedger(file){
         }
       }
       if(!fresh.length){ toast(dup?`Nessun movimento nuovo: ${dup} righe erano già presenti`:"Nessuna riga valida nel file"); return; }
-      const msg=`Importare ${fresh.length} movimenti da «${file.name}»?\n\nFormato: esportazione RDA/ordini\nCentro: ${[...ccs].map(ccLabel).join(", ")}\nPeriodo: ${fmtD(dmin)} – ${fmtD(dmax)}\nTotale senza IVA: ${eur2(tot)}\nCon IVA: ${eur2(totIncl)}${nExempt?` (${nExempt} righe di collaboratori senza IVA)`:""}\n`
+      const fyOfRow=e=>e.fyForce||fyOfISO(e.compDa&&e.compDa>e.dataOrdine?e.compDa:e.dataOrdine);
+      const fyCount={}, fyIncl={}; fresh.forEach(e=>{ const fy=fyOfRow(e); fyCount[fy]=(fyCount[fy]||0)+1; fyIncl[fy]=(fyIncl[fy]||0)+e.importo*rowIvaFactor(e); });
+      const fyLine=Object.keys(fyCount).sort().map(fy=>`AF ${fy}–${String((+fy+1)%100).padStart(2,"0")}: ${fyCount[fy]}`+(fmt==="carta"?` (${eur2(fyIncl[fy])} IVA incl.)`:"")).join(" · ");
+      const nReq=fmt==="carta"?new Set(fresh.map(e=>String(e.sourceKey).split("|")[1])).size:0;
+      const msg=`Importare ${fresh.length} movimenti da «${file.name}»?\n\n`+(fmt==="carta"
+          ? `Formato: richieste carta aziendale (tutte in «LICENZE E SOFTWARE MARKETING», pagamento «Carta NABA»)\nCentro: ${[...ccs].map(ccLabel).join(", ")}\nPeriodo richieste: ${fmtD(dmin)} – ${fmtD(dmax)}\nRichieste: ${nReq} → ${fresh.length} movimenti\nAnno fiscale (mensilità di competenza): ${fyLine}\nTotale in euro, IVA inclusa (come nel file): ${eur2(totIncl)}\nImponibile senza IVA: ${eur2(tot)}\nCompetenza: ogni importo diviso sui 12 mesi dalla data della richiesta; gli acquisti a cavallo di due anni fiscali (luglio–giugno) sono spezzati, ogni anno riceve le sue mensilità\n`
+          : `Formato: esportazione RDA/ordini\nCentro: ${[...ccs].map(ccLabel).join(", ")}\nPeriodo: ${fmtD(dmin)} – ${fmtD(dmax)}\nTotale senza IVA: ${eur2(tot)}\nCon IVA: ${eur2(totIncl)}${nExempt?` (${nExempt} righe di collaboratori senza IVA)`:""}\n`)
+        +(skipCarta?`\n${skipCarta} richieste non importate (rifiutate, non ancora approvate da Line e Finance Director, o senza importo).`:"")
         +(dup?`\n${dup} righe già presenti verranno saltate.`:"")+(sameNum?`\n\nAttenzione: ${sameNum} righe hanno lo stesso numero di RDA già presenti nei movimenti ma importo o competenza diversi. Se è una revisione, elimina prima le righe vecchie (Importazioni caricate o selezione) per non contarle due volte.`:"")+(noCc?`\n${noCc} righe di un centro non gestito verranno ignorate.`:"")+(noDate?`\n${noDate} righe senza data valida ignorate.`:"")
         +(unmapped.size?`\n\nConti senza categoria (andranno in ALTRO): ${[...unmapped].slice(0,5).join("; ")}`:"")
         +`\n\nSe sbagli potrai eliminare l'intera importazione in un colpo solo.`;
       if(!confirm(msg)) return;
       // anno fiscale in cui l'importo ricade davvero: quello del mese più tardo tra data ordine e inizio competenza
-      const items=fresh.map(e=>({e,fy:fyOfISO(e.compDa&&e.compDa>e.dataOrdine?e.compDa:e.dataOrdine)}));
+      const items=fresh.map(e=>{ const fy=fyOfRow(e); delete e.fyForce; return {e,fy}; });
       if(window._importing){ toast("Un'importazione è già in corso","err"); return; }
       if(cloudReady()){ window._importing=true; try{ toast("Salvataggio sul cloud…"); const ok=await cloudUpsertExpensesBulk(items); if(!ok){ toast("Importazione annullata, nessun dato salvato: "+(window._bulkErr||"errore cloud"),"err"); return; } } finally{ window._importing=false; } }
       items.forEach(({e,fy})=>ensureYear(fy).expenses.push(e));
       renderAll();
       toast(`Importati ${fresh.length} movimenti (${eur2(tot)} senza IVA · ${eur2(totIncl)} con IVA)`);
-      cloudAudit('import movimenti','spesa',STATE.fyStart,`${file.name} · RDA · ${fresh.length} movimenti · ${eur2(tot)} senza IVA · centro ${[...ccs].join(",")}`);
+      cloudAudit('import movimenti','spesa',STATE.fyStart,`${file.name} · ${fmt==="carta"?"carta":"RDA"} · ${fresh.length} movimenti · ${eur2(tot)} senza IVA · centro ${[...ccs].join(",")}`);
     }catch(err){ console.error(err); toast("Errore lettura file: "+err.message,"err"); }
   };
   rd.readAsArrayBuffer(file);

@@ -1308,7 +1308,7 @@ function renderActivities(){
 function wireActivityRows(list){
   list.querySelectorAll(".act-row[data-id]").forEach(r=>r.onclick=e=>{ if(e.target.closest(".rowbtn")) return; openActivity(r.dataset.id); });
   list.querySelectorAll(".act-done").forEach(b=>b.onclick=e=>{ e.stopPropagation(); quickSetStato(b.dataset.id,'svolta'); });
-  list.querySelectorAll(".act-del").forEach(b=>b.onclick=e=>{ e.stopPropagation(); const a=STATE.activities.find(x=>x.id===b.dataset.id); if(a) deleteActivityGroup(a.gruppo_id||a.id); });
+  list.querySelectorAll(".act-del").forEach(b=>b.onclick=e=>{ e.stopPropagation(); deleteActivityRow(b.dataset.id); });
   list.querySelectorAll(".act-cancel").forEach(b=>b.onclick=e=>{ e.stopPropagation(); if(confirm("Annullare questa attività?")) quickSetStato(b.dataset.id,'annullata'); });
   list.querySelectorAll(".act-revert").forEach(b=>b.onclick=e=>{ e.stopPropagation(); revertToProgrammata(b.dataset.id); });
 }
@@ -2704,6 +2704,17 @@ function saveActivity(){
 function deleteActivity(){
   if(!editGroupId) return;
   deleteActivityGroup(editGroupId);
+}
+// cestino sulla riga dell'elenco: elimina SOLO la giornata cliccata, non le altre date dello stesso
+// gruppo (Luigi, 2026-10-07) — niente gid a cloudDeleteActivities, altrimenti il DELETE per gruppo_id
+// porterebbe via anche i fratelli. Il tasto "Elimina" nella modale resta sull'intera attività.
+function deleteActivityRow(id){
+  const a=STATE.activities.find(x=>x.id===id); if(!a) return;
+  const gid=a.gruppo_id||a.id;
+  const hasSiblings=STATE.activities.some(x=>x.id!==id && (x.gruppo_id||x.id)===gid);
+  if(!confirm(hasSiblings?"Eliminare solo questa giornata ("+fmtD(a.data)+")? Le altre date della stessa attività restano.":"Eliminare questa attività?")) return;
+  STATE.activities=STATE.activities.filter(x=>x.id!==id);
+  renderAll(); cloudDeleteActivity(id); toast("Attività eliminata");
 }
 function deleteActivityGroup(gid){
   if(!confirm("Eliminare l'intera attività, comprese tutte le date collegate?")) return;
