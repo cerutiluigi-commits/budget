@@ -620,7 +620,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
       <p class="sec-desc" style="margin:0 0 10px">Per questi fornitori l'IVA non si calcola: l'importo del movimento vale già come totale e coincide con l'estratto contabile. Vale per TUTTI i movimenti con quel fornitore (importati, inseriti a mano e già presenti) e si ricalcola da solo se modifichi l'elenco. Il riconoscimento avviene per nome fornitore (maiuscole e spazi ininfluenti); nei movimenti compare l'etichetta «senza IVA».</p>
       <p class="hint" id="noIvaRo" style="display:none;margin:0 0 10px">Elenco in sola lettura: lo modifica solo l'amministratore.</p>
       <div id="noIvaForm" style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px;align-items:center">
-        <input id="noIvaCode" placeholder="Codice (es. F007928)" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;width:170px">
+        <input id="noIvaCode" placeholder="Codice (es. F0xxxxx)" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;width:170px">
         <input id="noIvaName" placeholder="Nome fornitore (obbligatorio, come nei movimenti)" style="padding:8px 10px;border:1px solid var(--line);border-radius:8px;font:inherit;flex:1;min-width:200px">
         <button class="btn small" id="noIvaAdd" type="button">+ Aggiungi</button>
       </div>
@@ -737,6 +737,14 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
       <button class="btn ghost" id="btnSnapshotRestore">Ripristina da snapshot…</button>
       <input type="file" id="snapInput" accept=".json,application/json" style="display:none">
     </div>
+    <h2 class="sec" id="bkHeading" style="display:none">Backup completo (solo amministratore)</h2>
+    <p class="sec-desc" id="bkDesc" style="display:none">Copia completa dei dati dell'app in un unico file JSON con versione e data (nessuna password, chiave o sessione). «Importa backup» mostra prima un'anteprima e sostituisce solo i dati locali di questo browser: per riscrivere il cloud resta l'azione «Prima configurazione» nella finestra Cloud. Procedura completa in docs/restore.md.</p>
+    <div style="display:flex;gap:10px;flex-wrap:wrap">
+      <button class="btn" id="btnBackupFull" style="display:none"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:15px;height:15px"><path d="M12 15V3m0 12l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Esporta backup completo</button>
+      <button class="btn ghost" id="btnBackupImport" style="display:none">Importa backup…</button>
+      <input type="file" id="bkInput" accept=".json,application/json" style="display:none">
+    </div>
+    <div id="bkSpacer" style="display:none;height:24px"></div>
 
     <div class="mv-top">
       <div><h2 class="sec">Cestino</h2><span class="mv-count" id="trashCount"></span></div>
@@ -904,6 +912,21 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
   </div>
 </div>
 
+<!-- Importa backup: anteprima e conferma (contenuto riempito da JS, sempre con esc()) -->
+<div class="overlay" id="bkOverlay">
+  <div class="modal" style="max-width:640px">
+    <div class="mhead">
+      <h3 id="bkTitle">Importa backup</h3>
+      <button class="iconx" id="bkClose" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button>
+    </div>
+    <div class="mbody" id="bkBody"></div>
+    <div class="mfoot" id="bkFoot" style="flex-wrap:wrap">
+      <button class="btn ghost" id="bkCancel">Annulla</button>
+      <button class="btn danger" id="bkApply" disabled style="flex:1 1 auto;justify-content:center">Ripristina (sostituisce i dati locali)</button>
+    </div>
+  </div>
+</div>
+
 <div id="toast"></div>
 <div id="tip"></div>
 
@@ -913,7 +936,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
    Anno fiscale: 1 luglio → 30 giugno
    ============================================================ */
 // (dati di esempio SEED/FINANCE_SEED rimossi: nessun dato reale nel file pubblicato)
-// Centro 6600 Digital (resp. Gianluca Tuniz, Luigi 2026-10-05): conti SAP propri. Cinque conti coincidono
+// Centro 6600 Digital (Luigi 2026-10-05): conti SAP propri. Cinque conti coincidono
 // con categorie già esistenti (FIERE, EVENTI, CONS. COMM. MKTG, TUTOR, ALBERGHI RIST. STAFF) e le
 // condividono; gli altri sono categorie nuove, visibili solo nel centro 6600 (o in "Tutti i centri").
 const CATS_DIGITAL = [
@@ -950,13 +973,13 @@ function viewCats(d){
 // categoria esclusa da ogni totale (budget/speso/allocato/impegnato/residuo): resta visibile con i
 // suoi numeri nella propria riga, ma non si somma col resto — richiesta di Luigi, 2026-10-01
 const CAT_NO_TOTALS = "COMM. PASSIVE";
-// centri di costo (Luigi, 2026-10-02): 6000 Domestic on Field (Saviozzi), 6400 Direct Domestic
-// (Schiavone). Regola: tutto su 6000 tranne le spese Docenti di tipologia Test/Eventi PG e la
+// centri di costo (Luigi, 2026-10-02): 6000 Domestic on Field, 6400 Direct Domestic
+// Regola: tutto su 6000 tranne le spese Docenti di tipologia Test/Eventi PG e la
 // categoria EVENTI PG, che vanno su 6400. I dati senza centro (storici) sono sempre 6000.
 const CENTRI_COSTO = [
-  {id:"6000", nome:"Domestic on Field", resp:"Stefano Saviozzi"},
-  {id:"6400", nome:"Direct Domestic",   resp:"Flavio Schiavone"},
-  {id:"6600", nome:"Digital",           resp:"Gianluca Tuniz"}
+  {id:"6000", nome:"Domestic on Field"},
+  {id:"6400", nome:"Direct Domestic"},
+  {id:"6600", nome:"Digital"}
 ];
 const CC_COLOR = {"6000":"#3E7C64","6400":"#4A6FA5","6600":"#7D6BA8"};
 const CC_DEFAULT = "6000";
@@ -2080,8 +2103,8 @@ function renderFinance(){
   document.getElementById("finTableOther").innerHTML=h2;
 }
 /* ---------- collaboratori senza IVA (Luigi, 2026-10-05) ---------- */
-const NOIVA_SEED=[["F007928","Claudia Maria Santini"],["F007637","JACOPO D AMICO"],["F009857","DUSSIN NICOLA"],["F009211","RICCARDO VORMSTEIN"],["F010463","SERGIO RABAGLIO"],["F010903","MOREA ELEONORA"],["F006684","MATTIA GENNARO"],["F001655","PUNZI UMBERTO"]];
-function noIvaList(){ if(!Array.isArray(STATE.noIvaSuppliers)) STATE.noIvaSuppliers=NOIVA_SEED.map(([code,name])=>({code,name})); return STATE.noIvaSuppliers; }
+// nessun dato incorporato nel sorgente (la pagina e' pubblica): l'elenco vive in bdg_settings.no_iva_suppliers (caricamento iniziale: supabase_load_impostazioni_budget.sql); senza elenco e' vuoto
+function noIvaList(){ if(!Array.isArray(STATE.noIvaSuppliers)) STATE.noIvaSuppliers=[]; return STATE.noIvaSuppliers; }
 const normSup=s=>String(s||"").replace(/\s+/g," ").trim().toLowerCase();
 let _noIvaSet=null;
 function noIvaNameSet(){ if(!_noIvaSet) _noIvaSet=new Set(noIvaList().map(x=>normSup(x.name)).filter(Boolean)); return _noIvaSet; }
@@ -2097,8 +2120,8 @@ function applyRegoleReadOnly(){
 }
 function saveNoIva(what){ if(!isAdmin()){ toast(DENIED_MSG+": l'elenco lo modifica solo l'amministratore","err"); return; } _noIvaSet=null; save(); cloudSetSetting("no_iva_suppliers",noIvaList()).then(r=>{ if(r===true&&what) cloudAudit("collaboratori senza IVA","impostazioni",null,what); }); renderNoIva(); }
 /* ---------- fornitori con ripartizione proporzionale sulla competenza (Luigi, 2026-10-07) ---------- */
-const PRORATA_SEED=[["F008327","Hearts & Science S.r.l."]];
-function proRataList(){ if(!Array.isArray(STATE.proRataSuppliers)) STATE.proRataSuppliers=PRORATA_SEED.map(([code,name])=>({code,name})); return STATE.proRataSuppliers; }
+// come sopra: bdg_settings.pro_rata_suppliers, nessun valore predefinito nel sorgente
+function proRataList(){ if(!Array.isArray(STATE.proRataSuppliers)) STATE.proRataSuppliers=[]; return STATE.proRataSuppliers; }
 let _proRataSet=null;
 function proRataNameSet(){ if(!_proRataSet) _proRataSet=new Set(proRataList().map(x=>normSup(x.name)).filter(Boolean)); return _proRataSet; }
 function isProRataRow(e){ return !!(e && e.fornitore && proRataNameSet().has(normSup(e.fornitore))); }
@@ -2108,7 +2131,7 @@ function renderProRata(){
   const l=proRataList(), ro=!isAdmin();
   applyRegoleReadOnly();
   t.innerHTML='<thead><tr><th class="l">Codice</th><th class="l">Fornitore</th><th></th></tr></thead><tbody>'
-    +(l.length?l.map((x,i)=>'<tr><td class="l">'+esc(x.code||"—")+'</td><td class="l">'+esc(x.name||"")+'</td><td style="text-align:right">'+(ro?'':'<button class="rowbtn" type="button" data-i="'+i+'" title="Togli dall\'elenco">✕</button>')+'</td></tr>').join(""):'<tr><td colspan="3" class="l"><span class="meta">Nessun fornitore in elenco.</span></td></tr>')+'</tbody>';
+    +(l.length?l.map((x,i)=>'<tr><td class="l">'+esc(x.code||"—")+'</td><td class="l">'+esc(x.name||"")+'</td><td style="text-align:right">'+(ro?'':'<button class="rowbtn" type="button" data-i="'+i+'" title="Togli dall\'elenco">✕</button>')+'</td></tr>').join(""):'<tr><td colspan="3" class="l"><span class="meta">Nessun fornitore in elenco.</span>'+(ro?'':'<div class="hint" style="margin-top:4px">Elenco vuoto: carica supabase_load_impostazioni_budget.sql o inserisci i fornitori.</div>')+'</td></tr>')+'</tbody>';
   t.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{ const x=l[+b.dataset.i]; if(confirm("Togliere «"+(x.name||x.code)+"» dall'elenco con ripartizione sulla competenza?")){ l.splice(+b.dataset.i,1); saveProRata("tolto dall'elenco: "+(x.name||x.code)); toast("Fornitore tolto dall'elenco"); } });
 }
 function renderNoIva(){
@@ -2116,7 +2139,7 @@ function renderNoIva(){
   const l=noIvaList(), ro=!isAdmin();
   applyRegoleReadOnly();
   t.innerHTML='<thead><tr><th class="l">Codice</th><th class="l">Fornitore</th><th></th></tr></thead><tbody>'
-    +(l.length?l.map((x,i)=>'<tr><td class="l">'+esc(x.code||"—")+'</td><td class="l">'+esc(x.name||"")+'</td><td style="text-align:right">'+(ro?'':'<button class="rowbtn" type="button" data-i="'+i+'" title="Togli dall\'elenco">✕</button>')+'</td></tr>').join(""):'<tr><td colspan="3" class="l"><span class="meta">Nessun collaboratore in elenco.</span></td></tr>')+'</tbody>';
+    +(l.length?l.map((x,i)=>'<tr><td class="l">'+esc(x.code||"—")+'</td><td class="l">'+esc(x.name||"")+'</td><td style="text-align:right">'+(ro?'':'<button class="rowbtn" type="button" data-i="'+i+'" title="Togli dall\'elenco">✕</button>')+'</td></tr>').join(""):'<tr><td colspan="3" class="l"><span class="meta">Nessun collaboratore in elenco.</span>'+(ro?'':'<div class="hint" style="margin-top:4px">Elenco vuoto: carica supabase_load_impostazioni_budget.sql o inserisci i collaboratori.</div>')+'</td></tr>')+'</tbody>';
   t.querySelectorAll("[data-i]").forEach(b=>b.onclick=()=>{ const x=l[+b.dataset.i]; if(confirm("Togliere «"+(x.name||x.code)+"» dall'elenco dei collaboratori senza IVA?")){ l.splice(+b.dataset.i,1); saveNoIva("tolto dall'elenco: "+(x.name||x.code)); toast("Collaboratore tolto dall'elenco"); } });
 }
 function importFinance(file){
@@ -3038,6 +3061,14 @@ document.getElementById("tabs").querySelectorAll("button").forEach(b=>{
 document.getElementById("btnSnapshot").onclick=exportSnapshot;
 document.getElementById("btnSnapshotRestore").onclick=()=>{ if(!adminOnlyGuard("il ripristino da snapshot")) return; document.getElementById("snapInput").click(); };
 document.getElementById("snapInput").onchange=e=>{ if(e.target.files[0] && adminOnlyGuard("il ripristino da snapshot")) importSnapshot(e.target.files[0]); e.target.value=""; };
+document.getElementById("btnBackupFull").onclick=exportBackup;
+document.getElementById("btnBackupImport").onclick=()=>{ if(!adminOnlyGuard("l'importazione del backup")) return; document.getElementById("bkInput").click(); };
+document.getElementById("bkInput").onchange=e=>{ const f=e.target.files[0]; e.target.value=""; if(f) importBackup(f); };
+document.getElementById("bkApply").onclick=applyBackup;
+document.getElementById("bkCancel").onclick=bkClose;
+document.getElementById("bkClose").onclick=bkClose;
+document.getElementById("bkOverlay").onclick=e=>{ if(e.target.id==="bkOverlay") bkClose(); };
+document.addEventListener("keydown",e=>{ if(e.key==="Escape") bkClose(); });
 document.getElementById("btnAuditRefresh").onclick=fetchAudit;
 // evidenzia in rosso quando la data rif. è stata spostata da oggi (era la fonte di confusione
 // segnalata da Luigi: sembrava sempre "oggi" ma in realtà era una simulazione silenziosa) +
@@ -3215,7 +3246,8 @@ function applyRole(){
   });
   // "Importa" (Excel) SOSTITUISCE le spese dell'anno: comando visibile solo all'admin
   // (come le altre sostituzioni massive dei dati locali: azzeramento e ripristino da snapshot)
-  ['btnImport','btnClearAll','btnSnapshotRestore'].forEach(id=>{ const x=document.getElementById(id); if(x) x.style.display=isAdmin()?'':'none'; });
+  // stessa regola per il backup completo (esporta/importa, fase 6): visibile solo all'admin; le funzioni ricontrollano il ruolo
+  ['btnImport','btnClearAll','btnSnapshotRestore','btnBackupFull','btnBackupImport','bkHeading','bkDesc','bkSpacer'].forEach(id=>{ const x=document.getElementById(id); if(x) x.style.display=isAdmin()?'':'none'; });
   // connesso ma senza nessun centro di costo consentito (es. responsabile senza centri nello scope): nessun dato, avviso chiaro
   const noCc=anyVisible && cloudReady() && !allowedCcs().length;
   const nn=document.getElementById('noCcNotice');
@@ -3655,6 +3687,184 @@ function importSnapshot(file){
     toast("Dati ripristinati dallo snapshot (in locale)");
   }catch(e){ toast("Errore lettura snapshot: "+e.message); } };
   rd.readAsText(file);
+}
+
+/* ============================================================
+   BACKUP COMPLETO + IMPORTA BACKUP (hardening P1, fase 6) — SOLO admin
+   Esporta un JSON { app, formato, versione_schema, creato_il, creato_da, conteggi, dati }. Dentro ci sono i dati
+   dell'app; ESCLUSI sessione, token, chiavi, coda offline, utenti/ruoli e matrice permessi (stanno nel database).
+   L'importazione valida il file, mostra un'anteprima e, dopo conferma scritta, SOSTITUISCE solo lo stato LOCALE
+   (prima scarica un backup di sicurezza dello stato attuale). Non scrive MAI sul cloud: per quello resta l'azione
+   esistente «Prima configurazione: sovrascrivi il cloud». Il contenuto del file è solo dato, mai eseguito.
+   ============================================================ */
+const BACKUP_SCHEMA_VERSION=1, BACKUP_FORMAT="naba-backup", BACKUP_APP="naba-budget", BACKUP_MAX_BYTES=25*1024*1024;
+const BK_LABELS={anni:"Anni fiscali", movimenti:"Movimenti (tutti gli anni)", voci_budget:"Voci di budget", cestino:"Cestino (spese eliminate)", report_finance:"Report finance", righe_contabilita:"Righe di contabilità", fornitori:"Fornitori (anagrafica)", elenchi_iva:"Voci negli elenchi IVA"};
+let _bkPending=null;   // backup già validato, in attesa di conferma (solo dati)
+function bkIsObj(x){ return x!==null && typeof x==="object" && !Array.isArray(x); }
+function bkIsNum(x){ return typeof x==="number" && isFinite(x); }
+function bkIsDate(x){ return x==null || x==="" || (typeof x==="string" && /^\d{4}-\d{2}-\d{2}/.test(x)); }
+function bkStr(x,max){ return x==null || (typeof x==="string" && x.length<=(max||5000)); }
+function bkShort(x){ return typeof x==="string" ? x.slice(0,40) : "sconosciuta"; }
+function bkStamp(){ const d=new Date(), p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes()); }
+function bkFyLabel(y){ y=+y; return y+"–"+String((y+1)%100).padStart(2,"0"); }
+function bkDownload(obj,name){
+  const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+// dati dell'app da salvare: stessi dello snapshot esistente + ciò che finisce in cloud o in cache locale (elenchi IVA, contabilità, fornitori)
+function bkCollect(){
+  return {
+    fyStart:STATE.fyStart, ivaRate:STATE.ivaRate, ivaByCat:STATE.ivaByCat,
+    years:STATE.years||{}, trash:STATE.trash||[],
+    finance:STATE.finance, financeReports:Array.isArray(STATE.financeReports)?STATE.financeReports:null,
+    noIvaSuppliers:Array.isArray(STATE.noIvaSuppliers)?STATE.noIvaSuppliers:null,
+    proRataSuppliers:Array.isArray(STATE.proRataSuppliers)?STATE.proRataSuppliers:null,
+    ledger:LEDGER, suppliers:SUPPLIERS
+  };
+}
+function bkCounts(d){
+  const ys=bkIsObj(d.years)?Object.keys(d.years):[]; let mov=0, bud=0;
+  ys.forEach(y=>{ const ds=d.years[y]||{}; mov+=Array.isArray(ds.expenses)?ds.expenses.length:0; bud+=bkIsObj(ds.budget)?Object.keys(ds.budget).length:0; if(bkIsObj(ds.budgetCC)) Object.keys(ds.budgetCC).forEach(c=>{ bud+=bkIsObj(ds.budgetCC[c])?Object.keys(ds.budgetCC[c]).length:0; }); });
+  const len=a=>Array.isArray(a)?a.length:0;
+  return { anni:ys.length, movimenti:mov, voci_budget:bud, cestino:len(d.trash), report_finance:len(d.financeReports), righe_contabilita:len(d.ledger), fornitori:len(d.suppliers), elenchi_iva:len(d.noIvaSuppliers)+len(d.proRataSuppliers) };
+}
+function bkBuild(){
+  const dati=bkCollect();
+  return { app:BACKUP_APP, formato:BACKUP_FORMAT, versione_schema:BACKUP_SCHEMA_VERSION, creato_il:new Date().toISOString(), creato_da:"admin", conteggi:bkCounts(dati), dati };
+}
+function exportBackup(){
+  if(!adminOnlyGuard("l'esportazione del backup completo")) return;   // controllo anche qui, non solo sul pulsante
+  try{ bkDownload(bkBuild(),"backup-budget-"+bkStamp()+".json"); toast("Backup completo esportato"); }
+  catch(e){ console.error(e); toast("Backup non riuscito: "+e.message,"err"); }
+}
+function bkCheckHeader(o){
+  if(!bkIsObj(o)) return "Il file non è un backup NABA: il contenuto non ha la struttura attesa.";
+  if(o.formato!==BACKUP_FORMAT){
+    if(o.app===BACKUP_APP && o.years) return "Questo è uno snapshot del vecchio formato («Esporta snapshot»), non un backup completo: per ripristinarlo usa «Ripristina da snapshot…».";
+    return "File non riconosciuto: non è un backup completo NABA (campo «formato» mancante o diverso).";
+  }
+  if(o.app!==BACKUP_APP) return "Questo backup appartiene a un'altra app ("+bkShort(o.app)+") e non può essere importato in Gestione Budget.";
+  const v=o.versione_schema;
+  if(!Number.isInteger(v)||v<1) return "Versione dello schema del backup mancante o non valida.";
+  if(v>BACKUP_SCHEMA_VERSION) return "Il backup è stato creato da una versione più recente (schema v"+v+"; questa pagina arriva alla v"+BACKUP_SCHEMA_VERSION+"). Aggiorna l'app prima di importarlo.";
+  if(typeof o.creato_il!=="string"||isNaN(Date.parse(o.creato_il))) return "Data di creazione del backup mancante o non valida.";
+  if(!bkIsObj(o.dati)) return "Il backup non contiene la sezione «dati».";
+  return null;
+}
+function bkCheckExp(e,where,err){
+  if(!bkIsObj(e)){ err(where+": riga non valida"); return; }
+  if(typeof e.categoria!=="string"||!CATEGORIES.includes(e.categoria)) err(where+": categoria mancante o sconosciuta");
+  if(!bkIsNum(e.importo)) err(where+": importo mancante o non numerico");
+  if(e.id!=null && typeof e.id!=="string" && typeof e.id!=="number") err(where+": identificativo non valido");
+  if(e.centroCosto!=null && !CENTRI_COSTO.some(c=>c.id===e.centroCosto)) err(where+": centro di costo sconosciuto");
+  ["dataOrdine","compDa","compA","dataConsegna"].forEach(k=>{ if(!bkIsDate(e[k])) err(where+": data «"+k+"» non valida"); });
+  ["catAltro","fornitore","oggetto","note","tipoPagamento"].forEach(k=>{ if(!bkStr(e[k])) err(where+": il campo «"+k+"» non è un testo valido"); });
+  if(e.numOrdine!=null && typeof e.numOrdine!=="number" && !bkStr(e.numOrdine)) err(where+": il campo «numOrdine» non è valido");
+  if(e.ivaPctOverride!=null && !bkIsNum(e.ivaPctOverride)) err(where+": aliquota IVA della riga non valida");
+}
+function bkNumMap(m,where,err){ if(!bkIsObj(m)){ err(where+": non è un elenco valido"); return; } Object.keys(m).forEach(k=>{ if(!bkIsNum(m[k])) err(where+": valore non numerico per «"+k+"»"); }); }
+// controllo di struttura, tipi e campi obbligatori: ritorna { list (primi errori), n (totale) }; non modifica nulla
+function bkValidateBudget(d){
+  const list=[]; let n=0; const err=m=>{ n++; if(list.length<12) list.push(m); };
+  if(!Number.isInteger(d.fyStart)||d.fyStart<2000||d.fyStart>2100) err("anno fiscale corrente (fyStart) mancante o non valido");
+  if(d.ivaRate!=null && !(bkIsNum(d.ivaRate)&&d.ivaRate>=0&&d.ivaRate<=100)) err("aliquota IVA non valida");
+  if(!bkIsObj(d.ivaByCat)) err("IVA per categoria mancante o non valida"); else Object.keys(d.ivaByCat).forEach(k=>{ const v=d.ivaByCat[k]; if(!bkIsNum(v)||v<0||v>100) err("IVA per categoria «"+k+"» non valida"); });
+  if(!bkIsObj(d.years)) err("anni fiscali («years») mancanti o non validi");
+  else Object.keys(d.years).forEach(y=>{
+    const ds=d.years[y];
+    if(!/^\d{4}$/.test(y)||!bkIsObj(ds)){ err("anno «"+y+"» non valido"); return; }
+    if(!Array.isArray(ds.expenses)) err("AF "+bkFyLabel(y)+": elenco movimenti mancante"); else ds.expenses.forEach((e,i)=>bkCheckExp(e,"AF "+bkFyLabel(y)+", movimento "+(i+1),err));
+    if(ds.budget!==undefined) bkNumMap(ds.budget,"AF "+bkFyLabel(y)+", budget",err);
+    if(ds.budgetCC!==undefined){ if(!bkIsObj(ds.budgetCC)) err("AF "+bkFyLabel(y)+": budget per centro non valido"); else Object.keys(ds.budgetCC).forEach(c=>bkNumMap(ds.budgetCC[c],"AF "+bkFyLabel(y)+", budget centro "+c,err)); }
+  });
+  if(!Array.isArray(d.trash)) err("cestino mancante o non valido"); else d.trash.forEach((e,i)=>{ bkCheckExp(e,"cestino, riga "+(i+1),err); if(bkIsObj(e) && !bkStr(e.deletedAt,64)) err("cestino, riga "+(i+1)+": data di eliminazione non valida"); });
+  if(!bkIsObj(d.finance)||(d.finance.lines!==undefined&&!Array.isArray(d.finance.lines))) err("report finance (finance) mancante o non valido");
+  if(d.financeReports!=null){ if(!Array.isArray(d.financeReports)) err("elenco report finance non valido"); else d.financeReports.forEach((r,i)=>{ if(!bkIsObj(r)||typeof r.id!=="string"||typeof r.cc!=="string"||!Number.isInteger(r.fyStart)||!Array.isArray(r.lines)) err("report finance "+(i+1)+": campi mancanti o non validi"); }); }
+  [["noIvaSuppliers","elenco collaboratori senza IVA"],["proRataSuppliers","elenco fornitori pro-rata"]].forEach(([k,lbl])=>{
+    if(d[k]==null) return;
+    if(!Array.isArray(d[k])) err(lbl+" non valido"); else d[k].forEach((x,i)=>{ if(!bkIsObj(x)||typeof x.name!=="string") err(lbl+", voce "+(i+1)+": nome mancante"); });
+  });
+  if(!Array.isArray(d.ledger)) err("righe di contabilità («ledger») mancanti o non valide"); else d.ledger.forEach((r,i)=>{ if(!bkIsObj(r)||!bkIsNum(r.amount)||!bkIsDate(r.date)) err("contabilità, riga "+(i+1)+": importo o data non validi"); });
+  if(!Array.isArray(d.suppliers)) err("anagrafica fornitori mancante o non valida"); else d.suppliers.forEach((s,i)=>{ if(typeof s!=="string"||s.length>300) err("fornitore "+(i+1)+": non è un testo valido"); });
+  return {list,n};
+}
+function bkParse(text){
+  // la chiave "__proto__" non è mai legittima nei nostri dati: si rifiuta il file invece di copiarla nello stato
+  return JSON.parse(text,(k,v)=>{ if(k==="__proto__") throw new Error("chiave non ammessa nel file"); return v; });
+}
+function bkOpen(){ document.getElementById("bkOverlay").classList.add("on"); }
+function bkClose(){ _bkPending=null; document.getElementById("bkOverlay").classList.remove("on"); }
+function bkShowError(msg,list,total){
+  _bkPending=null;
+  document.getElementById("bkTitle").textContent="Importa backup · file non valido";
+  let h=`<div style="padding:12px 14px;border-radius:10px;background:var(--over-soft);color:var(--over);font-size:13px;font-weight:600">${esc(msg)}</div>`;
+  if(list&&list.length) h+=`<p class="hint" style="margin:12px 0 6px">Primi problemi trovati${total>list.length?` (${list.length} di ${total})`:""}:</p><ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--ink-soft)">${list.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`;
+  h+=`<p class="hint" style="margin-top:14px">Non è stato modificato nulla: i dati locali sono intatti.</p>`;
+  document.getElementById("bkBody").innerHTML=h;
+  document.getElementById("bkApply").style.display="none"; document.getElementById("bkCancel").textContent="Chiudi";
+  bkOpen();
+}
+function bkShowPreview(o){
+  _bkPending=o;
+  const fc=bkCounts(o.dati), cc=bkCounts(bkCollect());
+  const rows=Object.keys(BK_LABELS).map(k=>[BK_LABELS[k],fc[k],cc[k]]);
+  const ysF=Object.keys(o.dati.years), ysC=Object.keys(STATE.years||{});
+  [...new Set([...ysF,...ysC])].sort().forEach(y=>rows.push(["· movimenti AF "+bkFyLabel(y), ((o.dati.years[y]||{}).expenses||[]).length, (((STATE.years||{})[y]||{}).expenses||[]).length]));
+  const when=new Date(o.creato_il).toLocaleString("it-IT");
+  const warns=[];
+  if(bkIsObj(o.conteggi)){ const diff=Object.keys(BK_LABELS).some(k=>o.conteggi[k]!==undefined && o.conteggi[k]!==fc[k]); if(diff) warns.push("I conteggi scritti nell'intestazione non coincidono con i dati del file: il file potrebbe essere stato modificato o troncato."); }
+  document.getElementById("bkTitle").textContent="Importa backup · anteprima";
+  document.getElementById("bkBody").innerHTML=`
+    <div style="padding:12px 14px;border-radius:10px;background:var(--over-soft);color:var(--over);font-size:13px;margin-bottom:14px"><b>ATTENZIONE: il ripristino SOSTITUISCE tutti i dati LOCALI</b> di questo browser (anni, movimenti, budget, cestino, report finance, contabilità, fornitori) con quelli del file. Le righe oggi presenti solo qui andranno perse, salvo il backup di sicurezza che viene scaricato automaticamente prima di sostituire.</div>
+    <div style="font-size:13px;margin-bottom:12px;display:grid;grid-template-columns:auto 1fr;gap:4px 14px">
+      <span class="hint">Backup creato il</span><span>${esc(when)}</span>
+      <span class="hint">Creato da (ruolo)</span><span>${esc(bkShort(o.creato_da))}</span>
+      <span class="hint">Versione schema</span><span>${esc(o.versione_schema)} (questa pagina: ${BACKUP_SCHEMA_VERSION})</span>
+      <span class="hint">App</span><span>${esc(o.app)}</span>
+    </div>
+    <div class="card scroll" style="margin-bottom:14px"><table><thead><tr><th class="l">Sezione</th><th>Nel file</th><th>Attuale</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="l">${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join("")}</tbody></table></div>
+    ${warns.map(w=>`<div style="padding:10px 14px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:12.5px;margin-bottom:10px">${esc(w)}</div>`).join("")}
+    <div style="padding:10px 14px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);font-size:12.5px;margin-bottom:14px"><b>Solo locale.</b> Questa operazione non scrive nulla sul cloud${cloudReady()?" e, essendo collegato, il prossimo «Scarica dal cloud» o aggiornamento da un altro utente riporterebbe qui i dati del cloud":""}. Passo successivo, se vuoi rendere definitivo il ripristino: finestra <b>Cloud</b> → «Prima configurazione: sovrascrivi il cloud» (con le sue conferme). Quel comando carica anni, movimenti, budget, cestino, IVA e report finance; contabilità, fornitori ed elenchi IVA restano locali.</div>
+    <div class="field full"><label for="bkConfirm" style="display:block;font-size:12.5px;margin-bottom:6px">Per confermare scrivi <b>RIPRISTINA</b></label><input type="text" id="bkConfirm" autocomplete="off" spellcheck="false" style="width:100%"></div>`;
+  const ap=document.getElementById("bkApply"); ap.style.display=""; ap.disabled=true; document.getElementById("bkCancel").textContent="Annulla";
+  document.getElementById("bkConfirm").oninput=e=>{ ap.disabled=(e.target.value||"").trim().toUpperCase()!=="RIPRISTINA"; };
+  bkOpen();
+}
+function importBackup(file){
+  if(!adminOnlyGuard("l'importazione del backup")) return;
+  if(!file) return;
+  if(file.size>BACKUP_MAX_BYTES){ bkShowError("File troppo grande ("+(file.size/1048576).toFixed(1)+" MB): il limite è "+(BACKUP_MAX_BYTES/1048576)+" MB. Un backup di questa app non è così grande: controlla di aver scelto il file giusto."); return; }
+  const rd=new FileReader();
+  rd.onerror=()=>bkShowError("Impossibile leggere il file.");
+  rd.onload=ev=>{
+    try{
+      let o; try{ o=bkParse(String(ev.target.result)); }catch(e){ bkShowError("Il file non è un JSON valido o contiene dati non ammessi: non sembra un backup NABA."); return; }
+      const h=bkCheckHeader(o); if(h){ bkShowError(h); return; }
+      const v=bkValidateBudget(o.dati); if(v.n){ bkShowError("Il backup è incompleto o danneggiato: struttura dei dati non valida.",v.list,v.n); return; }
+      bkShowPreview(o);
+    }catch(e){ console.error(e); bkShowError("Errore imprevisto durante il controllo del file: "+e.message); }
+  };
+  rd.readAsText(file);
+}
+function applyBackup(){
+  if(!adminOnlyGuard("il ripristino del backup")) return;
+  const o=_bkPending; if(!o){ toast("Nessun backup in attesa di conferma","err"); return; }
+  const ok=(document.getElementById("bkConfirm")||{}).value; if((ok||"").trim().toUpperCase()!=="RIPRISTINA"){ toast("Conferma mancante: scrivi RIPRISTINA","err"); return; }
+  // 1) backup di sicurezza dello stato attuale (stesso formato: si può reimportare)
+  try{ bkDownload(bkBuild(),"backup-budget-"+bkStamp()+"-prima-del-ripristino.json"); }
+  catch(e){ console.error(e); toast("Backup di sicurezza non riuscito: ripristino annullato, nulla è stato modificato","err"); return; }
+  // 2) sostituzione dello stato LOCALE (mai il cloud)
+  try{
+    const d=o.dati;
+    STATE.years=d.years; STATE.fyStart=d.fyStart; if(d.ivaRate!=null) STATE.ivaRate=d.ivaRate;
+    STATE.ivaByCat=Object.assign(defaultIva(),d.ivaByCat); STATE.trash=d.trash; STATE.finance=d.finance; STATE.financeReports=d.financeReports;
+    if(d.noIvaSuppliers) STATE.noIvaSuppliers=d.noIvaSuppliers; else delete STATE.noIvaSuppliers; _noIvaSet=null;
+    if(d.proRataSuppliers) STATE.proRataSuppliers=d.proRataSuppliers; else delete STATE.proRataSuppliers; _proRataSet=null;
+    LEDGER=d.ledger; ledgerSaveLocal(); SUPPLIERS=d.suppliers.filter(n=>typeof n==="string"&&n.trim()); suppliersSaveLocal();
+    sanitizeState(STATE); finMigrate(); ensureYear(STATE.fyStart);
+    save(); initFY(); syncRefDateUI(); renderCalChips(); renderAll();
+    bkClose(); toast("Backup ripristinato in locale: il cloud non è stato modificato");
+  }catch(e){ console.error(e); toast("Errore durante il ripristino: "+e.message+". Reimporta il backup di sicurezza appena scaricato.","err"); }
 }
 
 /* ---- Registro: cestino + log ---- */

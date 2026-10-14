@@ -476,6 +476,12 @@ tfoot td.l{text-align:left}
       <button class="btn ghost small" id="btnSnapR">Ripristina da snapshot…</button>
       <input type="file" id="snapIn" accept=".json" style="display:none">
     </div>
+    <p class="sec-desc" id="bkDesc" style="margin-top:18px;display:none">Backup completo (solo amministratore): un unico file JSON con versione e data, con viaggiatori, trasferte, voci e mappatura (nessuna password, chiave o sessione). «Importa backup» mostra prima un'anteprima e sostituisce solo i dati locali di questo browser: per riscrivere il cloud resta l'azione «Prima configurazione: carica i dati locali» nella finestra Cloud. Procedura completa in docs/restore.md.</p>
+    <div style="display:none;gap:10px;flex-wrap:wrap" id="bkRow">
+      <button class="btn small" id="btnBackupFull">Esporta backup completo (JSON)</button>
+      <button class="btn ghost small" id="btnBackupImport">Importa backup…</button>
+      <input type="file" id="bkInput" accept=".json,application/json" style="display:none">
+    </div>
 
     <p class="hint" style="margin-top:26px">Gestione utenti, ruoli e visibilità delle sezioni: pannello <b>Admin</b> in alto (visibile solo agli amministratori).</p>
   </section>
@@ -583,6 +589,18 @@ tfoot td.l{text-align:left}
   </div>
 </div>
 
+<!-- Importa backup: anteprima e conferma (contenuto riempito da JS, sempre con esc()) -->
+<div class="overlay" id="bkOverlay">
+  <div class="modal" style="max-width:640px">
+    <div class="mhead"><h3 id="bkTitle">Importa backup</h3><button class="iconx" id="bkClose" title="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mbody" id="bkBody"></div>
+    <div class="mfoot" id="bkFoot" style="flex-wrap:wrap">
+      <button class="btn ghost" id="bkCancel">Annulla</button>
+      <button class="btn danger sp" id="bkApply" disabled style="flex:1 1 auto;justify-content:center">Ripristina (sostituisce i dati locali)</button>
+    </div>
+  </div>
+</div>
+
 <div class="overlay" id="adminOverlay">
   <div class="modal" style="max-width:720px">
     <div class="mhead"><h3>Pannello Admin</h3><button class="iconx" id="adminClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
@@ -648,8 +666,8 @@ function isUuid(s){ return typeof s==='string'&&/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-
 /* ---- stato + seed mock ---- */
 function seed(){
   const T=[
-    {id:"tr1",nome:"Orientatore 1",email:"ceruti.luigi+3@gmail.com",staff:true},
-    {id:"tr2",nome:"Orientatore 2",email:"ceruti.luigi+4@gmail.com",staff:false}
+    {id:"tr1",nome:"Orientatore 1",email:"",staff:true},
+    {id:"tr2",nome:"Orientatore 2",email:"",staff:false}
   ];
   const trips=[];
   const items=[];
@@ -731,7 +749,7 @@ function baseIdentity(){
     // il "tag" extra_roles può rendere orientatore anche chi ha ruolo primario diverso (es. un
     // docente con tag Orientatore): travelerId va popolato in base a TUTTI i ruoli effettivi, non
     // solo quello primario, altrimenti "Nuovo viaggio"/filtri restano nascosti pur essendo la tab
-    // visibile (Luigi, 2026-09-30 — Davide Gallina: docente primario + tag orientatore)
+    // visibile (Luigi, 2026-09-30 — docente primario + tag orientatore)
     const u=(STATE.appUsers||{})[email.toLowerCase()];
     const hasOrientatore = role==='orientatore' || ((u&&u.extra_roles)||[]).includes('orientatore');
     const trav = hasOrientatore ? findTravByEmail(email) : null;
@@ -852,6 +870,8 @@ function applyRole(){
   else if(CURRENT.preview){ banner.style.display='block'; banner.className='role-banner'; banner.innerHTML=`Anteprima come <b>${esc(CURRENT.name||'')}</b> — vista utente singolo. <button class="btn ghost small" id="exitPreview" style="margin-left:8px">Torna ad Admin</button>`; const ep=document.getElementById('exitPreview'); if(ep) ep.onclick=()=>{ STATE.previewAs=null; save(); applyRole(); renderAll(); }; }
   else if(trav){ banner.style.display='block'; banner.className='role-banner'; banner.innerHTML=`Accesso utente: <b>${esc(CURRENT.name||'')}</b>. ${(myTravelerIds()||new Set()).size>1?'Vedi e inserisci le tue spese e quelle dei colleghi del tuo gruppo.':'Vedi e inserisci solo le tue spese.'}`; }
   else banner.style.display='none';
+  // backup completo (esporta/importa, fase 6): solo admin REALE; le funzioni ricontrollano il ruolo
+  ['bkDesc','bkRow'].forEach(id=>{ const x=document.getElementById(id); if(x) x.style.display=isAdminReal()?(id==='bkRow'?'flex':''):'none'; });
   document.getElementById('btnNewTrip').style.display=(isAdmin||trav)?'':'none';
   if(!anyVisible){ document.querySelectorAll('nav.tabs button').forEach(x=>x.classList.remove('on')); document.querySelectorAll('.panel').forEach(p=>p.classList.remove('on')); }
   else if(activeHidden && firstBtn) firstBtn.click();
@@ -1599,6 +1619,173 @@ function importSnap(file){
   rd.readAsText(file);
 }
 
+/* ---- BACKUP COMPLETO + IMPORTA BACKUP (hardening P1, fase 6) — SOLO admin ----
+   Esporta un JSON { app, formato, versione_schema, creato_il, creato_da, conteggi, dati }. Dentro ci sono viaggiatori,
+   trasferte, voci e mappatura; ESCLUSI sessione, token, chiavi, utenti/ruoli e matrice permessi (stanno nel database)
+   e le preferenze di vista. L'importazione valida il file, mostra un'anteprima e, dopo conferma scritta, SOSTITUISCE
+   solo lo stato LOCALE (prima scarica un backup di sicurezza dello stato attuale). Non scrive MAI sul cloud: per quello
+   resta l'azione esistente «Prima configurazione: carica i dati locali». Il contenuto del file è solo dato, mai eseguito. */
+const BACKUP_SCHEMA_VERSION=1, BACKUP_FORMAT="naba-backup", BACKUP_APP="naba-spese-ec", BACKUP_MAX_BYTES=10*1024*1024;
+const BK_LABELS={viaggiatori:"Viaggiatori", trasferte:"Trasferte", voci:"Voci di spesa (raggruppate)", righe_voci:"Righe di voci", mappatura:"Regole di mappatura"};
+let _bkPending=null;   // backup già validato, in attesa di conferma (solo dati)
+function bkIsObj(x){ return x!==null && typeof x==="object" && !Array.isArray(x); }
+function bkIsNum(x){ return typeof x==="number" && isFinite(x); }
+function bkIsDate(x){ return x==null || x==="" || (typeof x==="string" && /^\d{4}-\d{2}-\d{2}/.test(x)); }
+function bkStr(x,max){ return x==null || (typeof x==="string" && x.length<=(max||5000)); }
+function bkShort(x){ return typeof x==="string" ? x.slice(0,40) : "sconosciuta"; }
+function bkStamp(){ const d=new Date(), p=n=>String(n).padStart(2,"0"); return d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes()); }
+function bkDownload(obj,name){
+  const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),1000);
+}
+// la mappatura è definita nel codice (tipologia -> categoria budget e impatto): si salva a titolo informativo, non si ripristina
+function bkMappatura(){ return [...TIPI,"Spese in fattura"].map(t=>({tipo:t, categoria_staff:mapCat(t,true), categoria_no_staff:mapCat(t,false), impatto:impactOf({tipo:t})})); }
+function bkCollect(){ return { fyStart:STATE.fyStart, ivaDef:STATE.ivaDef, travelers:STATE.travelers, trips:STATE.trips, items:STATE.items, mappatura:bkMappatura() }; }
+function bkCounts(d){
+  const len=a=>Array.isArray(a)?a.length:0;
+  return { viaggiatori:len(d.travelers), trasferte:len(d.trips), voci:Array.isArray(d.items)?countVoci(d.items.filter(bkIsObj)):0, righe_voci:len(d.items), mappatura:len(d.mappatura) };
+}
+function bkBuild(){
+  const dati=bkCollect();
+  return { app:BACKUP_APP, formato:BACKUP_FORMAT, versione_schema:BACKUP_SCHEMA_VERSION, creato_il:new Date().toISOString(), creato_da:"admin", conteggi:bkCounts(dati), dati };
+}
+function exportBackup(){
+  if(!requireAdmin()) return;   // controllo anche qui, non solo sul pulsante
+  try{ bkDownload(bkBuild(),"backup-spese-ec-"+bkStamp()+".json"); toast("Backup completo esportato"); }
+  catch(e){ console.error(e); toast("Backup non riuscito: "+e.message,"err"); }
+}
+function bkCheckHeader(o){
+  if(!bkIsObj(o)) return "Il file non è un backup NABA: il contenuto non ha la struttura attesa.";
+  if(o.formato!==BACKUP_FORMAT){
+    if(o.app===BACKUP_APP && o.trips) return "Questo è uno snapshot del vecchio formato («Esporta snapshot»), non un backup completo: per ripristinarlo usa «Ripristina da snapshot…».";
+    return "File non riconosciuto: non è un backup completo NABA (campo «formato» mancante o diverso).";
+  }
+  if(o.app!==BACKUP_APP) return "Questo backup appartiene a un'altra app ("+bkShort(o.app)+") e non può essere importato in Spese EC.";
+  const v=o.versione_schema;
+  if(!Number.isInteger(v)||v<1) return "Versione dello schema del backup mancante o non valida.";
+  if(v>BACKUP_SCHEMA_VERSION) return "Il backup è stato creato da una versione più recente (schema v"+v+"; questa pagina arriva alla v"+BACKUP_SCHEMA_VERSION+"). Aggiorna l'app prima di importarlo.";
+  if(typeof o.creato_il!=="string"||isNaN(Date.parse(o.creato_il))) return "Data di creazione del backup mancante o non valida.";
+  if(!bkIsObj(o.dati)) return "Il backup non contiene la sezione «dati».";
+  return null;
+}
+// controllo di struttura, tipi, campi obbligatori e coerenza dei riferimenti: ritorna { list (primi errori), n (totale), nonUuid }; non modifica nulla
+function bkValidateSpese(d){
+  const list=[]; let n=0, nonUuid=0; const err=m=>{ n++; if(list.length<12) list.push(m); };
+  if(!Number.isInteger(d.fyStart)||d.fyStart<2000||d.fyStart>2100) err("anno fiscale (fyStart) mancante o non valido");
+  if(!bkIsNum(d.ivaDef)||d.ivaDef<0||d.ivaDef>100) err("aliquota IVA (ivaDef) mancante o non valida");
+  const tids=new Set(), tripIds=new Set(), itemIds=new Set();
+  if(!Array.isArray(d.travelers)) err("elenco viaggiatori mancante o non valido"); else d.travelers.forEach((t,i)=>{
+    const w="viaggiatore "+(i+1);
+    if(!bkIsObj(t)){ err(w+": riga non valida"); return; }
+    if(typeof t.id!=="string"||!t.id){ err(w+": identificativo mancante"); return; }
+    if(tids.has(t.id)) err(w+": identificativo duplicato"); tids.add(t.id); if(!isUuid(t.id)) nonUuid++;
+    if(typeof t.nome!=="string"||!t.nome.trim()||t.nome.length>200) err(w+": nome mancante o non valido");
+    if(typeof t.staff!=="boolean") err(w+": il campo «staff» deve essere vero/falso");
+    if(t.attivo!==undefined && typeof t.attivo!=="boolean") err(w+": il campo «attivo» deve essere vero/falso");
+    if(!bkStr(t.email,320)||!bkStr(t.gruppo,200)) err(w+": email o gruppo non validi");
+  });
+  if(!Array.isArray(d.trips)) err("elenco trasferte mancante o non valido"); else d.trips.forEach((t,i)=>{
+    const w="trasferta "+(i+1);
+    if(!bkIsObj(t)){ err(w+": riga non valida"); return; }
+    if(typeof t.id!=="string"||!t.id){ err(w+": identificativo mancante"); return; }
+    if(tripIds.has(t.id)) err(w+": identificativo duplicato"); tripIds.add(t.id); if(!isUuid(t.id)) nonUuid++;
+    if(typeof t.traveler_id!=="string"||!tids.has(t.traveler_id)) err(w+": viaggiatore collegato inesistente nel file");
+    if(!bkIsDate(t.data_inizio)||!bkIsDate(t.data_fine)) err(w+": data di inizio o fine non valida");
+    ["inseritore","scopo","destinazione","scuola_evento","stato","note"].forEach(k=>{ if(!bkStr(t[k])) err(w+": il campo «"+k+"» non è un testo valido"); });
+  });
+  if(!Array.isArray(d.items)) err("elenco voci mancante o non valido"); else d.items.forEach((it,i)=>{
+    const w="voce "+(i+1);
+    if(!bkIsObj(it)){ err(w+": riga non valida"); return; }
+    if(typeof it.id!=="string"||!it.id){ err(w+": identificativo mancante"); return; }
+    if(itemIds.has(it.id)) err(w+": identificativo duplicato"); itemIds.add(it.id); if(!isUuid(it.id)) nonUuid++;
+    if(typeof it.trip_id!=="string"||!tripIds.has(it.trip_id)) err(w+": trasferta collegata inesistente nel file");
+    if(typeof it.tipo!=="string"||!(TIPI.includes(it.tipo)||it.tipo==="Spese in fattura")) err(w+": tipologia mancante o sconosciuta");
+    if(!bkIsNum(it.importo)) err(w+": importo mancante o non numerico");
+    if(it.iva!=null && !bkIsNum(it.iva)) err(w+": IVA non valida");
+    if(it.gruppo_id!=null && typeof it.gruppo_id!=="string") err(w+": gruppo non valido");
+    ["data_acquisto","comp_da","comp_a"].forEach(k=>{ if(!bkIsDate(it[k])) err(w+": data «"+k+"» non valida"); });
+    ["fornitore","rif_prenotazione","stato","actual_ref","note"].forEach(k=>{ if(!bkStr(it[k])) err(w+": il campo «"+k+"» non è un testo valido"); });
+  });
+  if(!Array.isArray(d.mappatura)) err("mappatura mancante o non valida");
+  return {list,n,nonUuid};
+}
+function bkParse(text){
+  // la chiave "__proto__" non è mai legittima nei nostri dati: si rifiuta il file invece di copiarla nello stato
+  return JSON.parse(text,(k,v)=>{ if(k==="__proto__") throw new Error("chiave non ammessa nel file"); return v; });
+}
+function bkOpen(){ document.getElementById("bkOverlay").classList.add("on"); }
+function bkClose(){ _bkPending=null; document.getElementById("bkOverlay").classList.remove("on"); }
+function bkShowError(msg,list,total){
+  _bkPending=null;
+  document.getElementById("bkTitle").textContent="Importa backup · file non valido";
+  let h=`<div style="padding:12px 14px;border-radius:10px;background:var(--over-soft);color:var(--over);font-size:13px;font-weight:600">${esc(msg)}</div>`;
+  if(list&&list.length) h+=`<p class="hint" style="margin:12px 0 6px">Primi problemi trovati${total>list.length?` (${list.length} di ${total})`:""}:</p><ul style="margin:0;padding-left:18px;font-size:12.5px;color:var(--ink-soft)">${list.map(x=>`<li>${esc(x)}</li>`).join("")}</ul>`;
+  h+=`<p class="hint" style="margin-top:14px">Non è stato modificato nulla: i dati locali sono intatti.</p>`;
+  document.getElementById("bkBody").innerHTML=h;
+  document.getElementById("bkApply").style.display="none"; document.getElementById("bkCancel").textContent="Chiudi";
+  bkOpen();
+}
+function bkShowPreview(o,nonUuid){
+  _bkPending=o;
+  const fc=bkCounts(o.dati), cc=bkCounts(bkCollect());
+  const rows=Object.keys(BK_LABELS).map(k=>[BK_LABELS[k],fc[k],cc[k]]);
+  const when=new Date(o.creato_il).toLocaleString("it-IT");
+  const warns=[];
+  if(bkIsObj(o.conteggi)){ const diff=Object.keys(BK_LABELS).some(k=>o.conteggi[k]!==undefined && o.conteggi[k]!==fc[k]); if(diff) warns.push("I conteggi scritti nell'intestazione non coincidono con i dati del file: il file potrebbe essere stato modificato o troncato."); }
+  if(nonUuid) warns.push(nonUuid+" identificativi non sono UUID (tipico dei dati di prova locali): il ripristino locale funziona, ma «Prima configurazione: carica i dati locali» rifiuterà di scrivere sul cloud finché non vengono corretti.");
+  document.getElementById("bkTitle").textContent="Importa backup · anteprima";
+  document.getElementById("bkBody").innerHTML=`
+    <div style="padding:12px 14px;border-radius:10px;background:var(--over-soft);color:var(--over);font-size:13px;margin-bottom:14px"><b>ATTENZIONE: il ripristino SOSTITUISCE tutti i dati LOCALI</b> di questo browser (viaggiatori, trasferte, voci) con quelli del file. Le righe oggi presenti solo qui andranno perse, salvo il backup di sicurezza che viene scaricato automaticamente prima di sostituire.</div>
+    <div style="font-size:13px;margin-bottom:12px;display:grid;grid-template-columns:auto 1fr;gap:4px 14px">
+      <span class="hint">Backup creato il</span><span>${esc(when)}</span>
+      <span class="hint">Creato da (ruolo)</span><span>${esc(bkShort(o.creato_da))}</span>
+      <span class="hint">Versione schema</span><span>${esc(o.versione_schema)} (questa pagina: ${BACKUP_SCHEMA_VERSION})</span>
+      <span class="hint">App</span><span>${esc(o.app)}</span>
+    </div>
+    <div class="card scroll" style="margin-bottom:14px"><table><thead><tr><th class="l">Sezione</th><th>Nel file</th><th>Attuale</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="l">${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join("")}</tbody></table></div>
+    ${warns.map(w=>`<div style="padding:10px 14px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:12.5px;margin-bottom:10px">${esc(w)}</div>`).join("")}
+    <div style="padding:10px 14px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);font-size:12.5px;margin-bottom:14px"><b>Solo locale.</b> Questa operazione non scrive nulla sul cloud${cloudReady()?" e, essendo collegato, il prossimo «Scarica dal cloud» o aggiornamento da un altro utente riporterebbe qui i dati del cloud":""}. Passo successivo, se vuoi rendere definitivo il ripristino: finestra <b>Cloud</b> → «Prima configurazione: carica i dati locali» (con le sue conferme). La mappatura è definita nel codice e non viene ripristinata.</div>
+    <div class="field full"><label for="bkConfirm">Per confermare scrivi RIPRISTINA</label><input type="text" id="bkConfirm" autocomplete="off" spellcheck="false"></div>`;
+  const ap=document.getElementById("bkApply"); ap.style.display=""; ap.disabled=true; document.getElementById("bkCancel").textContent="Annulla";
+  document.getElementById("bkConfirm").oninput=e=>{ ap.disabled=(e.target.value||"").trim().toUpperCase()!=="RIPRISTINA"; };
+  bkOpen();
+}
+function importBackup(file){
+  if(!requireAdmin()) return;
+  if(!file) return;
+  if(file.size>BACKUP_MAX_BYTES){ bkShowError("File troppo grande ("+(file.size/1048576).toFixed(1)+" MB): il limite è "+(BACKUP_MAX_BYTES/1048576)+" MB. Un backup di questa app non è così grande: controlla di aver scelto il file giusto."); return; }
+  const rd=new FileReader();
+  rd.onerror=()=>bkShowError("Impossibile leggere il file.");
+  rd.onload=ev=>{
+    try{
+      let o; try{ o=bkParse(String(ev.target.result)); }catch(e){ bkShowError("Il file non è un JSON valido o contiene dati non ammessi: non sembra un backup NABA."); return; }
+      const h=bkCheckHeader(o); if(h){ bkShowError(h); return; }
+      const v=bkValidateSpese(o.dati); if(v.n){ bkShowError("Il backup è incompleto o danneggiato: struttura dei dati non valida.",v.list,v.n); return; }
+      bkShowPreview(o,v.nonUuid);
+    }catch(e){ console.error(e); bkShowError("Errore imprevisto durante il controllo del file: "+e.message); }
+  };
+  rd.readAsText(file);
+}
+function applyBackup(){
+  if(!requireAdmin()) return;
+  const o=_bkPending; if(!o){ toast("Nessun backup in attesa di conferma","err"); return; }
+  const ok=(document.getElementById("bkConfirm")||{}).value; if((ok||"").trim().toUpperCase()!=="RIPRISTINA"){ toast("Conferma mancante: scrivi RIPRISTINA","err"); return; }
+  // 1) backup di sicurezza dello stato attuale (stesso formato: si può reimportare)
+  try{ bkDownload(bkBuild(),"backup-spese-ec-"+bkStamp()+"-prima-del-ripristino.json"); }
+  catch(e){ console.error(e); toast("Backup di sicurezza non riuscito: ripristino annullato, nulla è stato modificato","err"); return; }
+  // 2) sostituzione dello stato LOCALE (mai il cloud); utenti, ruoli e visibilità non fanno parte del backup e restano quelli attuali
+  try{
+    const d=o.dati;
+    STATE.travelers=d.travelers.map(t=>Object.assign({email:"",attivo:true},t)); STATE.trips=d.trips; STATE.items=d.items;
+    if([2025,2026,2027].includes(d.fyStart)) STATE.fyStart=d.fyStart; STATE.ivaDef=d.ivaDef;
+    // filtri di vista e anteprima ruolo puntano a id che possono non esistere più: si azzerano
+    STATE.view="ALL"; STATE.riepMonths=[]; STATE.riepTravs=[]; STATE.riepTipi=[]; STATE.previewAs=null;
+    if(STATE.localIdentity && STATE.localIdentity!=="admin" && !STATE.travelers.some(t=>t.id===STATE.localIdentity)) STATE.localIdentity="admin";
+    save(); fillSelects(); renderAll();
+    bkClose(); toast("Backup ripristinato in locale: il cloud non è stato modificato");
+  }catch(e){ console.error(e); toast("Errore durante il ripristino: "+e.message+". Reimporta il backup di sicurezza appena scaricato.","err"); }
+}
+
 /* ============================ CLOUD (Supabase) ============================ */
 const CLOUD_DEFAULT={url:"https://pwxlbjewlwpwfqhohtdw.supabase.co",anonKey:"eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InB3eGxiamV3bHdwd2ZxaG9odGR3Iiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODQ2MzU5MDQsImV4cCI6MjEwMDIxMTkwNH0.g_HGiBbBODZwcrZBOoU0O1obgIGk18PE9kIOZRjxc7g"};
 let sb=null, cloudSession=null, rtChannel=null, _rtSelfUntil=0, _rtT=null;
@@ -1940,6 +2127,13 @@ document.getElementById("iForn").addEventListener("change",()=>{
 });
 document.getElementById("iForn").addEventListener("focus",()=>{ document.getElementById("iForn").dataset.last=document.getElementById("iForn").value; });
 document.getElementById("btnAddTrav").onclick=()=>{ if(!requireAdmin())return; const n=prompt("Nome viaggiatore:"); if(!n)return; const staff=confirm("È staff? (OK = staff, Annulla = no-staff)"); const t={id:uuid(),nome:n.trim(),staff,attivo:true}; STATE.travelers.push(t); save(); fillSelects(); renderAll(); cloudUpsertTraveler(t); };
+document.getElementById("btnBackupFull").onclick=exportBackup;
+document.getElementById("btnBackupImport").onclick=()=>{ if(!requireAdmin()) return; document.getElementById("bkInput").click(); };
+document.getElementById("bkInput").onchange=e=>{ const f=e.target.files[0]; e.target.value=""; if(f) importBackup(f); };
+document.getElementById("bkApply").onclick=applyBackup;
+document.getElementById("bkCancel").onclick=bkClose;
+document.getElementById("bkClose").onclick=bkClose;
+document.getElementById("bkOverlay").onclick=e=>{ if(e.target.id==="bkOverlay") bkClose(); };
 document.getElementById("btnSnap").onclick=exportSnap;
 document.getElementById("btnSnapR").onclick=()=>document.getElementById("snapIn").click();
 document.getElementById("snapIn").onchange=e=>{ if(e.target.files[0])importSnap(e.target.files[0]); e.target.value=""; };
@@ -1958,7 +2152,7 @@ document.getElementById("cloudPush").onclick=cloudPushAll;
 document.getElementById("btnAdmin").onclick=openAdmin;
 document.getElementById("adminClose").onclick=()=>document.getElementById("adminOverlay").classList.remove("on");
 document.getElementById("adminOverlay").onclick=e=>{ if(e.target.id==="adminOverlay") e.currentTarget.classList.remove("on"); };
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ ["tripOverlay","itemOverlay","cloudOverlay","adminOverlay"].forEach(id=>document.getElementById(id).classList.remove("on")); } });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ ["tripOverlay","itemOverlay","cloudOverlay","adminOverlay"].forEach(id=>document.getElementById(id).classList.remove("on")); bkClose(); } });
 
 fillSelects();
 gate();

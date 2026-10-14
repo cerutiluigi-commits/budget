@@ -912,7 +912,7 @@ function baseIdentity(){
     // il "tag" extra_roles può rendere docente anche chi ha ruolo primario diverso (es. un
     // orientatore con tag Docente): interfaceId va popolato in base a TUTTI i ruoli effettivi, non
     // solo quello primario, altrimenti "Nuova attività"/i filtri restano nascosti pur essendo la tab
-    // visibile (Luigi, 2026-09-30 — stesso bug simmetrico trovato in Spese EC con Davide Gallina)
+    // visibile (Luigi, 2026-09-30 — stesso bug simmetrico trovato in Spese EC con un docente con tag orientatore)
     const u=(STATE.appUsers||{})[email.toLowerCase()];
     const hasDocente = role==='docente' || ((u&&u.extra_roles)||[]).includes('docente');
     const iface = hasDocente ? findInterfaceByEmail(email) : null;
@@ -1075,7 +1075,7 @@ function canManage(){ return CURRENT.role==='admin' || CURRENT.role==='responsab
 // che e' solo un cambio di stato.
 function canDelete(){ return CURRENT.role==='admin' || CURRENT.role==='responsabile'; }
 // centri di costo (Luigi, 2026-10-02): 6400 Direct Domestic = le sole tipologie Test/Eventi PG,
-// 6000 Domestic on Field = tutte le altre. Il responsabile (es. Sofia/Stefano 6000) lavora SOLO sui
+// 6000 Domestic on Field = tutte le altre. Il responsabile (6000) lavora SOLO sui
 // centri del suo scope (bdg_app_users.scope.centri_costo); senza centri non vede nulla.
 const TIPI_6400=["Test","Eventi PG"];
 // stessa regola di bdg_centro_of_tipo() sul database (qualunque altra tipologia, anche vuota = 6000)
