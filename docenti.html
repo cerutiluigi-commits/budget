@@ -257,6 +257,14 @@ tfoot td.l{text-align:left}
 .badge.trace{background:var(--info-soft);color:var(--info-ink)}
 .badge.rev{background:var(--over-soft);color:var(--over)}
 .badge.ok{background:var(--accent-soft);color:var(--accent-text)}
+.rda-card.annullata{opacity:.75}
+.rda-hist-row.annullata td{color:var(--ink-mute)}
+.rda-hist-row.annullata td .amt-n{text-decoration:line-through}
+.ann-list{margin:10px 0 0;padding:0 0 0 18px;text-align:left;font-size:13px;line-height:1.5;color:var(--ink)}
+.ann-list li{margin-bottom:4px}
+.ann-warn{margin-top:12px;padding:9px 12px;border-radius:9px;background:var(--over-soft);color:var(--over);font-size:12.5px;text-align:left}
+.fut-list{margin:8px 0 0;display:flex;flex-direction:column;gap:4px}
+.fut-list button{background:none;border:0;padding:3px 0;text-align:left;font:inherit;color:inherit;text-decoration:underline;cursor:pointer}
 
 /* attività */
 .act-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;cursor:pointer;transition:background .12s}
@@ -701,6 +709,7 @@ tfoot td.l{text-align:left}
 
 <div id="roleBanner" class="role-banner" style="display:none"></div>
 <div id="dueBanner" class="role-banner warn" style="display:none"></div>
+<div id="futureBanner" class="role-banner warn" style="display:none"></div>
 
 <main>
   <!-- RIEPILOGO -->
@@ -846,7 +855,7 @@ tfoot td.l{text-align:left}
       <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
         <h2 class="sec" style="margin:0">Storico RDA</h2>
         <div class="hgroup" style="margin-left:auto;background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Docente</label><select id="rdaHistTeacher" style="color:var(--ink)"></select></div>
-        <div class="hgroup" style="background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Stato</label><select id="rdaHistStato" style="color:var(--ink)"><option value="ALL">Tutti</option><option value="bozza">RDA in inserimento</option><option value="emessa">RDA inserita</option><option value="pagata">RDA Pagato</option></select></div>
+        <div class="hgroup" style="background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Stato</label><select id="rdaHistStato" style="color:var(--ink)"><option value="ALL">Tutti</option><option value="bozza">RDA in inserimento</option><option value="emessa">RDA inserita</option><option value="pagata">RDA Pagato</option><option value="annullata">Annullata</option></select></div>
         <div class="hgroup" style="background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Mese</label><select id="rdaHistMonth" style="color:var(--ink)"></select></div>
         <div class="hgroup" style="background:var(--surface);border-color:var(--line-strong)"><label style="color:var(--ink-mute)">Codice RDA</label><input type="text" id="rdaHistSearch" placeholder="Cerca…" style="color:var(--ink);min-width:110px"></div>
       </div>
@@ -984,6 +993,24 @@ tfoot td.l{text-align:left}
     <div class="mfoot" style="justify-content:center;gap:10px">
       <button class="btn ghost" id="confirmCancel"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>Annulla</button>
       <button class="btn" id="confirmOk">Conferma</button>
+    </div>
+  </div>
+</div>
+
+<!-- ANNULLA RDA: elenca le conseguenze; per una RDA gia' pagata chiede una seconda conferma (digitare ANNULLA) -->
+<div class="overlay" id="annullaOverlay">
+  <div class="modal" style="max-width:480px">
+    <div class="mbody" style="padding-top:26px">
+      <h3 id="annTitle" style="margin:0 0 6px">Annulla RDA</h3>
+      <div id="annBody" style="font-size:13px;line-height:1.5"></div>
+      <div id="annTypeBox" style="display:none;margin-top:12px">
+        <label for="annType" style="font-size:12.5px;font-weight:600">Per confermare digita ANNULLA</label>
+        <input type="text" id="annType" autocomplete="off" style="width:100%;margin-top:6px;border:1px solid var(--line-strong);border-radius:8px;padding:8px 10px">
+      </div>
+    </div>
+    <div class="mfoot" style="justify-content:center;gap:10px">
+      <button class="btn ghost" id="annCancel">Indietro</button>
+      <button class="btn danger" id="annOk">Annulla RDA</button>
     </div>
   </div>
 </div>
@@ -1920,7 +1947,7 @@ function renderPreviewAs(){
   const pv=document.getElementById("previewAs"); if(!pv) return;
   pv.innerHTML=`<option value="">— Admin (vista completa) —</option>`+STATE.interfaces.map(i=>`<option value="${i.id}" ${STATE.previewAs===i.id?'selected':''}>${esc(i.nome)} · ${esc((i.aree||[]).join(', '))}</option>`).join("");
 }
-function renderAll(){ renderActivities(); renderRiepilogo(); renderChiusura(); renderSchoolsTable(); renderCalendario(); renderAnagrafiche(); save(); }
+function renderAll(){ renderActivities(); renderRiepilogo(); renderChiusura(); renderFutureBanner();renderSchoolsTable(); renderCalendario(); renderAnagrafiche(); save(); }
 
 /* ============================ SCUOLE (ricerca live, mai caricate per intero) ============================ */
 let _schoolSearchT=null;
@@ -2080,9 +2107,26 @@ function groupCompetenzaMonth(gruppoId){
 // attività, nemmeno un nuovo giro della stessa tipologia — una volta inserita è definitiva (Luigi,
 // 2026-09-16). Se un'attività è ancora agganciata a una bozza resta idonea (fa parte del giro tuttora
 // aperto, "Ricalcola totale"/rigenerazione deve continuare a vederla).
-function rdaLocked(r){ return !!r && r.stato!=='bozza'; }
+// una RDA ANNULLATA non e' ne' bloccata ne' aperta: e' fuori da ogni calcolo (proposte, kanban, KPI); resta solo nello storico
+function rdaAnnullata(r){ return !!r && r.stato==='annullata'; }
+function rdaLocked(r){ return !!r && r.stato!=='bozza' && r.stato!=='annullata'; }
+// "oggi" in Europe/Rome (YYYY-MM-DD): una data successiva e' futura. todayISO() e' in UTC e a cavallo della mezzanotte sbaglia di un giorno
+function todayRome(){
+  try{ return new Intl.DateTimeFormat('en-CA',{timeZone:'Europe/Rome',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date()); }
+  catch(e){ return todayISO(); }
+}
+function isFutureDate(d){ return !!d && String(d).slice(0,10)>todayRome(); }
+// l'attivita' e' collegata a una RDA viva (bozza/emessa/pagata)? un riferimento a una RDA annullata o inesistente non conta
+function actHasRda(a){ if(!a.rda_id) return false; const r=rdaById(a.rda_id); return !!r && !rdaAnnullata(r); }
+// RDA nel perimetro dei centri in vista (il centro dipende dalla tipologia, come sul database; una RDA storica senza tipologia e' 6000)
+function rdaInScope(r){
+  if(!canManage()) return true;
+  const cv=centriInVista();
+  return !cv || cv.includes(centroOfTipo(r.tipo));
+}
 function isEligibleForRda(a,month){
   if(a.stato!=='svolta') return false;
+  if(isFutureDate(a.data)) return false; // un'attivita' futura non e' mai pronta per l'RDA, anche se risulta "svolta"
   if(a.rda_id && rdaLocked(rdaById(a.rda_id))) return false;
   const gid=a.gruppo_id||a.id;
   if((a.rda_mode||'fine_periodo')==='per_mese') return (a.data||'').slice(0,7)===month;
@@ -2095,11 +2139,11 @@ function activitiesForRda(teacherId, month, tipo){
   return STATE.activities.filter(a=>a.teacher_id===teacherId && a.tipo===tipo && isEligibleForRda(a,month));
 }
 function distinctMonthsWithSvolta(){
-  const s=new Set(); STATE.activities.forEach(a=>{ if(a.stato==='svolta'){ const m=(a.data||'').slice(0,7); if(m) s.add(m); } });
+  const s=new Set(); STATE.activities.forEach(a=>{ if(a.stato==='svolta' && !isFutureDate(a.data) && activityInScope(a)){ const m=(a.data||'').slice(0,7); if(m) s.add(m); } });
   return [...s].sort().reverse();
 }
 function distinctRdaMonths(){
-  const s=new Set(); STATE.rdas.forEach(r=>{ const m=(r.mese||'').slice(0,7); if(m) s.add(m); });
+  const s=new Set(); STATE.rdas.filter(rdaInScope).forEach(r=>{ const m=(r.mese||'').slice(0,7); if(m) s.add(m); });
   return [...s].sort().reverse();
 }
 function monthLabel(ym){ const [y,m]=ym.split('-').map(Number); return `${MESI_LONG[m-1]} ${y}`; }
@@ -2121,7 +2165,7 @@ function teachersPendingConfirmation(){
   const cur=todayMonth(), today=todayISO(), dayOfMonth=Number(today.slice(8,10));
   const byT={};
   STATE.activities.forEach(a=>{
-    if(a.stato!=='programmata') return;
+    if(a.stato!=='programmata' || !activityInScope(a)) return;
     const m=(a.data||'').slice(0,7);
     if(!m) return;
     const due = m<cur || (m===cur && a.data<today && dayOfMonth>=20);
@@ -2135,7 +2179,7 @@ function sollecitaDocente(teacherId){
   const t=teacherById(teacherId);
   const iface=t.interface_id?interfaceById(t.interface_id):null;
   if(!iface||!iface.email){ toast("Nessuna interfaccia orientamento (con email) collegata a questo docente (Admin → Docenti)"); return; }
-  const count=STATE.activities.filter(a=>a.teacher_id===teacherId && a.stato==='programmata').length;
+  const count=STATE.activities.filter(a=>a.teacher_id===teacherId && a.stato==='programmata' && activityInScope(a)).length;
   const subject=encodeURIComponent("NABA · Attività da confermare");
   const body=encodeURIComponent(`Ciao ${iface.nome},\n\nPer il docente ${t.nome} risultano ${count} attività ancora "programmata" nel tool Docenti: confermale come "svolta" (o "annullata" se non più valide) appena possibile, così possono entrare nella prossima chiusura mensile.\n\nGrazie,\nNABA`);
   window.open(`mailto:${encodeURIComponent(iface.email)}?subject=${subject}&body=${body}`,'_blank');
@@ -2145,9 +2189,9 @@ function sollecitaDocente(teacherId){
 function renderChOverview(){
   const kpis=document.getElementById("chKpis");
   const pronte=new Set();
-  STATE.activities.forEach(a=>{ if(a.stato==='svolta' && !a.rda_id){ pronte.add(a.teacher_id+'|'+(a.data||'').slice(0,7)+'|'+a.tipo); } });
-  const bozza=STATE.rdas.filter(r=>r.stato==='bozza').length;
-  const emesse=STATE.rdas.filter(r=>r.stato==='emessa').length;
+  STATE.activities.forEach(a=>{ if(a.stato==='svolta' && !actHasRda(a) && !isFutureDate(a.data) && activityInScope(a)){ pronte.add(a.teacher_id+'|'+(a.data||'').slice(0,7)+'|'+a.tipo); } });
+  const bozza=STATE.rdas.filter(r=>r.stato==='bozza' && rdaInScope(r)).length;
+  const emesse=STATE.rdas.filter(r=>r.stato==='emessa' && rdaInScope(r)).length;
   const pending=teachersPendingConfirmation();
   kpis.innerHTML=`
     <div class="kpi"><div class="l"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Pronte per RDA</span></div><div class="v">${pronte.size}</div><div class="sub">gruppi docente/mese/tipologia non ancora aggregati</div></div>
@@ -2178,6 +2222,18 @@ function chUnitPriority(u){
 // una card per ogni RDA (o proposta non ancora generata): r=null -> "Genera RDA"; r.stato='bozza' ->
 // editabile (Inserisci); r.stato='emessa' -> bloccata, resta solo "RDA Pagato"; r.stato='pagata' ->
 // terminale, sola lettura.
+// chi puo' annullare una RDA: l'admin qualsiasi (la pagata solo lui, con doppia conferma); il responsabile solo bozza/emessa e solo
+// nei propri centri. Il database e' comunque l'ultima parola (RLS): qui si decide solo cosa mostrare
+function canAnnullaRda(r){
+  if(!r || r.stato==='annullata') return false;
+  if(CURRENT.role==='admin') return true;
+  if(CURRENT.role==='responsabile') return r.stato!=='pagata' && myCentri().length>0 && rdaInScope(r);
+  return false;
+}
+function annullaBtnHtml(r, cls){
+  if(!canAnnullaRda(r)) return '';
+  return `<button type="button" class="btn danger small rda-annulla ${cls||''}" data-id="${esc(r.id)}" title="Annulla questa RDA: toglie il codice, scollega le attività e rimuove il movimento dal Budget. Prima di procedere si chiede conferma"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 6L6 18M6 6l12 12"/></svg>Annulla RDA</button>`;
+}
 function rdaCardHtml({t, tipo, tipoTxt, giroLabel, r, acts, pending, mult, teacherId, month}){
   const base=acts.reduce((s,a)=>s+activityAmount(a),0);
   const tot=base*mult;
@@ -2187,12 +2243,12 @@ function rdaCardHtml({t, tipo, tipoTxt, giroLabel, r, acts, pending, mult, teach
   if(stato==='bozza'){
     actions = `<input type="text" class="rda-rif" data-id="${r.id}" placeholder="Codice RDA (numero SAP)" value="${esc(r.rif_rda||'')}" style="flex:1;min-width:140px;border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px">
       <button class="btn small rda-inserisci" data-id="${r.id}"${r.rif_rda&&r.rif_rda.trim()?'':' disabled'} title="Salva il Codice RDA: la RDA passa allo stato 'inserita', bloccata per sempre — nessuna nuova attività potrà più entrarci"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Inserisci</button>
-      <button class="btn ghost small rda-regen" data-teacher="${teacherId}" data-month="${month}" data-tipo="${esc(tipo||'')}" title="Ricalcola l'importo dalle attività attuali del gruppo (utile se sono cambiate ore, tariffa o attività dopo la prima generazione) — non tocca Codice RDA o stato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Ricalcola totale</button>`;
+      <button class="btn ghost small rda-regen" data-teacher="${teacherId}" data-month="${month}" data-tipo="${esc(tipo||'')}" title="Ricalcola l'importo dalle attività attuali del gruppo (utile se sono cambiate ore, tariffa o attività dopo la prima generazione) — non tocca Codice RDA o stato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Ricalcola totale</button>${annullaBtnHtml(r)}`;
   } else if(stato==='emessa'){
     actions = `<span class="hint" style="flex:1">Codice RDA: <b>${esc(r.rif_rda||'—')}</b> — bloccata, nessuna nuova attività può entrarci</span>
-      <button class="btn small rda-pagato" data-id="${r.id}" title="Segna l'RDA come pagata: chiude il ciclo, l'importo passa da Allocato a Speso nel tool Budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>RDA Pagato</button>`;
+      <button class="btn small rda-pagato" data-id="${r.id}" title="Segna l'RDA come pagata: chiude il ciclo, l'importo passa da Allocato a Speso nel tool Budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>RDA Pagato</button>${annullaBtnHtml(r)}`;
   } else if(stato==='pagata'){
-    actions = `<span class="hint" style="flex:1">Codice RDA: <b>${esc(r.rif_rda||'—')}</b></span>`;
+    actions = `<span class="hint" style="flex:1">Codice RDA: <b>${esc(r.rif_rda||'—')}</b></span>${annullaBtnHtml(r)}`;
   } else {
     actions = `<button class="btn small rda-gen" data-teacher="${teacherId}" data-month="${month}" data-tipo="${esc(tipo||'')}" ${acts.length?'':'disabled'} title="Crea la proposta di RDA per questo docente/mese/tipologia dalle attività svolte idonee, da inserire poi in SAP"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>Genera RDA</button>
       ${(!acts.length && pending.length) ? `<span class="hint">Attività non idonee qui: gruppo multi-data non chiuso, o di competenza di un altro mese.</span>` : ''}`;
@@ -2239,9 +2295,9 @@ function renderChiusuraList(){
   const units=[];
   teacherIds.forEach(tid=>{
     scopedTipi().forEach(tipo=>{
-      const rdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && r.tipo===tipo);
+      const rdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && r.tipo===tipo && !rdaAnnullata(r));
       const acts=activitiesForRda(tid,month,tipo);
-      const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.tipo===tipo && a.stato==='svolta' && (a.data||'').slice(0,7)===month && activityInScope(a));
+      const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.tipo===tipo && a.stato==='svolta' && !isFutureDate(a.data) && (a.data||'').slice(0,7)===month && activityInScope(a));
       const pending=svolteThisMonth.filter(a=>!acts.includes(a) && !(a.rda_id && rdaLocked(rdaById(a.rda_id))));
       if(!rdas.length && !acts.length && !pending.length) return;
       units.push({tid,tipo,rdas,acts,pending});
@@ -2249,9 +2305,9 @@ function renderChiusuraList(){
     // RDA storiche da prima di questa modifica (2026-09-16), senza tipologia: restano visibili così
     // come sono, mai fuse con le nuove RDA per tipologia — con un centro di costo in vista non le
     // mostriamo, perché senza tipo non c'è modo di verificare se rientrano in quel centro
-    const scopeTipRestricted=!!scopeTipiAllowed();
-    if(!scopeTipRestricted){
-      const legacyRdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && !r.tipo);
+    // (il responsabile del 6000 le vede: sul database una RDA senza tipologia e' del 6000 — rdaInScope)
+    {
+      const legacyRdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && !r.tipo && !rdaAnnullata(r) && (isScopedRole() ? rdaInScope(r) : !scopeTipiAllowed()));
       if(legacyRdas.length) units.push({tid,tipo:null,rdas:legacyRdas,acts:[],pending:[]});
     }
   });
@@ -2279,6 +2335,7 @@ function renderChiusuraList(){
   box.innerHTML=h;
   box.querySelectorAll(".rda-gen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month,b.dataset.tipo));
   box.querySelectorAll(".rda-regen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month,b.dataset.tipo));
+  box.querySelectorAll(".rda-annulla").forEach(b=>b.onclick=()=>annullaRda(b.dataset.id));
   // flusso esplicito a due tasti (su richiesta di Luigi, 2026-09-16): digitare il Codice RDA non salva
   // più da solo al blur — bisogna cliccare "Inserisci" (o Invio), che porta la RDA a "inserita" (emessa,
   // bloccata per sempre) e SOLO da lì compare "RDA Pagato". Meno ambiguo del vecchio onchange-al-volo,
@@ -2316,6 +2373,7 @@ function renderChiusuraList(){
 // stato derivato di una RDA: bozza+niente codice = in inserimento, codice inserito = "inserita"
 // (senza passaggio manuale, si passa da soli appena si salva il Codice RDA), pagata = terminale
 function rdaStatusInfo(r){
+  if(r.stato==='annullata') return {label:'Annullata', cls:'speso'};
   if(r.stato==='pagata') return {label:'RDA Pagato', cls:'ok'};
   if(r.rif_rda) return {label:'RDA inserita', cls:'alloc'};
   return {label:'RDA in inserimento', cls:'trace'};
@@ -2327,7 +2385,7 @@ function renderRdaHistory(){
   const statoF=document.getElementById("rdaHistStato").value;
   const monthF=document.getElementById("rdaHistMonth").value;
   const searchF=document.getElementById("rdaHistSearch").value.trim().toLowerCase();
-  let rows=STATE.rdas.slice();
+  let rows=STATE.rdas.filter(rdaInScope);
   if(teacherF!=='ALL') rows=rows.filter(r=>r.teacher_id===teacherF);
   if(statoF!=='ALL') rows=rows.filter(r=>r.stato===statoF);
   if(monthF!=='ALL') rows=rows.filter(r=>(r.mese||'').slice(0,7)===monthF);
@@ -2337,13 +2395,14 @@ function renderRdaHistory(){
   if(!rows.length) h+=`<tr><td colspan="7"><div class="empty">Nessuna RDA per i filtri selezionati.</div></td></tr>`;
   rows.forEach(r=>{
     const open=rdaHistExpanded===r.id;
-    h+=`<tr class="rda-hist-row" data-id="${r.id}" style="cursor:pointer">
+    const annull=rdaAnnullata(r);
+    h+=`<tr class="rda-hist-row${annull?' annullata':''}" data-id="${esc(r.id)}" style="cursor:pointer">
     <td><span class="twisty${open?' open':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg></span></td>
     <td class="l">${monthLabel((r.mese||'').slice(0,7))}</td>
     <td class="l">${esc(teacherById(r.teacher_id).nome)}</td>
     <td class="l">${esc(tipoLabel(r.tipo))||'<span class="hint">storico</span>'}</td>
-    <td class="l"><span class="badge ${rdaStatusInfo(r).cls}">${rdaStatusInfo(r).label}</span></td>
-    <td><b>${eur2(r.importo_totale)}</b></td>
+    <td class="l"><span class="badge ${rdaStatusInfo(r).cls}">${rdaStatusInfo(r).label}</span>${annull&&r.annullata_il?` <span class="hint">il ${fmtD(String(r.annullata_il).slice(0,10))}</span>`:''}</td>
+    <td><b${annull?' class="amt-n"':''}>${eur2(r.importo_totale)}</b></td>
     <td class="l">${esc(r.rif_rda)||'—'}</td>
   </tr>`;
     if(open){
@@ -2355,6 +2414,7 @@ function renderRdaHistory(){
             <span style="flex:1">${esc(teacherById(a.teacher_id).nome)} · ${esc(actNome(a) || (tipoLabel(a.tipo)+' · '+activityLocation(a)))}</span>
             <span class="mono" style="font-weight:600">${eur2(activityAmount(a))}</span>
           </div>`).join("") : `<div class="empty" style="padding:6px 0">Nessuna attività collegata.</div>`}
+          ${annull?`<div class="hint" style="padding:6px 0">${esc(r.note||'')}${r.annullata_da?` · annullata da ${esc(r.annullata_da)}`:''}</div>`:''}
         </div>
       </td></tr>`;
     }
@@ -2366,7 +2426,11 @@ function renderRdaHistory(){
   });
 }
 function renderChiusura(){
-  if(CURRENT.role!=='admin'){ document.getElementById("chiusuraList").innerHTML=''; document.getElementById("chiusuraKanban").innerHTML=''; document.getElementById("chKpis").innerHTML=''; document.getElementById("chReminders").innerHTML='<div class="empty">La chiusura mensile delle RDA è riservata all\'amministratore.</div>'; document.getElementById("rdaHistTable").innerHTML=''; return; }
+  // admin: tutto; responsabile: solo i propri centri (ogni elenco e' gia' limitato da activityInScope/rdaInScope/scopedTipi);
+  // responsabile senza centri e tutti gli altri ruoli: nessun dato, solo la frase che spiega perche'
+  const senzaAccesso=(msg)=>{ document.getElementById("chiusuraList").innerHTML=''; document.getElementById("chiusuraKanban").innerHTML=''; document.getElementById("chKpis").innerHTML=''; document.getElementById("chReminders").innerHTML='<div class="empty">'+esc(msg)+'</div>'; document.getElementById("rdaHistTable").innerHTML=''; };
+  if(CURRENT.role==='responsabile' && myCentri().length===0){ senzaAccesso("Nessun centro di costo assegnato al tuo utente: la chiusura mensile mostra solo le RDA dei tuoi centri (6000 o 6400). Contatta l'amministratore."); return; }
+  if(CURRENT.role!=='admin' && CURRENT.role!=='responsabile'){ senzaAccesso("La chiusura mensile delle RDA è riservata all'amministratore e al responsabile (per i propri centri di costo)."); return; }
   renderChOverview();
   const svMonths=distinctMonthsWithSvolta();
   fillSelectPreserving(document.getElementById("chMonth"), svMonths.map(m=>`<option value="${m}">${monthLabel(m)}</option>`).join("")||`<option value="">—</option>`, svMonths[0]);
@@ -2423,7 +2487,7 @@ function renderChiusuraKanban(){
     // dalla colonna "Pronte per RDA" in giù, un'unità è docente+tipologia (2026-09-16): tipi diversi
     // non condividono mai la stessa RDA, quindi un docente può avere più card nello stesso mese
     scopedTipi().forEach(tipo=>{
-      const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.tipo===tipo && a.stato==='svolta' && (a.data||'').slice(0,7)===month && activityInScope(a));
+      const svolteThisMonth=STATE.activities.filter(a=>a.teacher_id===tid && a.tipo===tipo && a.stato==='svolta' && !isFutureDate(a.data) && (a.data||'').slice(0,7)===month && activityInScope(a));
       const acts=activitiesForRda(tid,month,tipo);
       const pending=svolteThisMonth.filter(a=>!acts.includes(a) && !(a.rda_id && rdaLocked(rdaById(a.rda_id))));
       if(pending.length){
@@ -2431,7 +2495,7 @@ function renderChiusuraKanban(){
         const gruppoAperto=pending.some(a=>!groupClosed(a.gruppo_id||a.id));
         cols.gruppo.push({teacher:t,tipo,count:pending.length,imp,note: gruppoAperto?'Gruppo multi-data non ancora chiuso':'Di competenza di un altro mese'});
       }
-      const rdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && r.tipo===tipo);
+      const rdas=STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && r.tipo===tipo && !rdaAnnullata(r));
       rdas.filter(r=>r.stato!=='bozza').forEach(r=>{
         const entry={teacher:t,tipo,count:STATE.activities.filter(a=>a.rda_id===r.id).length,imp:r.importo_totale,rda:r};
         (r.stato==='pagata'?cols.pagata:cols.emessa).push(entry);
@@ -2445,7 +2509,7 @@ function renderChiusuraKanban(){
       }
     });
     // RDA storiche da prima di questa modifica, senza tipologia: restano visibili così come sono
-    STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && !r.tipo).forEach(r=>{
+    STATE.rdas.filter(r=>r.teacher_id===tid && (r.mese||'').slice(0,7)===month && !r.tipo && !rdaAnnullata(r) && (isScopedRole() ? rdaInScope(r) : !scopeTipiAllowed())).forEach(r=>{
       const entry={teacher:t,tipo:null,count:STATE.activities.filter(a=>a.rda_id===r.id).length,imp:r.importo_totale,rda:r};
       if(r.stato==='pagata') cols.pagata.push(entry);
       else if(r.stato==='emessa') cols.emessa.push(entry);
@@ -2509,17 +2573,20 @@ function kanbanCardHtml(key,it){
     <input type="text" class="rda-rif" data-id="${r.id}" placeholder="Codice RDA (numero SAP)" value="${esc(r.rif_rda||'')}">
     <button type="button" class="btn small rda-inserisci" data-id="${r.id}"${r.rif_rda&&r.rif_rda.trim()?'':' disabled'} title="Salva il Codice RDA: la RDA passa allo stato 'inserita', bloccata per sempre"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>Inserisci</button>
     <button type="button" class="btn ghost small rda-regen" data-teacher="${t.id}" data-month="${month}" data-tipo="${esc(it.tipo||'')}" title="Ricalcola l'importo dalle attività attuali del gruppo — non tocca Codice RDA o stato"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M23 4v6h-6M1 20v-6h6"/><path d="M3.51 9a9 9 0 0114.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0020.49 15"/></svg>Ricalcola totale</button>
+    ${annullaBtnHtml(r)}
   </div>`;
   if(key==='emessa') return `<div class="kanban-card">
     <div class="who">${who}</div>
     <div class="amt">${eur2(it.imp)}</div>
     <div class="hint">Codice RDA: <b>${esc(r.rif_rda||'—')}</b></div>
     <button type="button" class="btn small rda-pagato" data-id="${r.id}" title="Segna l'RDA come pagata: chiude il ciclo, l'importo passa da Allocato a Speso nel tool Budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>RDA Pagato</button>
+    ${annullaBtnHtml(r)}
   </div>`;
   return `<div class="kanban-card done">
     <div class="who">${who}</div>
     <div class="amt">${eur2(it.imp)}</div>
     <div class="hint">Codice RDA: <b>${esc(r.rif_rda||'—')}</b></div>
+    ${annullaBtnHtml(r)}
   </div>`;
 }
 function wireKanbanCards(){
@@ -2536,6 +2603,7 @@ function wireKanbanCards(){
   box.querySelectorAll(".kb-sollecita").forEach(b=>b.onclick=()=>sollecitaDocente(b.dataset.id));
   box.querySelectorAll(".kb-gen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher, document.getElementById("chMonth").value, b.dataset.tipo));
   box.querySelectorAll(".rda-regen").forEach(b=>b.onclick=()=>generateRda(b.dataset.teacher,b.dataset.month,b.dataset.tipo));
+  box.querySelectorAll(".rda-annulla").forEach(b=>b.onclick=()=>annullaRda(b.dataset.id));
   // stesso flusso esplicito a due tasti della vista Elenco (2026-09-16): il codice si conferma con
   // "Inserisci" (o Invio), non più al blur — sposta la card da sola nella colonna "RDA emesse"
   box.querySelectorAll(".rda-rif").forEach(i=>{
@@ -2563,6 +2631,9 @@ function wireKanbanCards(){
   });
 }
 async function generateRda(teacherId, month, tipo){
+  // il responsabile genera RDA solo per le tipologie dei propri centri (il database rifiuterebbe le altre)
+  const consentite=scopeTipiAllowed();
+  if(consentite && !consentite.has(tipo)){ toast(DENY_MSG+": questa tipologia non appartiene ai tuoi centri di costo.",'err'); return; }
   const acts=activitiesForRda(teacherId,month,tipo);
   const tot=acts.reduce((s,a)=>s+activityAmount(a),0)*cassaMultiplier(teacherById(teacherId));
   // solo la bozza ancora aperta per questo docente/mese/tipologia va riusata — una già inserita
@@ -2593,6 +2664,165 @@ async function generateRda(teacherId, month, tipo){
   save(); renderChiusura(); toast("RDA aggiornata: "+eur(tot));
   acts.forEach(a=>cloudUpsertActivity(a));
   syncBudgetMovement(r); // se l'RDA ha già un codice, riallinea anche il movimento in Gestione Budget
+}
+
+/* ============================ ANNULLA RDA ============================
+   Mai DELETE: la RDA passa allo stato 'annullata' (resta nello storico), le attivita' vengono scollegate e il movimento
+   creato nel Budget dal ponte (bdg_expenses.source_rda_id) va nel cestino del Budget (soft delete). Ogni passo controlla
+   le righe davvero toccate: "fatto" solo se il database lo ha eseguito. Ordine: prima la RDA (se fallisce non si tocca
+   altro), poi le attivita', poi il Budget; un errore a meta' viene detto chiaramente, senza dichiarare successo. */
+const MSG_MIGRAZIONE_ANNULLATA="Il database non è ancora aggiornato per annullare le RDA (manca la migrazione dello stato «annullata»): nessuna modifica effettuata. Avvisa l'amministratore.";
+// colonna annullata_il/annullata_da assente, oppure stato 'annullata' non ammesso dal CHECK: migrazione non ancora eseguita
+function isAnnullataMigrazioneMancante(error){
+  if(!error) return false;
+  return error.code==='42703' || error.code==='PGRST204' || error.code==='23514' || /annullata_(il|da)|schema cache|does not exist/i.test(String(error.message||''));
+}
+function fmtDataLunga(iso){ const p=String(iso||'').slice(0,10).split('-'); return p.length===3?`${p[2]}/${p[1]}/${p[0]}`:String(iso||''); }
+// attivita' collegate e cosa succede a ciascuna: data passata o di oggi -> resta "svolta" (solo scollegata); futura -> torna "programmata"
+function annullaPlan(r){
+  const acts=STATE.activities.filter(a=>a.rda_id===r.id);
+  const futuro=acts.filter(a=>isFutureDate(a.data)), passate=acts.filter(a=>!isFutureDate(a.data));
+  return {acts, passate, futuro, haMovimento:r.stato==='emessa'||r.stato==='pagata'};
+}
+function annullaTitolo(r){
+  const t=teacherById(r.teacher_id);
+  return `${t?t.nome:''} · ${r.tipo?tipoLabel(r.tipo):'storico (senza tipologia)'} · ${monthLabel((r.mese||'').slice(0,7))} · ${eur2(r.importo_totale)}`;
+}
+// dialogo con le conseguenze; per una RDA pagata (solo admin) due passaggi: elenco -> digitare ANNULLA
+function showAnnullaDialog(r,plan){
+  return new Promise(resolve=>{
+    const ov=document.getElementById("annullaOverlay"), body=document.getElementById("annBody"), typeBox=document.getElementById("annTypeBox");
+    const typeIn=document.getElementById("annType"), ok=document.getElementById("annOk"), cancel=document.getElementById("annCancel"), title=document.getElementById("annTitle");
+    const pagata=r.stato==='pagata';
+    const centro=centroOfTipo(r.tipo);
+    const li=[];
+    if(r.rif_rda) li.push(`Il Codice RDA <b>${esc(r.rif_rda)}</b> viene tolto dall'RDA e conservato nelle note.`);
+    li.push(`<b>${plan.acts.length}</b> attività vengono scollegate dall'RDA`+(plan.acts.length?`: ${plan.passate.length} restano «svolta» (data passata o di oggi), ${plan.futuro.length} tornano «programmata» (data futura).`:'.'));
+    if(plan.haMovimento) li.push(`Il movimento nel Budget (<b>${esc(eur2(r.importo_totale))}</b>, centro ${esc(centro)}) viene tolto dal Budget (finisce nel cestino di Gestione Budget).`);
+    else li.push(`Non c'è ancora nessun movimento nel Budget da togliere.`);
+    li.push(r.stato==='bozza' ? `Dopo l'annullamento potrai generare una nuova RDA per lo stesso docente, mese e tipologia.` : `La RDA resta nello Storico RDA come «Annullata».`);
+    let step=1;
+    const draw=()=>{
+      if(step===1){
+        title.textContent="Annulla RDA";
+        body.innerHTML=`<div style="margin-bottom:6px">${esc(annullaTitolo(r))}</div><ul class="ann-list">${li.map(x=>`<li>${x}</li>`).join('')}</ul>`+(pagata?`<div class="ann-warn">Questa RDA risulta già <b>pagata</b>. Annullarla è un'operazione eccezionale, riservata all'amministratore.</div>`:'');
+        typeBox.style.display='none'; ok.textContent=pagata?'Continua':'Annulla RDA'; ok.disabled=false;
+      } else {
+        title.textContent="Conferma l'annullamento";
+        body.innerHTML=`<div class="ann-warn">Stai per annullare una RDA <b>già pagata</b> (${esc(annullaTitolo(r))}). Non si torna indietro da qui.</div>`;
+        typeBox.style.display=''; typeIn.value=''; ok.textContent='Annulla RDA'; ok.disabled=true;
+        if(typeIn.focus) typeIn.focus();
+      }
+    };
+    const onKey=e=>{ if(e.key==='Escape') cleanup(false); };
+    const cleanup=val=>{ ov.classList.remove("on"); ok.onclick=null; cancel.onclick=null; typeIn.oninput=null; document.removeEventListener('keydown',onKey); resolve(val); };
+    ok.onclick=()=>{
+      if(step===1 && pagata){ step=2; draw(); return; }
+      if(pagata && typeIn.value.trim()!=='ANNULLA') return;
+      cleanup(true);
+    };
+    cancel.onclick=()=>cleanup(false);
+    typeIn.oninput=()=>{ ok.disabled = step===2 && typeIn.value.trim()!=='ANNULLA'; };
+    document.addEventListener('keydown',onKey);
+    draw(); ov.classList.add("on");
+  });
+}
+const _annullaInCorso=new Set();
+async function annullaRda(id){
+  const r=rdaById(id); if(!r) return false;
+  if(!canAnnullaRda(r)){
+    toast(DENY_MSG+(r.stato==='pagata'?": una RDA già pagata può essere annullata solo dall'amministratore.":": non puoi annullare questa RDA."),'err');
+    return false;
+  }
+  if(_annullaInCorso.has(id)) return false;
+  _annullaInCorso.add(id);
+  try{
+    const ok=await showAnnullaDialog(r,annullaPlan(r));
+    if(!ok) return false;
+    return await eseguiAnnullaRda(id);
+  } finally { _annullaInCorso.delete(id); }
+}
+async function eseguiAnnullaRda(id){
+  const r=rdaById(id);
+  if(!r || !canAnnullaRda(r)){ toast(DENY_MSG+": non puoi annullare questa RDA.",'err'); return false; }
+  const prev={stato:r.stato, rif:r.rif_rda||'', note:r.note||''};
+  const plan=annullaPlan(r);
+  const online=cloudReady();
+  const adesso=new Date().toISOString(), oggi=todayRome(), utente=cloudUser()||CURRENT.email||null;
+  const nota=(prev.note?prev.note+' | ':'')+`Annullata il ${fmtDataLunga(oggi)}: codice ${prev.rif||'—'}`;
+  const problemi=[], avvisi=[];
+
+  // 1) la RDA: se questo passo fallisce non si tocca nient'altro
+  if(online){
+    let res;
+    try{ res=await sb.from('bdg_teacher_rda').update({stato:'annullata',note:nota,rif_rda:null,rif_rda_data:null,annullata_il:adesso,annullata_da:utente}).eq('id',r.id).eq('stato',prev.stato).select('id'); }
+    catch(e){ res={error:e}; }
+    if(res.error){
+      console.error('annulla RDA',res.error); cloudSetDot('err');
+      if(isDenied(res.error)) toast(DENY_MSG+". L'RDA non è stata annullata.",'err');
+      else if(isAnnullataMigrazioneMancante(res.error)) toast(MSG_MIGRAZIONE_ANNULLATA+(res.error.code==='23514'?'':' ('+(res.error.message||'')+')'),'err');
+      else toast("RDA non annullata: "+errText(res.error),'err');
+      return false;
+    }
+    if(!res.data || res.data.length!==1){
+      cloudSetDot('err');
+      toast("RDA non annullata: "+DENY_MSG+", oppure l'RDA è stata modificata nel frattempo. Nessuna modifica effettuata.",'err'); pullAfterDenied();
+      return false;
+    }
+  }
+  r.stato='annullata'; r.note=nota; r.rif_rda=''; r.rif_rda_data=null; r.annullata_il=adesso; r.annullata_da=utente;
+
+  // 2) le attivita': scollegate; quelle con data futura tornano "programmata"
+  const scollega=async(lista,patch,etichetta)=>{
+    if(!lista.length) return;
+    if(!online){ lista.forEach(a=>Object.assign(a,patch)); return; }
+    let res;
+    try{ res=await sb.from('bdg_teacher_activities').update(patch).in('id',lista.map(a=>a.id)).select('id'); }catch(e){ res={error:e}; }
+    if(res.error){ problemi.push(`attività ${etichetta} NON scollegate: ${errText(res.error)}`); return; }
+    const fatte=new Set((res.data||[]).map(x=>x.id));
+    lista.forEach(a=>{ if(fatte.has(a.id)) Object.assign(a,patch); });
+    if(fatte.size<lista.length) problemi.push(`attività ${etichetta}: scollegate ${fatte.size} su ${lista.length} (${DENY_MSG})`);
+  };
+  await scollega(plan.passate,{rda_id:null},'passate');
+  await scollega(plan.futuro,{rda_id:null,stato:'programmata'},'future');
+
+  // 3) il movimento nel Budget (soft delete come il cestino del Budget; il ponte lo identifica con source_rda_id)
+  let movimentoTolto=false;
+  if(plan.haMovimento && online){
+    let res;
+    try{ res=await sb.from('bdg_expenses').update({deleted_at:adesso,deleted_by:utente}).eq('source_rda_id',r.id).is('deleted_at',null).select('id'); }catch(e){ res={error:e}; }
+    if(res.error) problemi.push(`il movimento nel Budget NON è stato tolto (${errText(res.error)}): la spesa resta in Gestione Budget, avvisa l'amministratore`);
+    else if(!(res.data||[]).length) avvisi.push(`nel Budget non ho trovato il movimento di questa RDA (già tolto o mai creato): controlla in Gestione Budget`);
+    else movimentoTolto=true;
+  }
+
+  // 4) registro modifiche, solo ora che l'annullamento e' andato a buon fine
+  cloudAudit('modifica','bdg_teacher_rda',annullaTitolo(r)+' · annullata',{
+    stato:{da:prev.stato,a:'annullata'}, rif_rda:{da:prev.rif||null,a:null},
+    attivita_scollegate:{da:plan.acts.length,a:0}, movimento_budget:{da:plan.haMovimento?'presente':'assente',a:movimentoTolto?'tolto':(plan.haMovimento?'NON tolto':'assente')},
+    completo:{da:null,a:problemi.length===0}
+  });
+  save(); renderAll(); if(online) flashSynced();
+  if(problemi.length){ toast("RDA annullata, ma "+problemi.join('; ')+".",'err'); pullAfterDenied(); }
+  else if(avvisi.length) toast("RDA annullata. Attenzione: "+avvisi.join('; ')+".",'warn');
+  else toast("RDA annullata"+(online?'':' (solo su questo dispositivo)')+"."+(prev.stato==='bozza'?" Puoi generarne una nuova.":""));
+  return true;
+}
+// attivita' con data futura che risultano svolte o collegate a una RDA (dati incoerenti, da controllare); solo admin/responsabile, nel loro perimetro
+function futureSvolte(){
+  if(!canManage()) return [];
+  return STATE.activities.filter(a=>activityInScope(a) && isFutureDate(a.data) && (a.stato==='svolta' || actHasRda(a))).sort(actCmpAsc);
+}
+let _futOpen=false;
+function renderFutureBanner(){
+  const b=document.getElementById('futureBanner'); if(!b) return;
+  const list=futureSvolte();
+  if(!list.length){ b.style.display='none'; b.innerHTML=''; return; }
+  b.style.display='block'; b.className='role-banner warn';
+  b.innerHTML=`<b>${list.length} attività future risultano svolte</b>${list.some(a=>a.stato!=='svolta')?' o collegate a una RDA':''}: da controllare. <button type="button" class="btn ghost small" id="futToggle" style="margin-left:8px">${_futOpen?'Nascondi elenco':'Mostra elenco'}</button>`
+    +(_futOpen?`<div class="fut-list">${list.map(a=>`<button type="button" class="fut-item" data-id="${esc(a.id)}">${esc(fmtD(a.data))} · ${esc(teacherById(a.teacher_id).nome)} · ${esc(tipoLabel(a.tipo))} · ${esc(a.stato)}${actHasRda(a)?' · in RDA':''}</button>`).join('')}</div>`:'');
+  const t=document.getElementById('futToggle'); if(t) t.onclick=()=>{ _futOpen=!_futOpen; renderFutureBanner(); };
+  b.querySelectorAll('.fut-item').forEach(x=>x.onclick=()=>openActivity(x.dataset.id));
 }
 
 /* ============================ MODALI ATTIVITÀ ============================ */
@@ -2971,6 +3201,17 @@ function saveActivity(){
   if(isNaN(rate)||rate<0){ toast("Inserisci l'importo orario"); return; }
   const note = document.getElementById("aNote").value.trim();
   if(!note){ toast("Il campo Note è obbligatorio"); return; }
+  // una data "svolta" non puo' stare nel futuro (il database la rifiuta, 23514): se la si sposta oltre oggi l'attivita'
+  // torna "programmata" — salvo che sia gia' in un'RDA inserita/pagata: li' prima va annullata l'RDA
+  for(const r of aRows){
+    if(!r.rowId || !isFutureDate(r.data)) continue;
+    const ex=STATE.activities.find(x=>x.id===r.rowId);
+    if(ex && ex.stato==='svolta' && rdaLocked(ex.rda_id?rdaById(ex.rda_id):null)){
+      toast(`Non puoi spostare al ${fmtD(r.data)} un'attività già in un'RDA inserita/pagata: annulla prima l'RDA in Chiusura mensile.`,'err');
+      return;
+    }
+  }
+  const riportate=[];
   const teacherId=document.getElementById("aTeacher").value;
   const area=document.getElementById("aArea").value||null;
   const tipo=document.getElementById("aTipo").value;
@@ -3000,6 +3241,7 @@ function saveActivity(){
         const frozen = existing.stato==='svolta';
         const rowRate = frozen && existing.tariffa_oraria!=null ? Number(existing.tariffa_oraria) : rate;
         Object.assign(existing, base, { tariffa_oraria:rowRate, importo:ore*rowRate });
+        if(existing.stato==='svolta' && isFutureDate(existing.data)){ existing.stato='programmata'; existing.rda_id=null; riportate.push(existing); }
         touched.push(existing);
       }
     } else {
@@ -3023,10 +3265,11 @@ function saveActivity(){
   });
   document.getElementById("actOverlay").classList.remove("on");
   renderAll();
-  const okMsg=editGroupId?"Attività aggiornata":"Attività aggiunta";
+  const okMsg=(editGroupId?"Attività aggiornata":"Attività aggiunta")+(riportate.length?`: ${riportate.length===1?"la data è nel futuro, l'attività torna":riportate.length+" date sono nel futuro, tornano"} «programmata» (si conferma come svolta solo dalla data in poi)`:'');
+  const okTipo=riportate.length?'warn':undefined;
   // se una data da togliere viene rifiutata dal database l'esito positivo non va annunciato
-  if(removedIds.length) cloudDeleteActivities(removedIds,null).then(ok=>{ if(ok) toast(okMsg); });
-  else toast(okMsg);
+  if(removedIds.length) cloudDeleteActivities(removedIds,null).then(ok=>{ if(ok) toast(okMsg,okTipo); });
+  else toast(okMsg,okTipo);
   touched.forEach(x=>cloudUpsertActivity(x));
 }
 function deleteActivity(){
@@ -3792,8 +4035,20 @@ function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clear
 // "sincronizzato" ne' come semplice errore di rete
 const DENY_MSG="Operazione non consentita dal tuo ruolo";
 function isDenied(error){ return !!error && (error.code==='42501' || /row-level security|permission denied/i.test(error.message||'')); }
-function errText(error){ return isDenied(error) ? DENY_MSG : ((error&&error.message)||'riprova'); }
-function modalBusy(){ return document.getElementById('actOverlay').classList.contains('on')||document.getElementById('cloudOverlay').classList.contains('on')||document.getElementById('anaOverlay').classList.contains('on'); }
+// 23514 = CHECK del database violato. Il caso atteso e' quello di un'attivita' "svolta" con data futura (il database
+// non lo accetta): si traduce in una frase chiara invece del messaggio tecnico
+function isCheckViolation(error){ return !!error && error.code==='23514'; }
+function errText(error){
+  if(isDenied(error)) return DENY_MSG;
+  if(isCheckViolation(error)){
+    const m=String(error.message||'');
+    return /svolt|futur|data/i.test(m)
+      ? "il database non accetta come «svolta» un'attività con data futura: riportala a «programmata» oppure correggi la data"
+      : "valore non ammesso dal database ("+m+")";
+  }
+  return (error&&error.message)||'riprova';
+}
+function modalBusy(){ return document.getElementById('annullaOverlay').classList.contains('on')||document.getElementById('actOverlay').classList.contains('on')||document.getElementById('cloudOverlay').classList.contains('on')||document.getElementById('anaOverlay').classList.contains('on'); }
 let _deniedPullT=null;
 // dopo un rifiuto la modifica resta solo a schermo: si rilegge il database cosi' la vista torna a mostrare cio' che c'e' davvero
 function pullAfterDenied(){
@@ -3807,6 +4062,7 @@ function pullAfterDenied(){
 function cloudErr(ctx,error){
   console.error(ctx,error); cloudSetDot('err');
   if(isDenied(error)){ toast(DENY_MSG+" ("+ctx+"). La modifica non è stata salvata.",'err'); pullAfterDenied(); return; }
+  if(isCheckViolation(error)){ toast("Modifica rifiutata dal database ("+ctx+"): "+errText(error)+". Non è stata salvata.",'err'); pullAfterDenied(); return; }
   toast("Errore salvataggio cloud ("+ctx+"): "+errText(error)+" — dato solo in locale",'err');
 }
 function interfaceRow(i){ return {id:i.id,nome:i.nome,email:i.email||null,aree:i.aree||[],attivo:i.attivo!==false}; }
@@ -3829,7 +4085,7 @@ async function cloudPullAll(silent){
     HAS_ASSUNTO_COL=!!(tc&&tc.length&&('flag_assunto' in tc[0]));
     STATE.teachers=(tc||[]).map(mapTeacherRow);
     STATE.activities=(ac||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,school_id:x.school_id||null,luogo:x.luogo||null,area:x.area||null,nome:x.nome||"",tipo:x.tipo,data:x.data,ore:Number(x.ore)||0,tariffa_oraria:x.tariffa_oraria==null?null:Number(x.tariffa_oraria),importo:x.importo==null?null:Number(x.importo),stato:x.stato||'programmata',rda_id:x.rda_id||null,note:x.note||"",gruppo_id:x.gruppo_id||null,bonus_ore:x.bonus_ore==null?null:Number(x.bonus_ore),bonus_importo:x.bonus_importo==null?null:Number(x.bonus_importo),cal_added_at:x.cal_added_at||null,rda_mode:x.rda_mode||'fine_periodo',sede_sessione:x.sede_sessione||null,ora_evento:x.ora_evento||null,ora_evento_fine:x.ora_evento_fine||null}));
-    STATE.rdas=(rd||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,mese:x.mese,tipo:x.tipo||null,stato:x.stato||'bozza',rif_rda:x.rif_rda||"",rif_rda_data:x.rif_rda_data||null,importo_totale:Number(x.importo_totale)||0,note:x.note||""}));
+    STATE.rdas=(rd||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,mese:x.mese,tipo:x.tipo||null,stato:x.stato||'bozza',rif_rda:x.rif_rda||"",rif_rda_data:x.rif_rda_data||null,importo_totale:Number(x.importo_totale)||0,note:x.note||"",annullata_il:x.annullata_il||null,annullata_da:x.annullata_da||null}));
     await cloudFetchRoles();
     themeApplyFromCloud();
     await fetchSchoolNames([...new Set(STATE.activities.map(a=>a.school_id).filter(Boolean))]);
@@ -4015,7 +4271,7 @@ function renderCloudModal(){
 }
 
 /* ============================ WIRING + BOOT ============================ */
-function toast(m,type){ const t=document.getElementById("toast"); t.textContent=m; t.className="on"+(type==='err'?' err':''); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),type==='err'?6000:2200); }
+function toast(m,type){ const t=document.getElementById("toast"); t.textContent=m; t.className="on"+(type==='err'?' err':''); clearTimeout(toast._t); toast._t=setTimeout(()=>t.classList.remove("on"),(type==='err'||type==='warn')?(type==='warn'?8000:6000):2200); }
 // conferma "curata" al posto del confirm() nativo del browser — stesso design system delle altre modali
 function showConfirm(title,msg,okLabel){
   return new Promise(resolve=>{
