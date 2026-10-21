@@ -1,6 +1,78 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+<!-- inline-theme:begin -->
+<script>
+/* Motore dei temi NABA — sorgente CANONICO (v1).
+   Lo script scripts/inline-theme.js lo copia identico in <head> di Portale, Budget, Spese EC e Docenti
+   (blocco "naba-theme"). NON modificare il blocco dentro gli HTML: si cambia qui e si rilancia
+   "node scripts/inline-theme.js".
+
+   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark
+     - auto        = tema base che segue il sistema operativo (chiaro/scuro)
+     - light, dark = tema base fisso
+     - apple-*     = stile Apple (chiaro o scuro) sopra la stessa palette di base
+   Sul <html> imposta: data-theme="light|dark" (assente se auto), data-style="apple" (assente se base),
+   data-theme-choice="<id>". Le pagine gia' hanno le palette base (:root, @media prefers-color-scheme,
+   :root[data-theme="dark"]); lo stile Apple si scrive in CSS con :root[data-style="apple"] { ... }.
+
+   API: window.nabaTheme = { get(), set(id, opzioni), fromCloud(id), list, label(id), onChange(fn), setSaver(fn) }
+     set(id)        applica, ricorda su questo dispositivo (localStorage), avvisa gli altri frame/schede e, se la
+                    pagina ha registrato un "saver", salva la scelta come predefinita dell'utente nel cloud
+     fromCloud(id)  applica la scelta salvata dall'utente (al login) senza risalvarla
+     setSaver(fn)   fn(id) -> Promise: scrive nel cloud (le pagine usano bdg_save_prefs con la chiave 'ui') */
+(function () {
+  'use strict';
+  var KEY = 'naba_theme';
+  var LIST = [
+    { id: 'auto', label: 'Automatico (come il dispositivo)' },
+    { id: 'light', label: 'Chiaro' },
+    { id: 'dark', label: 'Scuro' },
+    { id: 'apple-light', label: 'Apple chiaro' },
+    { id: 'apple-dark', label: 'Apple scuro' }
+  ];
+  var listeners = [], saver = null;
+  function valid(id) { for (var i = 0; i < LIST.length; i++) if (LIST[i].id === id) return true; return false; }
+  function get() { try { var v = localStorage.getItem(KEY); return valid(v) ? v : 'auto'; } catch (e) { return 'auto'; } }
+  function apply(id) {
+    var r = document.documentElement, apple = id.indexOf('apple') === 0, mode = id === 'auto' ? '' : id.replace('apple-', '');
+    if (mode) r.setAttribute('data-theme', mode); else r.removeAttribute('data-theme');
+    if (apple) r.setAttribute('data-style', 'apple'); else r.removeAttribute('data-style');
+    r.setAttribute('data-theme-choice', id);
+    for (var i = 0; i < listeners.length; i++) { try { listeners[i](id); } catch (e) { /* un ascoltatore guasto non blocca gli altri */ } }
+  }
+  function remember(id) { try { localStorage.setItem(KEY, id); } catch (e) { /* storage non disponibile: il tema vale solo per questa pagina */ } }
+  function broadcast(id) {
+    var msg = { naba: 'theme', theme: id }, i, f;
+    try { if (window.parent && window.parent !== window) window.parent.postMessage(msg, location.origin); } catch (e) {}
+    try { f = document.getElementsByTagName('iframe'); for (i = 0; i < f.length; i++) { try { f[i].contentWindow.postMessage(msg, location.origin); } catch (e2) {} } } catch (e3) {}
+  }
+  function set(id, opt) {
+    if (!valid(id)) id = 'auto';
+    remember(id); apply(id); broadcast(id);
+    if (!(opt && opt.persist === false) && saver) { try { var p = saver(id); if (p && p.catch) p.catch(function () { /* salvataggio cloud non riuscito: resta il tema locale */ }); } catch (e) {} }
+  }
+  function fromCloud(id) { if (!valid(id)) return; remember(id); apply(id); broadcast(id); }
+  window.nabaTheme = {
+    get: get, set: set, fromCloud: fromCloud, list: LIST,
+    label: function (id) { for (var i = 0; i < LIST.length; i++) if (LIST[i].id === id) return LIST[i].label; return id; },
+    onChange: function (fn) { if (typeof fn === 'function') listeners.push(fn); },
+    setSaver: function (fn) { saver = typeof fn === 'function' ? fn : null; }
+  };
+  function down(id) {   // inoltra ai frame figli (non al genitore: evita giri a vuoto)
+    var msg = { naba: 'theme', theme: id }, f, i;
+    try { f = document.getElementsByTagName('iframe'); for (i = 0; i < f.length; i++) { try { f[i].contentWindow.postMessage(msg, location.origin); } catch (e2) {} } } catch (e3) {}
+  }
+  window.addEventListener('message', function (ev) {
+    if (ev.origin !== location.origin) return;
+    var d = ev.data;
+    if (d && d.naba === 'theme' && valid(d.theme) && d.theme !== document.documentElement.getAttribute('data-theme-choice')) { remember(d.theme); apply(d.theme); down(d.theme); }
+  });
+  window.addEventListener('storage', function (ev) { if (ev.key === KEY && valid(ev.newValue) && ev.newValue !== document.documentElement.getAttribute('data-theme-choice')) apply(ev.newValue); });
+  apply(get());   // subito, prima del primo disegno: niente lampo di tema sbagliato
+})();
+</script>
+<!-- inline-theme:end -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
 <title>Docenti · NABA</title>
@@ -28,47 +100,73 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 /* inline-font:end */
 :root{
   --paper:#F5F3EC; --surface:#FFFFFF; --surface-2:#FBFAF6;
-  --ink:#1B1D19; --ink-soft:#5F6459; --ink-mute:#93968A;
+  --ink:#1B1D19; --ink-soft:#5F6459; --ink-mute:#676B5F;
   --line:#E4E1D5; --line-strong:#D2CEBD;
   --accent:#2E6B54; --accent-soft:#E3EFE8; --accent-ink:#1F4E3D;
-  --speso:#2E3532; --allocato:#C1892E; --residuo:#2E6B54; --over:#B5462F; --over-soft:#F7E4DD;
-  --warn:#B5791E; --warn-soft:#FBF0DD;
+  --accent-fill:#2E6B54; --accent-text:#2E6B54; --on-accent:#FFFFFF;
+  --speso:#2E3532; --allocato:#C1892E; --residuo:#2E6B54; --over:#AA3F2A; --over-soft:#F7E4DD;
+  --warn:#8F5F10; --warn-soft:#FBF0DD;
   --info-soft:#EDEBFF; --info-ink:#5B4B9A;
   --surface-mute:#EFEEE8;
   --shadow-sm:0 1px 2px rgba(27,29,25,.05), 0 1px 1px rgba(27,29,25,.04);
   --shadow-md:0 4px 16px rgba(27,29,25,.07), 0 1px 2px rgba(27,29,25,.05);
   --shadow-lg:0 16px 44px rgba(27,29,25,.16), 0 4px 12px rgba(27,29,25,.06);
-  --radius:12px; --radius-lg:16px;
+  --radius:12px; --radius-lg:16px; --r-ctl:9px; --r-btn:9px;
+  /* testata, scrim, focus e font: ogni tema (base chiaro/scuro, Apple) li ridefinisce, niente colori fissi nelle regole */
+  --hdr-bg:#1B1D19; --hdr-fg:#F4F3EF; --hdr-mute:#A9AEA7; --hdr-ctl-bg:rgba(255,255,255,.07); --hdr-ctl-line:rgba(255,255,255,.14); --hdr-ctl-hover:rgba(255,255,255,.14);
+  --topbar-bg:var(--paper); --scrim:rgba(10,11,9,.5); --focus:#2E6B54; --focus-soft:rgba(46,107,84,.25);
+  --dot-on:#5FBF8F; --dot-halo:rgba(95,191,143,.25);
+  --font-ui:'Inter',system-ui,sans-serif; --font-mono:'JetBrains Mono',monospace;
+  color-scheme:light;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
-    --paper:#171815; --surface:#1F211C; --surface-2:#242620;
-    --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#787C6E;
-    --line:#33352C; --line-strong:#40422F;
-    --accent:#5AAE8C; --accent-soft:#213329; --accent-ink:#9AD8BB;
-    --speso:#C9C6BB; --allocato:#D9A659; --residuo:#5AAE8C; --over:#E17E64; --over-soft:#332019;
-    --warn:#E0A94E; --warn-soft:#2E2717;
-    --info-soft:#242138; --info-ink:#B3A8E8;
-    --surface-mute:#2A2C25;
-    --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 4px 16px rgba(0,0,0,.35); --shadow-lg:0 20px 50px rgba(0,0,0,.5);
-  }
-}
-:root[data-theme="dark"]{
   --paper:#171815; --surface:#1F211C; --surface-2:#242620;
-  --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#787C6E;
+  --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#9A9E90;
   --line:#33352C; --line-strong:#40422F;
   --accent:#5AAE8C; --accent-soft:#213329; --accent-ink:#9AD8BB;
+  --accent-fill:#5AAE8C; --accent-text:#5AAE8C; --on-accent:#0D1F17;
   --speso:#C9C6BB; --allocato:#D9A659; --residuo:#5AAE8C; --over:#E17E64; --over-soft:#332019;
   --warn:#E0A94E; --warn-soft:#2E2717;
   --info-soft:#242138; --info-ink:#B3A8E8;
   --surface-mute:#2A2C25;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 4px 16px rgba(0,0,0,.35); --shadow-lg:0 20px 50px rgba(0,0,0,.5);
+  --hdr-bg:#101210; --hdr-fg:#EDEBE2; --hdr-mute:#A7ABA0; --hdr-ctl-bg:rgba(255,255,255,.07); --hdr-ctl-line:rgba(255,255,255,.14); --hdr-ctl-hover:rgba(255,255,255,.14);
+  --topbar-bg:var(--paper); --scrim:rgba(0,0,0,.62); --focus:#5AAE8C; --focus-soft:rgba(90,174,140,.35);
+    --dot-on:#5FBF8F; --dot-halo:rgba(95,191,143,.25);
+  color-scheme:dark;
+  }
 }
+:root[data-theme="dark"]{
+  --paper:#171815; --surface:#1F211C; --surface-2:#242620;
+  --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#9A9E90;
+  --line:#33352C; --line-strong:#40422F;
+  --accent:#5AAE8C; --accent-soft:#213329; --accent-ink:#9AD8BB;
+  --accent-fill:#5AAE8C; --accent-text:#5AAE8C; --on-accent:#0D1F17;
+  --speso:#C9C6BB; --allocato:#D9A659; --residuo:#5AAE8C; --over:#E17E64; --over-soft:#332019;
+  --warn:#E0A94E; --warn-soft:#2E2717;
+  --info-soft:#242138; --info-ink:#B3A8E8;
+  --surface-mute:#2A2C25;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 4px 16px rgba(0,0,0,.35); --shadow-lg:0 20px 50px rgba(0,0,0,.5);
+  --hdr-bg:#101210; --hdr-fg:#EDEBE2; --hdr-mute:#A7ABA0; --hdr-ctl-bg:rgba(255,255,255,.07); --hdr-ctl-line:rgba(255,255,255,.14); --hdr-ctl-hover:rgba(255,255,255,.14);
+  --topbar-bg:var(--paper); --scrim:rgba(0,0,0,.62); --focus:#5AAE8C; --focus-soft:rgba(90,174,140,.35);
+    --dot-on:#5FBF8F; --dot-halo:rgba(95,191,143,.25);
+  color-scheme:dark;
+}
+:root[data-theme="light"]{color-scheme:light}
 *{box-sizing:border-box}
 html,body{margin:0}
-body{background:var(--paper);color:var(--ink);font-family:'Inter',system-ui,sans-serif;font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
-.eyebrow{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute);font-weight:600}
-.mono{font-family:'JetBrains Mono',monospace}
+/* controlli nativi ovunque (anche quelli senza classe, es. Log e tabelle): colori da token, mai bianco su bianco */
+:where(input:not([type=checkbox]):not([type=radio]):not([type=hidden]),select,textarea){font-family:inherit;color:var(--ink);background-color:var(--surface)}
+:where(input,textarea)::placeholder{color:var(--ink-mute);opacity:1}
+select option,select optgroup{background-color:var(--surface);color:var(--ink)}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent-fill)}
+button:disabled,.btn:disabled{opacity:.55;cursor:not-allowed}
+button:focus-visible,a:focus-visible,summary:focus-visible,[tabindex]:focus-visible{outline:2px solid var(--focus);outline-offset:2px}
+header :focus-visible{outline-color:var(--hdr-fg)}
+body{background:var(--paper);color:var(--ink);font-family:var(--font-ui);font-size:14px;line-height:1.5;-webkit-font-smoothing:antialiased}
+.eyebrow{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute);font-weight:600}
+.mono{font-family:var(--font-mono)}
 h2.sec{font-size:16px;font-weight:700;letter-spacing:-.01em;margin:0 0 2px}
 .sec-desc{color:var(--ink-soft);margin:0 0 14px;max-width:760px}
 .hint{color:var(--ink-mute);font-size:12px}
@@ -77,34 +175,50 @@ h2.sec{font-size:16px;font-weight:700;letter-spacing:-.01em;margin:0 0 2px}
 /* header + tab bar: un unico blocco sticky, così la barra tab si aggancia sempre subito sotto
    l'header reale (che può cambiare altezza con flex-wrap) invece di un offset fisso indovinato,
    che altrimenti lascia scoprire un varco dove il contenuto sotto sfila male dietro */
-.topbar{position:sticky;top:0;z-index:30;background:var(--paper)}
-header{background:var(--ink);color:var(--paper);display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:14px 22px;box-shadow:var(--shadow-md)}
+.topbar{position:sticky;top:0;z-index:30;background:var(--topbar-bg)}
+header{background:var(--hdr-bg);color:var(--hdr-fg);display:flex;align-items:center;gap:18px;flex-wrap:wrap;padding:14px 22px;box-shadow:var(--shadow-md)}
 .brand{display:flex;align-items:center;gap:10px;margin-right:auto}
 .brand .mark{width:28px;height:28px;border-radius:8px;background:linear-gradient(155deg,var(--accent),var(--accent-ink));flex:0 0 auto}
 .brand .t{font-weight:800;font-size:16px;display:flex;align-items:center;gap:9px;letter-spacing:-.01em}
-.brand .s{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:#9DA39C}
+.brand .s{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--hdr-mute)}
 .brand .dot{display:none}
 .hctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.hgroup{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.12);border-radius:9px;padding:6px 10px}
-.hgroup label{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:#9DA39C}
-.hgroup select,.hgroup input{background:transparent;border:0;color:#F4F3EF;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;outline:none}
-.hgroup select option{color:#1B1D1C}
+/* gruppo "etichetta + controllo": di base su superficie chiara/scura del tema; in testata prende i colori della testata */
+.hgroup{display:flex;align-items:center;gap:6px;background:var(--surface);border:1px solid var(--line-strong);border-radius:var(--r-ctl);padding:6px 10px}
+.hgroup label{font-family:var(--font-mono);font-size:8.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute)}
+.hgroup select,.hgroup input{background:transparent;border:0;color:var(--ink);font-family:var(--font-ui);font-size:13px;font-weight:600;outline:none}
+header .hgroup{background:var(--hdr-ctl-bg);border-color:var(--hdr-ctl-line)}
+header .hgroup label{color:var(--hdr-mute)}
+header .hgroup select,header .hgroup input{color:var(--hdr-fg)}
+.hgroup:focus-within{box-shadow:0 0 0 2px var(--focus)}
+header .hgroup:focus-within{box-shadow:0 0 0 2px var(--hdr-fg)}
+.hgroup select:disabled{cursor:not-allowed}
 /* "Vista" filtrata su un singolo docente: colora il controllo così l'admin non se ne dimentica */
-.hgroup.view-active{background:var(--accent);border-color:var(--accent)}
-.hgroup.view-active label{color:rgba(255,255,255,.8)}
-.hgroup.view-active select{color:#fff;font-weight:700}
-.hbtn{display:inline-flex;align-items:center;gap:7px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.14);color:#F4F3EF;border-radius:9px;padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer}
-.hbtn:hover{background:rgba(255,255,255,.14)}
+.hgroup.view-active{background:var(--accent-fill);border-color:var(--accent-fill)}
+.hgroup.view-active label{color:var(--on-accent)}
+.hgroup.view-active select{color:var(--on-accent);font-weight:700}
+.hbtn{display:inline-flex;align-items:center;gap:7px;background:var(--hdr-ctl-bg);border:1px solid var(--hdr-ctl-line);color:var(--hdr-fg);border-radius:var(--r-btn);padding:8px 12px;font-size:13px;font-weight:600;cursor:pointer;font-family:var(--font-ui)}
+.hbtn:hover{background:var(--hdr-ctl-hover)}
+/* menu Tema in testata */
+.theme-wrap{position:relative}
+.theme-menu{display:none;position:absolute;right:0;top:calc(100% + 6px);min-width:240px;background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);border-radius:var(--radius);box-shadow:var(--shadow-lg);padding:6px;z-index:70}
+.theme-menu.on{display:block}
+.theme-item{display:flex;align-items:center;gap:10px;width:100%;background:none;border:0;border-radius:8px;padding:9px 10px;font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;text-align:left}
+.theme-item:hover,.theme-item:focus-visible{background:var(--surface-2)}
+.theme-item[aria-checked="true"]{background:var(--accent-soft);color:var(--accent-ink)}
+.theme-item .chk{width:15px;height:15px;flex:none;visibility:hidden}
+.theme-item[aria-checked="true"] .chk{visibility:visible}
+.theme-item:focus-visible{outline:2px solid var(--focus);outline-offset:-2px}
 .hbtn svg{width:15px;height:15px}
 .cloud-dot{width:8px;height:8px;border-radius:50%;display:inline-block}
-.cloud-dot.off{background:#9A9E97}.cloud-dot.on{background:#5FBF8F;box-shadow:0 0 0 3px rgba(95,191,143,.25)}
-.cloud-dot.sync{background:var(--allocato);animation:pulse 1s infinite}.cloud-dot.err{background:var(--over)}
+.cloud-dot.off{background:var(--hdr-mute)}.cloud-dot.on{background:var(--dot-on);box-shadow:0 0 0 3px var(--dot-halo)}
+.cloud-dot.sync{background:var(--warn);animation:pulse 1s infinite}.cloud-dot.err{background:var(--over)}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 @media (prefers-reduced-motion:reduce){.cloud-dot.sync{animation:none}}
 
 /* tabs */
 nav.tabs{background:var(--surface-2);border:1px solid var(--line);border-radius:12px;display:flex;gap:4px;padding:5px;margin:20px auto;max-width:1180px;width:calc(100% - 40px);overflow-x:auto}
-nav.tabs button{background:none;border:0;border-radius:8px;padding:9px 16px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
+nav.tabs button{background:none;border:0;border-radius:8px;padding:9px 16px;font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
 nav.tabs button.on{color:var(--ink);background:var(--surface);box-shadow:var(--shadow-sm)}
 nav.tabs button:not(.on):hover{color:var(--ink)}
 
@@ -121,28 +235,28 @@ main{max-width:1180px;margin:0 auto;padding:20px 20px 80px}
 .kpi::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bar,var(--accent))}
 .kpi .l{display:flex;align-items:center;gap:8px;margin-bottom:8px}
 .kpi .sw{width:9px;height:9px;border-radius:2px}
-.kpi .v{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:23px;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
+.kpi .v{font-family:var(--font-mono);font-weight:700;font-size:23px;letter-spacing:-.01em;font-variant-numeric:tabular-nums}
 .kpi .sub{color:var(--ink-mute);font-size:11.5px;margin-top:3px}
 
 /* tables */
 table{width:100%;border-collapse:collapse}
-thead th{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-mute);font-weight:600;text-align:right;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
+thead th{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.09em;text-transform:uppercase;color:var(--ink-mute);font-weight:600;text-align:right;padding:12px 14px;border-bottom:1px solid var(--line);white-space:nowrap}
 thead th.l{text-align:left}
-tbody td{padding:11px 14px;border-bottom:1px solid var(--line);text-align:right;font-family:'JetBrains Mono',monospace;font-weight:600}
-tbody td.l{text-align:left;font-family:'Inter',sans-serif;font-weight:400}
+tbody td{padding:11px 14px;border-bottom:1px solid var(--line);text-align:right;font-family:var(--font-mono);font-weight:600}
+tbody td.l{text-align:left;font-family:var(--font-ui);font-weight:400}
 tbody tr:last-child td{border-bottom:0}
-tfoot td{padding:12px 14px;border-top:2px solid var(--ink);text-align:right;font-family:'JetBrains Mono',monospace;font-weight:700}
+tfoot td{padding:12px 14px;border-top:2px solid var(--ink);text-align:right;font-family:var(--font-mono);font-weight:700}
 tfoot td.l{text-align:left}
 .catdot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:8px;vertical-align:middle}
-.tag{display:inline-block;font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 8px;border-radius:6px;background:var(--surface-mute);color:var(--ink-soft)}
-.area-tag{display:inline-flex;align-items:center;gap:6px;font-family:'Inter',sans-serif;font-size:12.5px;font-weight:600}
+.tag{display:inline-block;font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.03em;padding:3px 8px;border-radius:6px;background:var(--surface-mute);color:var(--ink-soft)}
+.area-tag{display:inline-flex;align-items:center;gap:6px;font-family:var(--font-ui);font-size:12.5px;font-weight:600}
 .area-tag i{width:8px;height:8px;border-radius:2px;flex:0 0 auto}
 .badge{display:inline-block;font-size:10.5px;font-weight:700;padding:3px 9px;border-radius:20px}
 .badge.alloc{background:var(--warn-soft);color:var(--warn)}
 .badge.speso{background:var(--surface-mute);color:var(--speso)}
 .badge.trace{background:var(--info-soft);color:var(--info-ink)}
 .badge.rev{background:var(--over-soft);color:var(--over)}
-.badge.ok{background:var(--accent-soft);color:var(--accent)}
+.badge.ok{background:var(--accent-soft);color:var(--accent-text)}
 
 /* attività */
 .act-row{display:flex;align-items:center;gap:12px;padding:12px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap;cursor:pointer;transition:background .12s}
@@ -153,28 +267,28 @@ tfoot td.l{text-align:left}
 .act-row .ty-sub{font-weight:400;font-size:12px;color:var(--ink-soft)}
 .note-ic{display:inline-flex;align-items:center;justify-content:center;vertical-align:middle;margin-left:6px;width:21px;height:21px;border-radius:6px;background:var(--warn-soft);color:var(--warn);cursor:default}
 .note-ic svg{width:12px;height:12px}
-.confirm-icon{width:52px;height:52px;border-radius:50%;background:var(--accent-soft);color:var(--accent);display:flex;align-items:center;justify-content:center;margin:0 auto}
+.confirm-icon{width:52px;height:52px;border-radius:50%;background:var(--accent-soft);color:var(--accent-text);display:flex;align-items:center;justify-content:center;margin:0 auto}
 .confirm-icon svg{width:26px;height:26px}
 .act-row .sc{color:var(--ink-soft);font-size:12.5px}
-.act-row .dt{color:var(--ink-mute);font-size:12px;font-family:'JetBrains Mono',monospace;min-width:70px}
-.act-row .amt{font-family:'JetBrains Mono',monospace;font-weight:700;min-width:90px;text-align:right;font-variant-numeric:tabular-nums}
-.act-row.annull{opacity:.5;text-decoration:line-through}
+.act-row .dt{color:var(--ink-mute);font-size:12px;font-family:var(--font-mono);min-width:70px}
+.act-row .amt{font-family:var(--font-mono);font-weight:700;min-width:90px;text-align:right;font-variant-numeric:tabular-nums}
+.act-row.annull{color:var(--ink-soft);text-decoration:line-through}
 .act-actions{display:flex;gap:6px;margin-left:auto}
 .cal-link-row{display:flex;align-items:center;gap:12px;padding:11px 14px;border:1px solid var(--line);border-radius:9px;margin-bottom:8px;cursor:pointer;transition:background .12s,border-color .12s;text-decoration:none;color:inherit}
 .cal-link-row:hover{background:var(--accent-soft);border-color:var(--accent)}
 .cal-link-row .ty{flex:1;min-width:0;font-weight:600;font-size:13.5px}
-.cal-link-row .dt{color:var(--ink-mute);font-size:12px;font-family:'JetBrains Mono',monospace}
+.cal-link-row .dt{color:var(--ink-mute);font-size:12px;font-family:var(--font-mono)}
 .cal-link-row .go{color:var(--accent-ink);font-size:12px;font-weight:700;white-space:nowrap}
-.cal-link-row.added{cursor:default;background:var(--surface-mute);opacity:.72}
+.cal-link-row.added{cursor:default;background:var(--surface-mute);color:var(--ink-soft)}
 .cal-link-row.added:hover{border-color:var(--line)}
 .cal-added-note{display:block;color:var(--ink-mute);font-size:11px;font-weight:500;margin-top:1px}
 .cal-force{background:none;border:1px solid var(--line-strong);border-radius:7px;padding:5px 9px;font-size:11px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap}
 .cal-force:hover{border-color:var(--over);color:var(--over)}
-.act-section-h{padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute);font-weight:700;background:var(--surface-2);border-bottom:1px solid var(--line)}
+.act-section-h{padding:9px 16px;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute);font-weight:700;background:var(--surface-2);border-bottom:1px solid var(--line)}
 .rowbtn{background:none;border:1px solid var(--line);border-radius:7px;width:30px;height:30px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;color:var(--ink-soft)}
 .rowbtn:hover{border-color:var(--ink-mute);color:var(--ink)}
 .rowbtn svg{width:15px;height:15px}
-.rowbtn.act-done{color:var(--accent);border-color:var(--accent-soft)}
+.rowbtn.act-done{color:var(--accent-text);border-color:var(--accent-soft)}
 .rowbtn.act-done:hover{background:var(--accent-soft)}
 .rowbtn.act-cancel{color:var(--over);border-color:var(--over-soft)}
 .rowbtn.act-cancel:hover{background:var(--over-soft)}
@@ -190,7 +304,7 @@ tfoot td.l{text-align:left}
    altrimenti vince essendo dichiarata dopo a parità di specificità — altrimenti ogni checkbox erediva
    lo stile da 9.5px/maiuscolo/display:block pensato per le label dei campi, non per queste. */
 .fiscal-flags{display:flex;flex-wrap:wrap;gap:4px 12px}
-.field .fiscal-flags label{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-family:'Inter',sans-serif;text-transform:none;letter-spacing:normal;margin-bottom:0;color:var(--ink-soft);white-space:nowrap;cursor:pointer}
+.field .fiscal-flags label{display:inline-flex;align-items:center;gap:5px;font-size:12.5px;font-family:var(--font-ui);text-transform:none;letter-spacing:normal;margin-bottom:0;color:var(--ink-soft);white-space:nowrap;cursor:pointer}
 .fiscal-flags input{margin:0}
 .chip.reset:hover{background:var(--over-soft)}
 /* bacheca Chiusura mensile (vista alternativa a colonne) */
@@ -215,17 +329,17 @@ tfoot td.l{text-align:left}
 .kanban-col.collapsed .kanban-tile::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:var(--bar)}
 .kanban-tile-top{display:flex;align-items:flex-start;justify-content:space-between;gap:6px}
 .kanban-tile-top .t{font-size:10.5px;font-weight:700;text-transform:uppercase;letter-spacing:.03em;color:var(--ink-mute);line-height:1.35;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
-.kanban-tile-num{font-family:'JetBrains Mono',monospace;font-weight:800;font-size:32px;line-height:1;color:var(--ink)}
-.kanban-col.collapsed.empty{opacity:.6}
+.kanban-tile-num{font-family:var(--font-mono);font-weight:800;font-size:32px;line-height:1;color:var(--ink)}
 .kanban-col.collapsed.empty .kanban-tile-num{color:var(--ink-mute)}
 .kanban-col.collapsed.empty .kanban-tile::before{background:var(--line-strong)}
-.kanban-col.collapsed.has-data{opacity:1}
 .kanban-col.collapsed.has-data .kanban-tile-num{color:var(--ink)}
 .kanban-col.collapsed .kb-toggle{flex:none}
 .kanban-card{background:var(--paper);border:1px solid var(--line);border-radius:12px;padding:12px;font-size:12.5px;display:flex;flex-direction:column;gap:8px}
 .kanban-card .who{font-weight:700;font-size:13px;color:var(--ink)}
 .kanban-card .meta{color:var(--ink-mute);font-size:11.5px;line-height:1.4}
 .kanban-card .amt{font-weight:700;font-size:15px}
+.kanban-card.done{background:var(--surface-2)}
+.kanban-card.done .who,.kanban-card.done .amt{color:var(--ink-soft)}
 .kanban-card .rda-rif{border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px;font-size:12.5px;width:100%}
 .kanban-empty{border:2px dashed var(--line);border-radius:10px;padding:18px 10px;text-align:center;color:var(--ink-mute);font-size:11.5px}
 /* albero mese -> docente -> tipologia (Riepilogo) */
@@ -244,7 +358,7 @@ tfoot td.l{text-align:left}
 .node-sub{color:var(--ink-mute);font-size:11.5px;margin-top:1px}
 .node-meta{margin-left:auto;display:flex;align-items:center;gap:14px;flex-wrap:wrap;justify-content:flex-end}
 .node-badges{display:flex;gap:6px}
-.node-amt{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:14.5px;min-width:80px;text-align:right;font-variant-numeric:tabular-nums}
+.node-amt{font-family:var(--font-mono);font-weight:700;font-size:14.5px;min-width:80px;text-align:right;font-variant-numeric:tabular-nums}
 .node-alert{display:flex;align-items:center;gap:6px;color:var(--warn);font-size:11px;font-weight:700}
 .node-alert svg{width:13px;height:13px;flex:0 0 auto}
 .node-children{display:grid;grid-template-rows:0fr;transition:grid-template-rows .2s ease}
@@ -252,7 +366,7 @@ tfoot td.l{text-align:left}
 .node-children-inner{overflow:hidden}
 .node.current-month{border-left:3px solid var(--accent)}
 .node.current-month>.node-row{background:var(--accent-soft)}
-.riep-filters-toggle{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:8px 12px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;margin-bottom:16px}
+.riep-filters-toggle{display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;padding:8px 12px;font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;margin-bottom:16px}
 .riep-filters-toggle:hover{border-color:var(--ink-mute);color:var(--ink)}
 .riep-filters-toggle .twisty{width:18px;height:18px;display:flex;align-items:center;justify-content:center;flex:0 0 auto;transition:transform .16s ease}
 .riep-filters-toggle .twisty svg{width:11px;height:11px}
@@ -261,7 +375,7 @@ tfoot td.l{text-align:left}
 @media (prefers-reduced-motion:reduce){.riep-filters-toggle .twisty{transition:none}}
 .riep-stats{display:flex;gap:16px;flex-wrap:wrap;align-items:flex-end;justify-content:flex-end}
 .riep-stat{display:flex;flex-direction:column;align-items:flex-end;line-height:1.3;flex:0 0 230px}
-.riep-stat .rl{font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
+.riep-stat .rl{font-family:var(--font-mono);font-size:9px;letter-spacing:.08em;text-transform:uppercase;font-weight:700}
 .riep-stat .rv{font-size:12.5px;font-weight:700;font-variant-numeric:tabular-nums;white-space:nowrap}
 .riep-stat.prog{color:var(--warn)}
 .riep-stat.done{color:var(--accent-ink)}
@@ -280,13 +394,13 @@ tfoot td.l{text-align:left}
 .riep-detail-h h3{margin:0;font-size:15px;font-weight:700}
 .riep-detail-body{padding:14px 16px}
 .admin-tabs{display:flex;gap:4px;padding:0 22px;border-bottom:1px solid var(--line);overflow-x:auto}
-.admin-tabs button{background:none;border:0;padding:12px 14px;font-family:'Inter',sans-serif;font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px}
+.admin-tabs button{background:none;border:0;padding:12px 14px;font-family:var(--font-ui);font-size:13px;font-weight:600;color:var(--ink-soft);cursor:pointer;white-space:nowrap;border-bottom:2px solid transparent;margin-bottom:-1px}
 .admin-tabs button.on{color:var(--accent-ink);border-bottom-color:var(--accent)}
 .admin-tabs button:not(.on):hover{color:var(--ink)}
 .admin-sec{display:none}
 .admin-sec.on{display:block}
 
-.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent);color:#fff;border:0;border-radius:9px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;white-space:nowrap}
+.btn{display:inline-flex;align-items:center;gap:8px;background:var(--accent-fill);color:var(--on-accent);border:0;border-radius:9px;padding:10px 16px;font-size:14px;font-weight:600;cursor:pointer;font-family:var(--font-ui);white-space:nowrap}
 .btn:hover{filter:brightness(1.08)}
 .btn svg{width:15px;height:15px}
 .btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong);box-shadow:var(--shadow-sm)}
@@ -295,7 +409,7 @@ tfoot td.l{text-align:left}
 .btn.danger{background:var(--surface);color:var(--over);border:1px solid var(--over-soft)}
 
 /* modal */
-.overlay{position:fixed;inset:0;background:rgba(10,11,9,.5);display:none;align-items:flex-start;justify-content:center;z-index:60;padding:40px 16px;overflow-y:auto}
+.overlay{position:fixed;inset:0;background:var(--scrim);display:none;align-items:flex-start;justify-content:center;z-index:60;padding:40px 16px;overflow-y:auto}
 .overlay.on{display:flex}
 .modal{background:var(--surface);border-radius:var(--radius-lg);width:100%;max-width:560px;box-shadow:var(--shadow-lg)}
 .mhead{display:flex;align-items:center;justify-content:space-between;padding:18px 22px;border-bottom:1px solid var(--line)}
@@ -306,12 +420,13 @@ tfoot td.l{text-align:left}
 .field{margin-bottom:14px;position:relative}
 .field.full{grid-column:1/-1}
 .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
-.field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:5px}
-.field input,.field select,.field textarea{width:100%;border:1px solid var(--line-strong);border-radius:9px;padding:10px 12px;font-family:'Inter',sans-serif;font-size:14px;background:var(--surface);color:var(--ink);outline:none}
-.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent)}
+.field label{display:block;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:5px}
+.field input,.field select,.field textarea{width:100%;border:1px solid var(--line-strong);border-radius:9px;padding:10px 12px;font-family:var(--font-ui);font-size:14px;background:var(--surface);color:var(--ink);outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 3px var(--focus-soft)}
+.field input:disabled,.field select:disabled,.field textarea:disabled{background:var(--surface-mute);color:var(--ink-soft);-webkit-text-fill-color:var(--ink-soft);opacity:1;cursor:not-allowed}
 .mapinfo{background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:12px;color:var(--ink-soft)}
 .mapinfo b{color:var(--ink)}
-.role-banner{margin:0 20px;margin-top:14px;padding:10px 14px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink);font-size:13px;border:1px solid rgba(0,0,0,.05)}
+.role-banner{margin:0 20px;margin-top:14px;padding:10px 14px;border-radius:10px;background:var(--accent-soft);color:var(--accent-ink);font-size:13px;border:1px solid var(--line)}
 .role-banner.err{background:var(--over-soft);color:var(--over)}
 .role-banner.warn{background:var(--warn-soft);color:var(--warn)}
 .role-banner b{font-weight:700}
@@ -320,7 +435,7 @@ tfoot td.l{text-align:left}
 [data-doc]{display:none}
 #actOverlay.help-mode [data-doc]{display:block}
 #actOverlay.help-mode .ws-only.show[data-doc]{display:block}
-#aHelpToggle.on{background:var(--accent);color:#fff;border-color:var(--accent)}
+#aHelpToggle.on{background:var(--accent-fill);color:var(--on-accent);border-color:var(--accent-fill)}
 .help-ic{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent-ink);background:var(--surface);font-weight:700;font-size:10.5px;line-height:1;cursor:pointer;margin-left:6px;vertical-align:middle;transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .15s}
 .help-ic:hover{transform:scale(1.14);box-shadow:0 0 0 4px var(--accent-soft)}
 .helppop{position:absolute;z-index:40;width:260px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:13px;top:26px;left:0;
@@ -340,7 +455,7 @@ tfoot td.l{text-align:left}
 .filled-flash{animation:filledFlash 1.3s ease}
 /* "sta scrivendo": il pulsante Esempio stesso diventa l'indicatore di generazione, come nel promo
    "Prendi appunti con Gemini" — icona a gradiente con un pennino che disegna in loop, poi si rivela il risultato */
-#aFillSample.gen-loading{background:linear-gradient(135deg,#8B5CF6,#3B82F6);color:#fff;border-color:transparent}
+#aFillSample.gen-loading{background:linear-gradient(135deg,#7C3AED,#2563EB);color:#fff;border-color:transparent} /* sfondo e testo fissi insieme: contrasto >= 5:1 in ogni tema */
 #aFillSample .gen-icon{display:inline-flex}
 #aFillSample .gen-wave{stroke-dasharray:20;stroke-dashoffset:0;animation:genDraw 1s ease-in-out infinite}
 @keyframes genDraw{0%{stroke-dashoffset:0}50%{stroke-dashoffset:-20}100%{stroke-dashoffset:0}}
@@ -349,10 +464,10 @@ tfoot td.l{text-align:left}
 .login-card{width:100%;max-width:400px;background:var(--surface);border:1px solid var(--line);border-radius:var(--radius-lg);padding:30px 28px;box-shadow:var(--shadow-lg)}
 .login-brand{display:flex;align-items:center;gap:10px;font-weight:800;font-size:22px}
 .login-brand .dot{width:26px;height:26px;border-radius:8px;background:linear-gradient(155deg,var(--accent),var(--accent-ink))}
-.login-sub{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute);margin:5px 0 0 36px}
+.login-sub{font-family:var(--font-mono);font-size:10px;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-mute);margin:5px 0 0 36px}
 .login-p{color:var(--ink-soft);font-size:13.5px;margin:18px 0 18px}
-.login-lbl{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:6px}
-#demoSel{width:100%;border:1px solid var(--line-strong);border-radius:9px;padding:11px 12px;font-family:'Inter',sans-serif;font-size:14px;background:var(--surface);color:var(--ink)}
+.login-lbl{display:block;font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:6px}
+#demoSel{width:100%;border:1px solid var(--line-strong);border-radius:9px;padding:11px 12px;font-family:var(--font-ui);font-size:14px;background:var(--surface);color:var(--ink)}
 .login-div{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--ink-mute);font-size:11px}
 .login-div::before,.login-div::after{content:"";flex:1;height:1px;background:var(--line)}
 .login-hint{color:var(--ink-mute);font-size:11.5px;line-height:1.5;margin-top:16px}
@@ -365,16 +480,16 @@ tfoot td.l{text-align:left}
 #actOverlay .modal{max-width:780px}
 .date-row .field{margin-bottom:0}
 .date-total{margin:14px 0;padding-top:12px;border-top:1px solid var(--line)}
-.date-bonus{font-size:12.5px;color:var(--accent);font-weight:600;margin-bottom:6px}
+.date-bonus{font-size:12.5px;color:var(--accent-text);font-weight:600;margin-bottom:6px}
 .date-total-row{display:grid;grid-template-columns:1fr 90px 1fr 30px;gap:10px;font-weight:700;font-size:14px}
-.date-total-row span:first-child{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);font-weight:600;align-self:center}
+.date-total-row span:first-child{font-family:var(--font-mono);font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);font-weight:600;align-self:center}
 @media(max-width:600px){ .date-row,.date-row.ws{grid-template-columns:1fr}.date-total-row{grid-template-columns:1fr} }
 
 /* ---- calendario (tab Docenti) ---- */
 .cal-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;flex-wrap:wrap}
 .cal-filters{display:flex;gap:6px;margin:-4px 0 14px;flex-wrap:wrap}
 .cal-dow{display:grid;grid-template-columns:repeat(7,1fr);gap:1px;background:var(--line);border:1px solid var(--line);border-radius:var(--radius) var(--radius) 0 0;overflow:hidden}
-.cal-dow div{background:var(--surface-2);padding:8px 10px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute)}
+.cal-dow div{background:var(--surface-2);padding:8px 10px;font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute)}
 .cal-grid{display:grid;grid-template-columns:repeat(7,1fr);grid-auto-rows:112px;gap:1px;background:var(--line);border:1px solid var(--line);border-top:0;border-radius:0 0 var(--radius) var(--radius);overflow:hidden}
 .cal-cell{background:var(--surface);padding:6px;display:flex;flex-direction:column;gap:4px;overflow:hidden}
 .cal-cell.cal-blank{background:var(--surface-2)}
@@ -383,13 +498,13 @@ tfoot td.l{text-align:left}
 .cal-entries{display:flex;flex-direction:column;gap:3px;overflow:hidden}
 .cal-entry{display:flex;align-items:center;gap:5px;font-size:11px;padding:2px 4px;border-radius:5px;cursor:pointer;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--ink)}
 .cal-entry:hover{background:var(--surface-2)}
-.cal-entry.cal-entry-muted{color:var(--ink-mute);opacity:.65}
+.cal-entry.cal-entry-muted{color:var(--ink-mute);text-decoration:line-through}
 .cal-stico{width:12px;height:12px;flex:none}
 .cal-more{font-size:10.5px;color:var(--ink-mute);cursor:pointer;padding:2px 4px}
 .cal-more:hover{text-decoration:underline}
 .cal-daylist-row{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);cursor:pointer}
 .cal-daylist-row:last-child{border-bottom:0}
-.cal-daylist-row.cal-entry-muted{color:var(--ink-mute);opacity:.65}
+.cal-daylist-row.cal-entry-muted{color:var(--ink-mute);text-decoration:line-through}
 @media(max-width:700px){.cal-grid{grid-auto-rows:84px}.cal-dow div{padding:6px 4px;font-size:9px}}
 
 .empty{padding:26px;text-align:center;color:var(--ink-mute)}
@@ -400,8 +515,8 @@ tfoot td.l{text-align:left}
 
 /* cloud modal reuse */
 .cloud-state{padding:12px 14px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);font-size:13px;display:flex;align-items:center;gap:10px;margin-bottom:6px}
-.cloud-state .b{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px;font-weight:700}
-.cloud-state .b.on{background:var(--accent-soft);color:var(--accent)}.cloud-state .b.off{background:var(--surface-mute);color:var(--ink-soft)}
+.cloud-state .b{font-family:var(--font-mono);font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px;font-weight:700}
+.cloud-state .b.on{background:var(--accent-soft);color:var(--accent-text)}.cloud-state .b.off{background:var(--surface-mute);color:var(--ink-soft)}
 
 /* autocomplete scuole */
 .ac-list{position:absolute;left:0;right:0;top:100%;margin-top:4px;background:var(--surface);border:1px solid var(--line-strong);border-radius:9px;box-shadow:var(--shadow-lg);max-height:240px;overflow-y:auto;z-index:40;display:none}
@@ -417,15 +532,17 @@ tfoot td.l{text-align:left}
 .rda-h{display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--line);flex-wrap:wrap}
 .rda-h .who{font-weight:700;font-size:15px}
 .rda-h .meta{color:var(--ink-soft);font-size:12.5px}
-.rda-h .tot{margin-left:auto;font-family:'JetBrains Mono',monospace;font-weight:700;font-size:15px}
+.rda-h .tot{margin-left:auto;font-family:var(--font-mono);font-weight:700;font-size:15px}
 .rda-body{padding:6px 16px 14px}
 
 @media(max-width:600px){
   .topbar{position:static}
   header{flex-direction:column;align-items:stretch;gap:10px;padding:10px 12px}
-  .hctl{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+  .hctl{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px}
   .hgroup{flex-direction:column;align-items:stretch;gap:3px}
+  .hgroup select{min-width:0;max-width:100%}
   .hbtn{justify-content:center;width:100%}
+  .theme-wrap{grid-column:1/-1}
   .kpis{grid-template-columns:1fr 1fr}
   .kpi:nth-child(2n){border-right:0}
   .grid2{grid-template-columns:1fr}
@@ -442,6 +559,95 @@ tfoot td.l{text-align:left}
   .mfoot .btn{width:100%;justify-content:center}
   .mfoot .sp{display:none}
 }
+
+/* ===================== STILE APPLE =====================
+   Impostato da nabaTheme: <html data-style="apple" data-theme="light|dark">. Sta SOPRA la palette base attiva:
+   ridefinisce i token (colori, raggi, font) e poche regole di forma (testata traslucida, pulsanti a pillola,
+   superfici raggruppate con ombre morbide). Tutti i colori restano token: contrasto testo >= 4.5:1 verificato. */
+:root[data-style="apple"]{
+  --font-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","SF Pro Display","Segoe UI",system-ui,'Inter',sans-serif;
+  --font-mono:var(--font-ui);
+  --radius:14px; --radius-lg:20px; --r-ctl:10px; --r-btn:980px;
+}
+:root[data-style="apple"][data-theme="light"]{
+  --paper:#F5F5F7; --surface:#FFFFFF; --surface-2:#F9F9FB; --surface-mute:#F0F0F2;
+  --ink:#1D1D1F; --ink-soft:#515154; --ink-mute:#68686D;
+  --line:#E5E5EA; --line-strong:#D2D2D7;
+  --accent:#007AFF; --accent-fill:#0071E3; --accent-text:#0066CC; --accent-soft:#E8F1FD; --accent-ink:#0058B0; --on-accent:#FFFFFF;
+  --speso:#1D1D1F; --allocato:#FF9F0A; --residuo:#007AFF; --over:#C8102E; --over-soft:#FFEBEA;
+  --warn:#B25000; --warn-soft:#FFF3E0; --info-soft:#EEF1FF; --info-ink:#3D4FD6;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.04), 0 1px 1px rgba(0,0,0,.03);
+  --shadow-md:0 6px 20px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.05);
+  --shadow-lg:0 20px 60px rgba(0,0,0,.16), 0 6px 18px rgba(0,0,0,.06);
+  --hdr-bg:transparent; --hdr-fg:#1D1D1F; --hdr-mute:#5C5C61; --hdr-ctl-bg:rgba(0,0,0,.05); --hdr-ctl-line:rgba(0,0,0,.08); --hdr-ctl-hover:rgba(0,0,0,.09);
+  --topbar-bg:rgba(245,245,247,.8); --scrim:rgba(0,0,0,.32); --focus:#007AFF; --focus-soft:rgba(0,122,255,.28);
+  --dot-on:#1B8F4B; --dot-halo:rgba(27,143,75,.22);
+  color-scheme:light;
+}
+:root[data-style="apple"][data-theme="dark"]{
+  --paper:#000000; --surface:#1C1C1E; --surface-2:#2C2C2E; --surface-mute:#2C2C2E;
+  --ink:#F5F5F7; --ink-soft:#AEAEB2; --ink-mute:#9A9AA0;
+  --line:#38383A; --line-strong:#48484A;
+  --accent:#0A84FF; --accent-fill:#0A6FE0; --accent-text:#4DA3FF; --accent-soft:#0F2540; --accent-ink:#6DB4FF; --on-accent:#FFFFFF;
+  --speso:#F5F5F7; --allocato:#FF9F0A; --residuo:#0A84FF; --over:#FF6B61; --over-soft:#3A1917;
+  --warn:#FF9F0A; --warn-soft:#3A2A0F; --info-soft:#161B3A; --info-ink:#8E9BFF;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 6px 20px rgba(0,0,0,.45); --shadow-lg:0 24px 60px rgba(0,0,0,.6);
+  --hdr-bg:transparent; --hdr-fg:#F5F5F7; --hdr-mute:#AEAEB2; --hdr-ctl-bg:rgba(255,255,255,.08); --hdr-ctl-line:rgba(255,255,255,.12); --hdr-ctl-hover:rgba(255,255,255,.14);
+  --topbar-bg:rgba(28,28,30,.8); --scrim:rgba(0,0,0,.6); --focus:#0A84FF; --focus-soft:rgba(10,132,255,.45);
+  --dot-on:#32D74B; --dot-halo:rgba(50,215,75,.25);
+  color-scheme:dark;
+}
+:root[data-style="apple"] body{letter-spacing:-.003em}
+:root[data-style="apple"] .topbar{-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-bottom:1px solid var(--line)}
+@supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){:root[data-style="apple"] .topbar{background:var(--paper)}}
+:root[data-style="apple"] header{box-shadow:none}
+:root[data-style="apple"] .brand .t{letter-spacing:-.02em}
+:root[data-style="apple"] .brand .mark{border-radius:8px}
+:root[data-style="apple"] nav.tabs{background:var(--surface-mute);border:0;border-radius:var(--r-btn);padding:3px;box-shadow:none}
+:root[data-style="apple"] nav.tabs button{border-radius:var(--r-btn);font-weight:500}
+:root[data-style="apple"] nav.tabs button.on{background:var(--surface);color:var(--ink);box-shadow:0 1px 3px rgba(0,0,0,.14)}
+:root[data-style="apple"][data-theme="dark"] nav.tabs button.on{background:var(--line-strong)}
+:root[data-style="apple"] .btn,:root[data-style="apple"] .chip,:root[data-style="apple"] .riep-filters-toggle,:root[data-style="apple"] .badge,:root[data-style="apple"] .cal-force{border-radius:var(--r-btn)}
+:root[data-style="apple"] .btn{font-weight:600;padding:9px 18px}
+:root[data-style="apple"] .btn.small{padding:6px 14px}
+:root[data-style="apple"] .btn:hover:not(:disabled){filter:none;opacity:.9}
+:root[data-style="apple"] .btn:active:not(:disabled){transform:scale(.98)}
+:root[data-style="apple"] .btn.ghost{box-shadow:none;border-color:var(--line-strong)}
+:root[data-style="apple"] .chip.on{background:var(--accent-fill);border-color:var(--accent-fill);color:var(--on-accent)}
+:root[data-style="apple"] .chip.reset{border-color:var(--over);color:var(--over)}
+:root[data-style="apple"] .rowbtn,:root[data-style="apple"] .kb-scroll{border-radius:50%}
+:root[data-style="apple"] .card,:root[data-style="apple"] .kpi,:root[data-style="apple"] .tree,:root[data-style="apple"] .rda-card,:root[data-style="apple"] .riep-detail,:root[data-style="apple"] .kanban-col,:root[data-style="apple"] .login-card{border-color:var(--line);box-shadow:var(--shadow-sm)}
+:root[data-style="apple"] .kpi::before{display:none}
+:root[data-style="apple"] .modal{border:1px solid var(--line)}
+:root[data-style="apple"] .overlay{-webkit-backdrop-filter:blur(10px);backdrop-filter:blur(10px)}
+:root[data-style="apple"] .field input,:root[data-style="apple"] .field select,:root[data-style="apple"] .field textarea{background:var(--surface-2);border-color:var(--line-strong)}
+:root[data-style="apple"] .field input:focus,:root[data-style="apple"] .field select:focus,:root[data-style="apple"] .field textarea:focus{background:var(--surface);border-color:var(--accent);box-shadow:0 0 0 4px var(--focus-soft)}
+:root[data-style="apple"] .field input:disabled,:root[data-style="apple"] .field select:disabled,:root[data-style="apple"] .field textarea:disabled{background:var(--surface-mute)}
+:root[data-style="apple"] thead th{font-weight:600;letter-spacing:.04em}
+:root[data-style="apple"] .kpi .v,:root[data-style="apple"] .node-amt,:root[data-style="apple"] .act-row .amt,:root[data-style="apple"] tbody td,:root[data-style="apple"] .rda-h .tot{font-variant-numeric:tabular-nums}
+:root[data-style="apple"] .role-banner,:root[data-style="apple"] .sample-banner{border-radius:12px}
+:root[data-style="apple"] #toast{border-radius:14px;box-shadow:var(--shadow-lg)}
+:root[data-style="apple"] .theme-menu{border-radius:14px}
+:root[data-style="apple"] .theme-item{border-radius:10px}
+:root[data-style="apple"] .act-row:hover,:root[data-style="apple"] .node-row:hover{background:var(--surface-2)}
+
+/* ===================== ANAGRAFICHE ===================== */
+.ana-toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:14px}
+.ana-toolbar .field{margin-bottom:0}
+.ana-toolbar .ana-search{flex:1;min-width:200px}
+.ana-toolbar .ana-new{margin-left:auto}
+.ana-secs{margin-bottom:16px}
+.ana-ro{margin:0 0 12px;padding:9px 12px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:12.5px;font-weight:600}
+.ana-err{margin:0 0 12px;padding:9px 12px;border-radius:10px;background:var(--over-soft);color:var(--over);font-size:13px;font-weight:600}
+.ana-acts{display:flex;gap:6px;justify-content:flex-end}
+.ana-table td.l .sub{display:block;color:var(--ink-mute);font-size:11.5px}
+.ana-table td.l.nm{font-weight:600}
+.ana-more{display:flex;justify-content:center;margin:14px 0 4px}
+.rowbtn.danger{color:var(--over);border-color:var(--over-soft)}
+.rowbtn.danger:hover{background:var(--over-soft)}
+.check-field{display:flex;align-items:center;gap:8px}
+.field .check-field label{display:inline;font-family:var(--font-ui);font-size:13px;letter-spacing:normal;text-transform:none;color:var(--ink);margin:0;cursor:pointer}
+.check-field input{width:auto;margin:0}
 </style>
 </head>
 <body>
@@ -451,7 +657,7 @@ tfoot td.l{text-align:left}
   <div class="login-card">
     <div class="login-brand"><span class="dot"></span>Docenti</div>
     <div class="login-sub">NABA · Attività retribuite</div>
-    <p class="login-p">Accedi per inserire e vedere le tue attività (workshop, open day, webinar, test).</p>
+    <p class="login-p">Accedi per inserire e vedere le tue attività (workshop, open day, webinar, esami d'ammissione).</p>
     <div id="loginCloud" style="display:none;margin-bottom:16px;font-size:12px;color:var(--ink-soft);background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:10px 12px"></div>
     <label class="login-lbl">Entra come</label>
     <select id="demoSel"></select>
@@ -473,6 +679,10 @@ tfoot td.l{text-align:left}
       <div class="hgroup"><label>Vista</label><select id="viewSel"></select></div>
       <button class="hbtn" id="btnSaveFilters" style="display:none" title="Salva i filtri attuali come predefiniti: si riapriranno cosi a ogni accesso">☆ Salva filtri</button>
       <button class="hbtn" id="btnClearFilters" style="display:none" title="Togli i filtri predefiniti salvati">✕ Filtri</button>
+      <div class="theme-wrap" id="themeWrap">
+        <button class="hbtn" id="btnTheme" type="button" aria-haspopup="menu" aria-expanded="false" aria-controls="themeMenu" title="Scegli il tema (chiaro, scuro, Apple)"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 3a9 9 0 0 1 0 18z" fill="currentColor"/></svg><span>Tema</span></button>
+        <div class="theme-menu" id="themeMenu" role="menu" aria-label="Tema"></div>
+      </div>
       <button class="hbtn" id="btnCloud"><span id="cloudDot" class="cloud-dot off"></span><span id="cloudLbl">Cloud</span></button>
       <button class="hbtn" id="btnAdmin" title="Pannello amministrazione" style="display:none">Admin</button>
       <button class="hbtn" id="btnLogout" title="Cambia utente / esci">Esci</button>
@@ -483,6 +693,7 @@ tfoot td.l{text-align:left}
     <button data-tab="attivita" style="display:none">Attività</button>
   <button data-tab="calendario" style="display:none">Calendario</button>
   <button data-tab="scuole" style="display:none">Scuole</button>
+  <button data-tab="anagrafiche" style="display:none">Anagrafiche</button>
   <button data-tab="chiusura" style="display:none">Chiusura mensile</button>
   <button data-tab="log" style="display:none">Log</button>
   </nav>
@@ -534,6 +745,7 @@ tfoot td.l{text-align:left}
       </div>
     </div>
     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;flex-wrap:wrap">
+      <button class="btn ghost small" id="btnActToday" type="button" title="Scorre l'elenco fino alla prima attività da oggi in poi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12l7 7 7-7"/></svg>Vai a oggi</button>
       <button class="btn small" id="btnCalAdd" title="Apre un link Outlook per ogni attività 'programmata' futura, uno alla volta: scegli quali aggiungere al tuo calendario"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 2v4M16 2v4M3 10h18M5 4h14a2 2 0 012 2v14a2 2 0 01-2 2H5a2 2 0 01-2-2V6a2 2 0 012-2z"/></svg>Aggiungi al calendario</button>
     </div>
     <div class="card scroll"><div id="actList"></div></div>
@@ -571,6 +783,23 @@ tfoot td.l{text-align:left}
     <div class="card scroll"><table id="schoolsTable"></table></div>
     <p class="hint" id="schoolsHint" style="margin-top:10px"></p>
     <div id="schoolDetail" class="riep-detail" style="display:none;margin-top:16px"></div>
+  </section>
+
+  <!-- ANAGRAFICHE -->
+  <section class="panel" id="panel-anagrafiche">
+    <h2 class="sec">Anagrafiche</h2>
+    <p class="sec-desc" id="anaDesc"></p>
+    <div class="chips ana-secs" id="anaSecs" role="tablist" aria-label="Anagrafica da gestire" style="display:flex;gap:6px;flex-wrap:wrap"></div>
+    <p class="ana-ro" id="anaRo" style="display:none"></p>
+    <div class="ana-toolbar">
+      <div class="field ana-search"><label for="anaSearch">Cerca</label><input type="search" id="anaSearch" placeholder="Cerca per nome…" autocomplete="off"></div>
+      <div class="field" id="anaIfaceField" style="min-width:170px;display:none"><label for="anaIfaceFilter">Interfaccia</label><select id="anaIfaceFilter"></select></div>
+      <div class="field" id="anaStatoField" style="min-width:140px"><label for="anaStato">Mostra</label><select id="anaStato"><option value="attivi">Solo attivi</option><option value="disattivi">Solo disattivati</option><option value="tutti">Tutti</option></select></div>
+      <button class="btn ana-new" id="anaNew" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg><span id="anaNewLbl">Nuovo</span></button>
+    </div>
+    <div class="card scroll"><table class="ana-table" id="anaTable"></table></div>
+    <div class="ana-more" id="anaMore" style="display:none"><button class="btn ghost small" id="anaMoreBtn" type="button">Mostra altre</button></div>
+    <p class="hint" id="anaHint" style="margin-top:10px"></p>
   </section>
 
   <!-- CHIUSURA MENSILE -->
@@ -728,6 +957,22 @@ tfoot td.l{text-align:left}
   </div>
 </div>
 
+<!-- ANAGRAFICHE: modulo di aggiunta/modifica -->
+<div class="overlay" id="anaOverlay">
+  <div class="modal" style="max-width:560px" role="dialog" aria-modal="true" aria-labelledby="anaTitle">
+    <div class="mhead"><h3 id="anaTitle">Anagrafica</h3><button class="iconx" id="anaClose" type="button" aria-label="Chiudi"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
+    <div class="mbody">
+      <div class="ana-err" id="anaErr" role="alert" style="display:none"></div>
+      <div id="anaBody"></div>
+    </div>
+    <div class="mfoot">
+      <div class="sp"></div>
+      <button class="btn ghost" id="anaCancel" type="button">Annulla</button>
+      <button class="btn" id="anaSave" type="button">Salva</button>
+    </div>
+  </div>
+</div>
+
 <!-- CONFERMA GENERICA (sostituisce confirm() nativo dove serve un po' più di contesto/cura grafica) -->
 <div class="overlay" id="confirmOverlay">
   <div class="modal" style="max-width:420px">
@@ -790,35 +1035,13 @@ tfoot td.l{text-align:left}
   <div class="modal" style="max-width:860px">
     <div class="mhead"><h3>Pannello Admin</h3><button class="iconx" id="adminClose"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6L6 18"/></svg></button></div>
     <div class="admin-tabs" id="adminTabs">
-      <button data-sec="interfacce" class="on">Interfacce</button>
-      <button data-sec="docenti">Docenti</button>
+      <button data-sec="anagrafiche" class="on">Anagrafiche</button>
       <button data-sec="utenti">Anteprima</button>
     </div>
     <div class="mbody">
-      <div class="admin-sec on" data-sec="interfacce">
-        <p class="hint" style="margin-bottom:10px">Chi si logga davvero nel tool: una persona per area (una sola persona, Valeria Battel, ne copre due). Inserisce le attività per sé e per i docenti a lei collegati nella tab "Docenti".</p>
-        <p class="hint" id="ifaceRoNote" style="display:none;margin-bottom:10px;color:var(--warn);font-weight:600">Sola lettura: le interfacce le crea e le modifica solo l'amministratore. Tu puoi gestire i docenti (scheda "Docenti").</p>
-        <div class="card scroll" style="margin-bottom:10px"><table id="interfacesTable"></table></div>
-        <div id="ifaceAddRow" style="display:flex;gap:8px;flex-wrap:wrap">
-          <input type="text" id="newIfaceName" placeholder="Nome interfaccia" style="flex:1;min-width:140px">
-          <input type="email" id="newIfaceEmail" placeholder="email di login" style="flex:1;min-width:160px">
-          <input type="text" id="newIfaceAree" placeholder="Corsi (separati da virgola)" style="flex:1;min-width:180px">
-          <button class="btn ghost small" id="btnAddIface">+ Aggiungi</button>
-        </div>
-      </div>
-
-      <div class="admin-sec" data-sec="docenti">
-        <p class="hint" style="margin-bottom:10px">Anagrafica docenti reali: tariffa oraria, ruolo, contributi (per calcolare l'importo effettivo da versare) e a quale interfaccia orientamento sono collegati (chi inserisce le attività per loro).</p>
-        <div class="card scroll" style="margin-bottom:10px"><table id="teachersTable"></table></div>
-        <div style="display:flex;gap:8px;flex-wrap:wrap">
-          <input type="text" id="newTeacherName" placeholder="Nome docente" style="flex:1;min-width:140px">
-          <input type="email" id="newTeacherEmail" placeholder="email@..." style="flex:1;min-width:160px">
-          <select id="newTeacherIface" style="min-width:170px"></select>
-          <select id="newTeacherRuolo" style="min-width:130px"></select>
-          <div id="newTeacherContributi" style="min-width:200px;display:flex;align-items:center"></div>
-          <input type="number" id="newTeacherRate" placeholder="€/h" value="50" style="width:80px">
-          <button class="btn ghost small" id="btnAddTeacher">+ Aggiungi</button>
-        </div>
+      <div class="admin-sec on" data-sec="anagrafiche">
+        <p class="hint" style="margin-bottom:12px">Interfacce di orientamento, docenti e scuole si gestiscono nella scheda "Anagrafiche": le modifiche vanno direttamente sul cloud, rispettando i permessi del tuo ruolo.</p>
+        <button class="btn" id="adminOpenAna" type="button">Apri Anagrafiche</button>
       </div>
 
       <div class="admin-sec" data-sec="utenti">
@@ -835,6 +1058,19 @@ tfoot td.l{text-align:left}
 <script>
 /* ============================ DOCENTI ============================ */
 const TIPI=["Workshop","Open Day","NabaIncontra","NabaExperience","Webinar","Test","Eventi PG","Altro"];
+// Etichette MOSTRATE all'utente. Il valore memorizzato (database, centri di costo, viste, RLS, ponte verso il Budget,
+// confronti nel codice) non cambia mai: "Test" resta "Test" ovunque tranne che sullo schermo e nei testi destinati a persone.
+const TIPO_LABEL={Test:"Esami d'ammissione"};
+function tipoLabel(t){ return (t!=null && Object.prototype.hasOwnProperty.call(TIPO_LABEL,t)) ? TIPO_LABEL[t] : (t==null?'':t); }
+// sostituisce nei testi liberi (es. riepilogo del registro scritto dal database) le tipologie con la loro etichetta
+function tipoLabelText(s){ let o=String(s==null?'':s); Object.keys(TIPO_LABEL).forEach(k=>{ o=o.replace(new RegExp('\\b'+k+'\\b','g'),TIPO_LABEL[k]); }); return o; }
+// nome dell'attivita' per la visualizzazione: quello salvato parte dal valore della tipologia ("Test · ..."), qui si mostra l'etichetta
+function actNome(a){
+  const n=a&&a.nome; if(!n) return null;
+  const t=a.tipo, lab=tipoLabel(t);
+  if(t && lab!==t){ if(n===t) return lab; if(n.indexOf(t+' · ')===0) return lab+n.slice(t.length); }
+  return n;
+}
 // da Docenti.xlsx: [VOCI / RUOLI] e [CASSA/RITENUTA D'ACCONTO] (rinominati "Ruoli" e "Contributi" in UI).
 // "Contributi" serve a calcolare l'importo effettivamente da versare al docente (cassa 4% vs ritenuta).
 const RUOLI=["Docente","Collaboratore","Tutor"];
@@ -851,12 +1087,6 @@ function isAssunto(tid){ const t=STATE.teachers.find(x=>x.id===tid); return !!(t
 function fiscalFlagsHtml(cls,id,t){
   const ass=!!(t&&t.flag_assunto);
   return `<div class="fiscal-flags">${FLAG_FISCALI.map(([key,label])=>`<label title="${key==='flag_assunto'?'Docente assunto: si registrano solo le ore svolte, nessun compenso e nessun dato verso il Budget':''}"><input type="checkbox" class="${cls}" data-id="${id||''}" data-flag="${key}"${t&&t[key]?' checked':''}${ass&&key!=='flag_assunto'?' disabled':''}> ${esc(label)}</label>`).join('')}</div>`;
-}
-// select con opzioni fisse ma che non perde un valore esistente fuori lista (dati storici/importati)
-function fixedSelectHtml(cls,id,options,current){
-  const cur=current||"";
-  const opts=options.includes(cur)||!cur ? options : [cur,...options];
-  return `<select class="${cls}" data-id="${id}"><option value="">—</option>${opts.map(o=>`<option value="${esc(o)}" ${o===cur?'selected':''}>${esc(o)}</option>`).join('')}</select>`;
 }
 const CAMPUS_OPTIONS=["Campus di Milano","Campus di Roma","Campus di Londra","Online"];
 const TWISTY_ICON=`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg>`;
@@ -886,6 +1116,8 @@ function load(){
 }
 let STATE=load();
 function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(STATE)); }catch(e){} }
+// un docente disattivato non si sceglie per nuove attivita' (lo storico resta); chi modifica un'attivita' sua lo vede comunque
+function teacherSelectable(t,keepId){ return t.attivo!==false || t.id===keepId; }
 function teacherById(id){ return STATE.teachers.find(t=>t.id===id)||{nome:"—",tariffa_oraria:50}; }
 function interfaceById(id){ return STATE.interfaces.find(i=>i.id===id)||null; }
 function findInterfaceByEmail(email){ if(!email)return null; return STATE.interfaces.find(i=>(i.email||"").toLowerCase()===email.toLowerCase())||null; }
@@ -950,6 +1182,9 @@ function tabVisible(tool,tabKey,role){
   if(cfg && Object.prototype.hasOwnProperty.call(cfg,role)) return !!cfg[role];
   // "responsabile" = admin limitato ai propri centri di costo: senza riga propria segue la riga admin
   if(role==='responsabile' && cfg && Object.prototype.hasOwnProperty.call(cfg,'admin')) return !!cfg.admin;
+  // "Anagrafiche": senza una riga propria in bdg_tab_visibility la vedono admin, responsabile e interfacce (docente); ogni ruolo
+  // vede poi solo cio' che la matrice dei permessi gli consente (vedi anaPerm())
+  if(tabKey==='anagrafiche') return role==='admin' || role==='responsabile' || role==='docente';
   return role==='admin' || role==='responsabile';
 }
 // ruolo principale + eventuali "tag" extra (bdg_app_users.extra_roles, es. un orientatore reso
@@ -1159,7 +1394,7 @@ function tipiCreabili(){
 function fillTipoOptions(){
   const sel=document.getElementById("aTipo"); if(!sel) return;
   const cur=sel.value;
-  sel.innerHTML=tipiCreabili().map(t=>`<option>${esc(t)}</option>`).join("");
+  sel.innerHTML=tipiCreabili().map(t=>`<option value="${esc(t)}">${esc(tipoLabel(t))}</option>`).join("");
   if(cur && [...sel.options].some(o=>o.value===cur)) sel.value=cur;
 }
 function visibleActivities(){
@@ -1210,8 +1445,6 @@ function fillSelects(){
   vw.innerHTML=`<option value="ALL">Tutti i docenti</option>`+STATE.teachers.map(t=>`<option value="${t.id}" ${STATE.view===t.id?'selected':''}>${esc(t.nome)}</option>`).join("");
   vw.value=STATE.view;
   fillTipoOptions();
-  const nti=document.getElementById("newTeacherIface");
-  if(nti) nti.innerHTML=`<option value="">— nessuna —</option>`+STATE.interfaces.map(i=>`<option value="${i.id}">${esc(i.nome)}</option>`).join("");
   fillRiepFySel();
   renderRiepMonthChips();
   renderRiepAreaChips();
@@ -1267,7 +1500,7 @@ function renderRiepAreaChips(){
 }
 function renderRiepTipoChips(){
   const sel=STATE.riepTipi||[];
-  let h=TIPI.map(t=>`<button class="chip ${sel.includes(t)?'on':''}" data-t="${esc(t)}">${esc(t)}</button>`).join("");
+  let h=TIPI.map(t=>`<button class="chip ${sel.includes(t)?'on':''}" data-t="${esc(t)}">${esc(tipoLabel(t))}</button>`).join("");
   if(sel.length) h+=`<button class="chip reset" id="riepTipiReset">✕ azzera</button>`;
   document.getElementById("riepTipoChips").innerHTML=h;
   document.querySelectorAll("#riepTipoChips .chip[data-t]").forEach(b=>b.onclick=()=>{
@@ -1333,7 +1566,7 @@ function activityRowHtml(a){
   // il nome del docente è la cosa che serve identificare più in fretta scorrendo l'elenco (specie
   // con Vista "Tutti i docenti" o un'interfaccia che gestisce più docenti): in evidenza sopra,
   // tipo/luogo/corso come sottotitolo — non più in coda a una stringa unica, tutti sullo stesso piano
-  const sub = [a.tipo, activityLocation(a), a.area].filter(Boolean).join(' · ');
+  const sub = [tipoLabel(a.tipo), activityLocation(a), a.area].filter(Boolean).join(' · ');
   const noteIc = a.note ? `<span class="note-ic" title="${esc(a.note)}"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg></span>` : '';
   return `<div class="${cls}" data-id="${a.id}">
       <span class="ty"><span class="who">${esc(teacherById(a.teacher_id).nome)}${noteIc}</span><span class="ty-sub">${esc(sub)}</span></span>
@@ -1344,23 +1577,34 @@ function activityRowHtml(a){
       ${quick}
     </div>`;
 }
+// ordine unico di tutti gli elenchi di attivita' (Attivita', dettaglio docente del Riepilogo, dettaglio scuola): data CRESCENTE;
+// a parita' di data prima l'orario di inizio, poi il nome del docente e infine l'id, cosi' l'ordine e' sempre lo stesso (stabile)
+function actCmpAsc(a,b){
+  return String(a.data||'').localeCompare(String(b.data||''))
+    || String(a.ora_evento||'').localeCompare(String(b.ora_evento||''))
+    || String(teacherById(a.teacher_id).nome).localeCompare(String(teacherById(b.teacher_id).nome),'it')
+    || String(a.id).localeCompare(String(b.id));
+}
 function renderActivities(){
   const list=document.getElementById("actList");
-  const acts=visibleActivities().slice().sort((a,b)=>String(b.data||"").localeCompare(String(a.data||"")));
+  const acts=visibleActivities().slice().sort(actCmpAsc);
   document.getElementById("actCount").textContent = acts.length? `${acts.length} attività · ${eur(acts.reduce((s,a)=>s+(a.stato!=='annullata'?activityAmount(a):0),0))}` : "";
   if(!acts.length){
     const senzaCentri=isScopedRole() && myCentri().length===0; // responsabile senza centri: il banner in alto spiega il motivo
     list.innerHTML=senzaCentri ? `<div class="empty">Nessun centro di costo assegnato al tuo utente: contatta l'amministratore.</div>` : `<div class="empty">Nessuna attività. Premi "Nuova attività" per iniziare.</div>`;
     wireActivityRows(list); return;
   }
-  const cur=todayMonth(), prev=prevMonth(cur);
-  const curActs=acts.filter(a=>(a.data||'').slice(0,7)===cur);
-  const prevActs=acts.filter(a=>(a.data||'').slice(0,7)===prev);
-  const restActs=acts.filter(a=>{ const m=(a.data||'').slice(0,7); return m!==cur && m!==prev; });
-  const section=(title,rows)=> rows.length ? `<div class="act-section-h">${title}</div>`+rows.map(a=>activityRowHtml(a)).join("") : "";
-  const h=section(`Mese corrente · ${MESI_LONG[+cur.slice(5,7)-1]}`,curActs)+section(`Mese precedente · ${MESI_LONG[+prev.slice(5,7)-1]}`,prevActs)+section("Tutte le altre",restActs);
-  list.innerHTML=h || `<div class="empty">Nessuna attività.</div>`;
+  list.innerHTML=acts.map(a=>activityRowHtml(a)).join("");
   wireActivityRows(list);
+}
+// porta in vista la prima attivita' da oggi in poi (l'elenco parte dalla data piu' vecchia)
+function scrollActToday(){
+  const today=todayISO();
+  const first=visibleActivities().slice().sort(actCmpAsc).find(a=>(a.data||'')>=today);
+  if(!first){ toast("Nessuna attività da oggi in poi"); return; }
+  const row=[...document.querySelectorAll("#actList .act-row[data-id]")].find(r=>r.dataset.id===first.id);
+  if(!row){ toast("Attività non trovata nell'elenco"); return; }
+  row.scrollIntoView({block:"center",behavior:"smooth"}); flashFilled(row);
 }
 function wireActivityRows(list){
   list.querySelectorAll(".act-row[data-id]").forEach(r=>r.onclick=e=>{ if(e.target.closest(".rowbtn")) return; openActivity(r.dataset.id); });
@@ -1380,7 +1624,7 @@ async function revertToProgrammata(id){
     toast(`Non puoi rimetterla in programmata: fa già parte di un'RDA già ${r.stato==='pagata'?'pagata':'inserita'} (Codice ${r.rif_rda||'—'}). Gestisci prima l'RDA in Chiusura mensile.`,'err');
     return;
   }
-  const ok=await showConfirm("Rimetti in programmata", `${teacherById(a.teacher_id).nome} · ${fmtD(a.data)} · ${a.tipo}${r?' — era in una bozza RDA non ancora inserita: il collegamento verrà rimosso':''}`, "Rimetti in programmata");
+  const ok=await showConfirm("Rimetti in programmata", `${teacherById(a.teacher_id).nome} · ${fmtD(a.data)} · ${tipoLabel(a.tipo)}${r?' — era in una bozza RDA non ancora inserita: il collegamento verrà rimosso':''}`, "Rimetti in programmata");
   if(!ok) return;
   a.stato='programmata';
   a.rda_id=null;
@@ -1420,9 +1664,9 @@ function buildOutlookLink(a){
   const t=teacherById(a.teacher_id);
   const loc0=activityLocation(a);
   const loc = loc0 && loc0!=='—' ? loc0 : '';
-  const subject = a.nome || [a.tipo, loc].filter(Boolean).join(' · ');
+  const subject = actNome(a) || [tipoLabel(a.tipo), loc].filter(Boolean).join(' · ');
   const bodyParts=[
-    'Tipologia: '+a.tipo,
+    'Tipologia: '+tipoLabel(a.tipo),
     a.area?('Corso: '+a.area):null,
     'Docente: '+(t?t.nome:''),
     loc?('Sede: '+loc):null,
@@ -1472,7 +1716,7 @@ function openCalModal(){
     box.innerHTML=`<div class="empty">Nessuna attività "programmata" da oggi in poi.</div>`;
   } else {
     box.innerHTML=acts.map(a=>{
-      const titolo=a.nome || [a.tipo, activityLocation(a)].filter(Boolean).join(' · ');
+      const titolo=actNome(a) || [tipoLabel(a.tipo), activityLocation(a)].filter(Boolean).join(' · ');
       if(a.cal_added_at){
         return `<div class="cal-link-row added">
           <span class="dt">${fmtD(a.data)}</span>
@@ -1585,10 +1829,10 @@ function renderDocenteDetail(){
   svolte.forEach(a=>{ perT[a.tipo]=perT[a.tipo]||{n:0,ore:0,imp:0}; perT[a.tipo].n++; perT[a.tipo].ore+=activityOre(a); perT[a.tipo].imp+=activityAmount(a); });
   const soloOre=isAssunto(teacherId);
   let tipoHtml=`<thead><tr><th class="l">Tipologia</th><th>Attività</th><th>Ore</th>${soloOre?'':'<th>Importo</th>'}</tr></thead><tbody>`;
-  TIPI.forEach(tp=>{ if(!perT[tp]) return; const r=perT[tp]; tipoHtml+=`<tr><td class="l">${tp}</td><td>${r.n}</td><td>${r.ore}</td>${soloOre?'':`<td><b>${eur2(r.imp)}</b></td>`}</tr>`; });
+  TIPI.forEach(tp=>{ if(!perT[tp]) return; const r=perT[tp]; tipoHtml+=`<tr><td class="l">${esc(tipoLabel(tp))}</td><td>${r.n}</td><td>${r.ore}</td>${soloOre?'':`<td><b>${eur2(r.imp)}</b></td>`}</tr>`; });
   if(!Object.keys(perT).length) tipoHtml+=`<tr><td colspan="4"><div class="empty">Nessuna attività svolta in questo mese.</div></td></tr>`;
   tipoHtml+=`</tbody>`;
-  const rowsHtml = acts.length ? acts.slice().sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).map(a=>activityRowHtml(a)).join('') : `<div class="empty">Nessuna attività in questo mese.</div>`;
+  const rowsHtml = acts.length ? acts.slice().sort(actCmpAsc).map(a=>activityRowHtml(a)).join('') : `<div class="empty">Nessuna attività in questo mese.</div>`;
   el.style.display="";
   el.innerHTML=`
     <div class="riep-detail-h">
@@ -1676,7 +1920,7 @@ function renderPreviewAs(){
   const pv=document.getElementById("previewAs"); if(!pv) return;
   pv.innerHTML=`<option value="">— Admin (vista completa) —</option>`+STATE.interfaces.map(i=>`<option value="${i.id}" ${STATE.previewAs===i.id?'selected':''}>${esc(i.nome)} · ${esc((i.aree||[]).join(', '))}</option>`).join("");
 }
-function renderAll(){ renderActivities(); renderRiepilogo(); renderChiusura(); renderSchoolsTable(); renderCalendario(); save(); }
+function renderAll(){ renderActivities(); renderRiepilogo(); renderChiusura(); renderSchoolsTable(); renderCalendario(); renderAnagrafiche(); save(); }
 
 /* ============================ SCUOLE (ricerca live, mai caricate per intero) ============================ */
 let _schoolSearchT=null;
@@ -1779,7 +2023,7 @@ function renderSchoolDetail(){
   const acts=visibleActivities().filter(a=>a.school_id===SCUOLA_SELECTED);
   if(!acts.length){ SCUOLA_SELECTED=null; el.style.display="none"; el.innerHTML=""; return; }
   const s=SCHOOL_CACHE[SCUOLA_SELECTED]||{};
-  const rowsHtml=acts.slice().sort((a,b)=>String(b.data||'').localeCompare(String(a.data||''))).map(a=>activityRowHtml(a)).join('');
+  const rowsHtml=acts.slice().sort(actCmpAsc).map(a=>activityRowHtml(a)).join('');
   el.style.display="";
   el.innerHTML=`
     <div class="riep-detail-h">
@@ -1934,7 +2178,7 @@ function chUnitPriority(u){
 // una card per ogni RDA (o proposta non ancora generata): r=null -> "Genera RDA"; r.stato='bozza' ->
 // editabile (Inserisci); r.stato='emessa' -> bloccata, resta solo "RDA Pagato"; r.stato='pagata' ->
 // terminale, sola lettura.
-function rdaCardHtml({t, tipo, tipoLabel, giroLabel, r, acts, pending, mult, teacherId, month}){
+function rdaCardHtml({t, tipo, tipoTxt, giroLabel, r, acts, pending, mult, teacherId, month}){
   const base=acts.reduce((s,a)=>s+activityAmount(a),0);
   const tot=base*mult;
   const amount = r ? r.importo_totale : tot;
@@ -1955,23 +2199,23 @@ function rdaCardHtml({t, tipo, tipoLabel, giroLabel, r, acts, pending, mult, tea
   }
   return `<div class="rda-card">
     <div class="rda-h">
-      <div><div class="who">${esc(t.nome)} · ${esc(tipoLabel)}${giroLabel}</div><div class="meta">${acts.length} attività svolta${pending.length?` · ${pending.length} in attesa di chiusura gruppo`:''} · ${eur2(t.tariffa_oraria)}/h${mult>1?` · <span style="color:var(--warn)">+4% cassa</span>`:''}</div></div>
+      <div><div class="who">${esc(t.nome)} · ${esc(tipoTxt)}${giroLabel}</div><div class="meta">${acts.length} attività svolta${pending.length?` · ${pending.length} in attesa di chiusura gruppo`:''} · ${eur2(t.tariffa_oraria)}/h${mult>1?` · <span style="color:var(--warn)">+4% cassa</span>`:''}</div></div>
       ${r?`<span class="badge ${rdaStatusInfo(r).cls}">${rdaStatusInfo(r).label}</span>`:''}
       <span class="tot">${eur2(amount)}</span>
     </div>
     <div class="rda-body">
       ${acts.map(a=>`<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px">
         <span style="min-width:90px;color:var(--ink-mute)">${fmtD(a.data)}</span>
-        <span style="flex:1">${esc(a.nome || (a.tipo+' · '+activityLocation(a)))}</span>
+        <span style="flex:1">${esc(actNome(a) || (tipoLabel(a.tipo)+' · '+activityLocation(a)))}</span>
         ${paymentBadge(a)}
         <span class="mono" style="font-weight:600">${eur2(activityAmount(a))}</span>
       </div>`).join("")}
       ${pending.map(a=>{
         const gid=a.gruppo_id||a.id;
         const note = groupClosed(gid) ? `Competenza: ${monthLabel(groupCompetenzaMonth(gid))}` : `In attesa: gruppo non ancora chiuso`;
-        return `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px;opacity:.55" title="RDA solo a fine periodo">
+        return `<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px" title="RDA solo a fine periodo">
           <span style="min-width:90px;color:var(--ink-mute)">${fmtD(a.data)}</span>
-          <span style="flex:1">${esc(a.nome || (a.tipo+' · '+activityLocation(a)))}</span>
+          <span style="flex:1">${esc(actNome(a) || (tipoLabel(a.tipo)+' · '+activityLocation(a)))}</span>
           <span class="hint" style="font-style:italic">${esc(note)}</span>
           <span class="mono" style="font-weight:600">${eur2(activityAmount(a))}</span>
         </div>`;
@@ -2018,18 +2262,18 @@ function renderChiusuraList(){
   units.forEach(u=>{
     const t=teacherById(u.tid);
     const mult=cassaMultiplier(t);
-    const tipoLabel=u.tipo===null?'Storico (senza tipologia)':u.tipo;
+    const tipoTxt=u.tipo===null?'Storico (senza tipologia)':tipoLabel(u.tipo);
     const locked=u.rdas.filter(r=>r.stato!=='bozza').sort((x,y)=>String(x.rif_rda_data||'').localeCompare(String(y.rif_rda_data||'')));
     const openRda=u.rdas.find(r=>r.stato==='bozza')||null;
     const giri=locked.length+(openRda?1:0);
     locked.forEach((r,i)=>{
       const rActs=STATE.activities.filter(a=>a.rda_id===r.id);
-      h+=rdaCardHtml({t,tipo:u.tipo,tipoLabel,giroLabel: giri>1?` · giro ${i+1}/${giri}`:'', r, acts:rActs, pending:[], mult, teacherId:u.tid, month});
+      h+=rdaCardHtml({t,tipo:u.tipo,tipoTxt,giroLabel: giri>1?` · giro ${i+1}/${giri}`:'', r, acts:rActs, pending:[], mult, teacherId:u.tid, month});
     });
     if(openRda){
-      h+=rdaCardHtml({t,tipo:u.tipo,tipoLabel,giroLabel: giri>1?` · giro ${giri}/${giri}`:'', r:openRda, acts:u.acts, pending:u.pending, mult, teacherId:u.tid, month});
+      h+=rdaCardHtml({t,tipo:u.tipo,tipoTxt,giroLabel: giri>1?` · giro ${giri}/${giri}`:'', r:openRda, acts:u.acts, pending:u.pending, mult, teacherId:u.tid, month});
     } else if(u.acts.length || u.pending.length){
-      h+=rdaCardHtml({t,tipo:u.tipo,tipoLabel,giroLabel:'', r:null, acts:u.acts, pending:u.pending, mult, teacherId:u.tid, month});
+      h+=rdaCardHtml({t,tipo:u.tipo,tipoTxt,giroLabel:'', r:null, acts:u.acts, pending:u.pending, mult, teacherId:u.tid, month});
     }
   });
   box.innerHTML=h;
@@ -2064,7 +2308,7 @@ function renderChiusuraList(){
   box.querySelectorAll(".rda-pagato").forEach(b=>b.onclick=async()=>{
     const r=rdaById(b.dataset.id); if(!r) return;
     const t=teacherById(r.teacher_id);
-    const ok=await showConfirm("Segna RDA come pagata", `${t?t.nome:''}${r.tipo?' · '+r.tipo:''} · ${monthLabel((r.mese||'').slice(0,7))} · ${eur2(r.importo_totale)}${r.rif_rda?' · Codice '+r.rif_rda:''}`, "Segna come pagata");
+    const ok=await showConfirm("Segna RDA come pagata", `${t?t.nome:''}${r.tipo?' · '+tipoLabel(r.tipo):''} · ${monthLabel((r.mese||'').slice(0,7))} · ${eur2(r.importo_totale)}${r.rif_rda?' · Codice '+r.rif_rda:''}`, "Segna come pagata");
     if(!ok) return;
     r.stato='pagata'; renderAll(); cloudUpsertRda(r);
   });
@@ -2097,7 +2341,7 @@ function renderRdaHistory(){
     <td><span class="twisty${open?' open':''}"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3"><path d="M9 6l6 6-6 6"/></svg></span></td>
     <td class="l">${monthLabel((r.mese||'').slice(0,7))}</td>
     <td class="l">${esc(teacherById(r.teacher_id).nome)}</td>
-    <td class="l">${esc(r.tipo)||'<span class="hint">storico</span>'}</td>
+    <td class="l">${esc(tipoLabel(r.tipo))||'<span class="hint">storico</span>'}</td>
     <td class="l"><span class="badge ${rdaStatusInfo(r).cls}">${rdaStatusInfo(r).label}</span></td>
     <td><b>${eur2(r.importo_totale)}</b></td>
     <td class="l">${esc(r.rif_rda)||'—'}</td>
@@ -2108,7 +2352,7 @@ function renderRdaHistory(){
         <div style="padding:4px 14px 10px">
           ${acts.length ? acts.map(a=>`<div style="display:flex;gap:10px;align-items:center;padding:6px 0;border-bottom:1px dashed var(--line);font-size:12.5px">
             <span style="min-width:90px;color:var(--ink-mute)">${fmtD(a.data)}</span>
-            <span style="flex:1">${esc(teacherById(a.teacher_id).nome)} · ${esc(a.nome || (a.tipo+' · '+activityLocation(a)))}</span>
+            <span style="flex:1">${esc(teacherById(a.teacher_id).nome)} · ${esc(actNome(a) || (tipoLabel(a.tipo)+' · '+activityLocation(a)))}</span>
             <span class="mono" style="font-weight:600">${eur2(activityAmount(a))}</span>
           </div>`).join("") : `<div class="empty" style="padding:6px 0">Nessuna attività collegata.</div>`}
         </div>
@@ -2241,7 +2485,7 @@ function kanbanCardHtml(key,it){
   // dalla colonna "Pronte" in giù ogni card è un'unità docente+tipologia (2026-09-16): il nome da solo
   // non basta più a distinguerle, quindi la tipologia compare accanto (tranne in "Da confermare", che
   // non è ancora legata a nessuna RDA)
-  const who = it.tipo!==undefined ? `${esc(t.nome)} · ${esc(it.tipo===null?'Storico':it.tipo)}` : esc(t.nome);
+  const who = it.tipo!==undefined ? `${esc(t.nome)} · ${esc(it.tipo===null?'Storico':tipoLabel(it.tipo))}` : esc(t.nome);
   if(key==='confermare') return `<div class="kanban-card">
     <div class="who">${esc(t.nome)}</div>
     <div class="meta">${it.count} attività · ${eur2(it.imp)} stimato</div>
@@ -2272,7 +2516,7 @@ function kanbanCardHtml(key,it){
     <div class="hint">Codice RDA: <b>${esc(r.rif_rda||'—')}</b></div>
     <button type="button" class="btn small rda-pagato" data-id="${r.id}" title="Segna l'RDA come pagata: chiude il ciclo, l'importo passa da Allocato a Speso nel tool Budget"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 6L9 17l-5-5"/></svg>RDA Pagato</button>
   </div>`;
-  return `<div class="kanban-card" style="opacity:.65">
+  return `<div class="kanban-card done">
     <div class="who">${who}</div>
     <div class="amt">${eur2(it.imp)}</div>
     <div class="hint">Codice RDA: <b>${esc(r.rif_rda||'—')}</b></div>
@@ -2313,7 +2557,7 @@ function wireKanbanCards(){
   box.querySelectorAll(".rda-pagato").forEach(b=>b.onclick=async()=>{
     const r=rdaById(b.dataset.id); if(!r) return;
     const t=teacherById(r.teacher_id);
-    const ok=await showConfirm("Segna RDA come pagata", `${t?t.nome:''}${r.tipo?' · '+r.tipo:''} · ${monthLabel((r.mese||'').slice(0,7))} · ${eur2(r.importo_totale)}${r.rif_rda?' · Codice '+r.rif_rda:''}`, "Segna come pagata");
+    const ok=await showConfirm("Segna RDA come pagata", `${t?t.nome:''}${r.tipo?' · '+tipoLabel(r.tipo):''} · ${monthLabel((r.mese||'').slice(0,7))} · ${eur2(r.importo_totale)}${r.rif_rda?' · Codice '+r.rif_rda:''}`, "Segna come pagata");
     if(!ok) return;
     r.stato='pagata'; renderAll(); cloudUpsertRda(r);
   });
@@ -2544,11 +2788,11 @@ let calStatoFilter=[]; // vuoto = nessun filtro, mostra tutte; altrimenti solo g
 // come nel riferimento inviato): verde=svolta, ambra=programmata (stesso significato di --warn/--allocato
 // già usato nelle KPI del Riepilogo), grigio=annullata — mai rosso, riservato altrove a errori/sforamenti
 function calStatoIcon(stato){
-  if(stato==='svolta') return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--accent)"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
-  if(stato==='annullata') return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--ink-mute)"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="#fff" stroke-width="2.4" stroke-linecap="round"/></svg>`;
-  return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--warn)"/><rect x="11" y="6.5" width="2" height="7" rx="1" fill="#fff"/><rect x="11" y="15.5" width="2" height="2" rx="1" fill="#fff"/></svg>`;
+  if(stato==='svolta') return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--accent-fill)"/><path d="M7 12.5l3.2 3.2L17 9" fill="none" stroke="var(--on-accent)" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+  if(stato==='annullata') return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--ink-soft)"/><path d="M8.5 8.5l7 7M15.5 8.5l-7 7" stroke="var(--surface)" stroke-width="2.4" stroke-linecap="round"/></svg>`;
+  return `<svg class="cal-stico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="11" fill="var(--warn)"/><rect x="11" y="6.5" width="2" height="7" rx="1" fill="var(--surface)"/><rect x="11" y="15.5" width="2" height="2" rx="1" fill="var(--surface)"/></svg>`;
 }
-function calEntryLabel(a){ const t=teacherById(a.teacher_id); return (t?t.nome:'?') + (a.tipo?' · '+a.tipo:''); }
+function calEntryLabel(a){ const t=teacherById(a.teacher_id); return (t?t.nome:'?') + (a.tipo?' · '+tipoLabel(a.tipo):''); }
 function calShift(delta){
   const [y,m]=calMonth.split('-').map(Number);
   const d=new Date(y, m-1+delta, 1);
@@ -2593,7 +2837,7 @@ function openCalPreview(id){
   const t=teacherById(a.teacher_id);
   const stLabel=a.stato==='svolta'?'Svolta':a.stato==='annullata'?'Annullata':'Programmata';
   const orario=a.ora_evento?`${a.ora_evento}${a.ora_evento_fine?'–'+a.ora_evento_fine:''}`:'';
-  document.getElementById('calPreviewTitle').textContent=a.tipo||'Attività';
+  document.getElementById('calPreviewTitle').textContent=tipoLabel(a.tipo)||'Attività';
   document.getElementById('calPreviewBody').innerHTML=`
     <div class="field"><label>Docente</label><div>${esc(t?t.nome:'—')}</div></div>
     <div class="field"><label>Data</label><div>${esc(a.data||'—')}${orario?' · '+esc(orario):''}</div></div>
@@ -2627,14 +2871,15 @@ function openActivity(id){
   const teacherSel=document.getElementById("aTeacher");
   tf.style.display="";
   if(CURRENT.interfaceId){
-    const mine=teachersOfInterface(CURRENT.interfaceId);
+    const mine=teachersOfInterface(CURRENT.interfaceId).filter(t=>teacherSelectable(t,a&&a.teacher_id));
     teacherSel.innerHTML=mine.map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join("")+`<option value="__new__">+ Aggiungi nuovo docente…</option>`;
     const self=mine.find(t=>t.nome===CURRENT.name);
     teacherSel.value=a?a.teacher_id:(self?self.id:(mine[0]&&mine[0].id)||"");
     teacherSel.dataset.last=teacherSel.value;
   } else {
-    teacherSel.innerHTML=STATE.teachers.map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join("");
-    teacherSel.value=a?a.teacher_id:(myFilter()||(STATE.teachers[0]&&STATE.teachers[0].id));
+    const avail=STATE.teachers.filter(t=>teacherSelectable(t,a&&a.teacher_id));
+    teacherSel.innerHTML=avail.map(t=>`<option value="${t.id}">${esc(t.nome)}</option>`).join("");
+    teacherSel.value=a?a.teacher_id:((myFilter()&&avail.some(t=>t.id===myFilter()))?myFilter():(avail[0]&&avail[0].id));
   }
   fillTipoOptions();
   const tipiOk=tipiCreabili();
@@ -2826,7 +3071,7 @@ function closeNewTeacherModal(){
   const sel=document.getElementById("aTeacher");
   if(sel.value==='__new__'){ sel.value=sel.dataset.last||""; updateAreaField(); }
 }
-function saveNewTeacherQuick(){
+async function saveNewTeacherQuick(){
   const nome=(document.getElementById("ntNome").value||"").trim();
   const email=(document.getElementById("ntEmail").value||"").trim().toLowerCase();
   const rate=Number(document.getElementById("ntRate").value)||50;
@@ -2834,88 +3079,705 @@ function saveNewTeacherQuick(){
   const fiscalFlags={}; document.querySelectorAll("#ntContributi input[type=checkbox]").forEach(cb=>{ fiscalFlags[cb.dataset.flag]=cb.checked; });
   if(!nome){ toast("Inserisci nome e cognome"); return; }
   if(fiscalFlags.flag_assunto){ fiscalFlags.flag_cassa4=false; fiscalFlags.flag_iva22=false; fiscalFlags.flag_ritenuta=false; }
-  const t={id:uuid(), nome, email, interface_id:CURRENT.interfaceId, ruolo, ...fiscalFlags, tariffa_oraria:fiscalFlags.flag_assunto?0:rate, attivo:true};
-  STATE.teachers.push(t); save(); fillSelects();
+  let t;
+  if(cloudReady()){
+    // scrittura vera: il docente compare nelle liste solo se il database l'ha accettato (stesse regole delle Anagrafiche)
+    const v={nome,email,ruolo,tariffa:rate,assunto:!!fiscalFlags.flag_assunto,cassa4:!!fiscalFlags.flag_cassa4,iva22:!!fiscalFlags.flag_iva22,ritenuta:!!fiscalFlags.flag_ritenuta,attivo:true};
+    const err=anaValidateTeacher(v,null,teachersOfInterface(CURRENT.interfaceId));
+    if(err){ toast(err); return; }
+    const sv=document.getElementById("ntSave"); sv.disabled=true;
+    let r; try{ r=await anaPersistTeacher(null,v); } finally { sv.disabled=false; }
+    if(!r.ok){ toast(r.msg,'err'); return; }
+    t=r.row;
+  } else {
+    t={id:uuid(), nome, email, interface_id:CURRENT.interfaceId, ruolo, ...fiscalFlags, tariffa_oraria:fiscalFlags.flag_assunto?0:rate, attivo:true};
+    STATE.teachers.push(t);
+  }
+  save(); fillSelects();
   document.getElementById("newTeacherOverlay").classList.remove("on");
   const sel=document.getElementById("aTeacher");
-  const mine=teachersOfInterface(CURRENT.interfaceId);
+  const mine=teachersOfInterface(CURRENT.interfaceId).filter(x=>teacherSelectable(x,t.id));
   sel.innerHTML=mine.map(x=>`<option value="${x.id}">${esc(x.nome)}</option>`).join("")+`<option value="__new__">+ Aggiungi nuovo docente…</option>`;
   sel.value=t.id; sel.dataset.last=t.id;
   updateAreaField();
   updateTeacherInfo();
-  cloudUpsertTeacher(t);
   toast("Docente aggiunto");
 }
 
-/* ---- pannello Admin: anagrafica docenti (utenti/ruoli/visibilità ora nel Backend del Portale) ---- */
+/* ============================ ANAGRAFICHE ============================ */
+// Scuole (bdg_schools), docenti (bdg_teachers) e interfacce di orientamento (bdg_orientamento_interfaces): aggiunta, modifica,
+// disattivazione ed eliminazione con scritture VERE sul cloud. Regola unica: lo stato locale cambia SOLO dopo che il database ha
+// confermato (insert/update/delete con .select() e controllo delle righe toccate: un DELETE/UPDATE che la RLS ignora tocca 0 righe
+// senza dare errore, e va trattato come "Operazione non consentita dal tuo ruolo"). Permessi per ruolo da docs/permissions-matrix.json:
+//   admin        scuole, docenti, interfacce: tutto (anche eliminare)
+//   responsabile scuole e docenti: leggere/aggiungere/modificare (NON eliminare); interfacce: sola lettura
+//   interfaccia  (ruolo docente): solo i PROPRI docenti, aggiungere/modificare/disattivare (NON eliminare)
+const ANA_PAGE=50;
+const ANA_SEC_LABEL={docenti:'Docenti',scuole:'Scuole',interfacce:'Interfacce'};
+const ANA_ONE={docenti:'docente',scuole:'scuola',interfacce:'interfaccia'};
+const ANA_NEW_LABEL={docenti:'Nuovo docente',scuole:'Nuova scuola',interfacce:'Nuova interfaccia'};
+const ANA_TITLE_NEW={docenti:'Nuovo docente',scuole:'Nuova scuola',interfacce:'Nuova interfaccia'};
+const ANA_TITLE_EDIT={docenti:'Modifica docente',scuole:'Modifica scuola',interfacce:'Modifica interfaccia'};
+let ANA={sec:'docenti',q:'',stato:'attivi',iface:'ALL',busy:false,edit:null,opener:null,searchT:null,
+  schools:{rows:[],more:false,loading:false,error:'',tok:0,page:0,loaded:false}};
+
+function cleanTxt(s){ return String(s==null?'':s).replace(/\s+/g,' ').trim(); }
+function normTxt(s){ return cleanTxt(s).toLowerCase(); }
+function plur(n,uno,molti){ return n+' '+(n===1?uno:molti); }
+function byNome(a,b){ return String(a.nome||'').localeCompare(String(b.nome||''),'it',{sensitivity:'base'}); }
+
+/* ---- conversioni riga database -> stato locale (le stesse della lettura iniziale) ---- */
+function mapTeacherRow(x){
+  const tr=(x.tariffa_oraria==null||x.tariffa_oraria==='')?NaN:Number(x.tariffa_oraria);
+  return {id:x.id,nome:x.nome,email:x.email||"",interface_id:x.interface_id||null,ruolo:x.ruolo||"",flag_cassa4:!!x.flag_cassa4,flag_iva22:!!x.flag_iva22,flag_ritenuta:!!x.flag_ritenuta,flag_assunto:!!x.flag_assunto,tariffa_oraria:isFinite(tr)?tr:50,attivo:x.attivo!==false,last_solicited_at:x.last_solicited_at||null};
+}
+function mapInterfaceRow(x){ return {id:x.id,nome:x.nome,email:x.email||"",aree:x.aree||[],attivo:x.attivo!==false}; }
+
+/* ---- permessi ---- */
+function anaMode(){
+  if(CURRENT.role==='admin') return 'admin';          // (in "Anteprima come interfaccia" il ruolo effettivo e' docente: vale la vista dell'interfaccia)
+  if(CURRENT.role==='responsabile') return 'resp';
+  if(CURRENT.interfaceId) return 'iface';
+  return null;
+}
+function anaPerm(){
+  const m=anaMode(), mng=(m==='admin'||m==='resp');
+  return {
+    mode:m,
+    docenti:{view:!!m, write:!!m, del:m==='admin', anyIface:mng},
+    scuole:{view:mng, write:mng, del:m==='admin'},
+    interfacce:{view:mng, write:m==='admin', del:m==='admin'}
+  };
+}
+function anaSections(){ const p=anaPerm(); return ['docenti','scuole','interfacce'].filter(s=>p[s].view); }
+function canEditInterfaces(){ return anaPerm().interfacce.write; }
+function anaTeacherPool(){ const p=anaPerm(); if(!p.mode) return []; return p.docenti.anyIface ? STATE.teachers : teachersOfInterface(CURRENT.interfaceId); }
+function anaFind(sec,id){
+  if(sec==='docenti') return STATE.teachers.find(t=>t.id===id)||null;
+  if(sec==='interfacce') return STATE.interfaces.find(i=>i.id===id)||null;
+  return ANA.schools.rows.find(s=>s.id===id)||SCHOOL_CACHE[id]||null;
+}
+
+/* ---- esecuzione e controllo di una scrittura ---- */
+function anaErrMsg(ctx,e){
+  if(isDenied(e)) return DENY_MSG+'. La modifica non è stata salvata.';
+  if(e&&e.code==='23505') return 'Esiste già un elemento uguale: non è stato salvato.';
+  if(e&&e.code==='23503') return "L'elemento è collegato ad altri dati (attività, RDA o docenti): non si può eliminare.";
+  return 'Salvataggio non riuscito ('+ctx+'): '+errText(e);
+}
+// build() -> promessa {data,error} di supabase-js. expectRows>0: servono almeno quelle righe (0 righe = rifiuto del ruolo).
+async function anaRun(ctx,build,expectRows){
+  if(!cloudReady()) return {ok:false,msg:'Serve il collegamento al cloud: accedi con il tuo account per modificare le anagrafiche.'};
+  cloudSetDot('sync');
+  try{
+    const res=await build();
+    if(res&&res.error) throw res.error;
+    const rows=(res&&res.data)||[];
+    if(expectRows>0 && rows.length<expectRows){ const e=new Error(DENY_MSG); e.code='42501'; e.rows=rows.length; throw e; }
+    flashSynced();
+    return {ok:true,rows};
+  }catch(e){
+    console.error('anagrafiche',ctx,e); cloudSetDot('err');
+    return {ok:false,denied:isDenied(e),code:e&&e.code,msg:anaErrMsg(ctx,e)};
+  }
+}
+// registro delle modifiche (bdg_audit_log) per scuole e interfacce; i docenti li registra gia' il trigger del database.
+// Chiamata SOLO dopo un'operazione riuscita.
+function cloudAudit(action,entity,summary,details){
+  if(!cloudReady()) return;
+  try{ Promise.resolve(sb.from('bdg_audit_log').insert({user_email:cloudUser(),action,entity,summary:summary||null,details:details||null})).then(res=>{ if(res&&res.error) console.error('registro',res.error); }).catch(e=>console.error('registro',e)); }catch(e){ console.error('registro',e); }
+}
+function anaDiff(before,after,keys){
+  const d={};
+  keys.forEach(k=>{ const a=before[k]==null?'':before[k], b=after[k]==null?'':after[k]; if(JSON.stringify(a)!==JSON.stringify(b)) d[k]={da:before[k]==null?null:before[k],a:after[k]==null?null:after[k]}; });
+  return d;
+}
+
+/* ---- validazioni (pure) ---- */
+function anaParseRate(s){
+  const x=String(s==null?'':s).trim().replace(',','.');
+  if(x==='') return null;
+  const n=Number(x);
+  return (isFinite(n)&&n>=0)?n:null;
+}
+function anaValidateTeacher(v,excludeId,pool){
+  const nome=cleanTxt(v.nome);
+  if(!nome) return 'Il nome è obbligatorio.';
+  if(nome.length>120) return 'Il nome è troppo lungo (massimo 120 caratteri).';
+  if(!v.assunto && anaParseRate(v.tariffa)===null) return 'La tariffa oraria deve essere un numero maggiore o uguale a 0.';
+  const dup=(pool||[]).find(t=>t.id!==excludeId && normTxt(t.nome)===normTxt(nome));
+  if(dup) return 'Esiste già un docente con questo nome ("'+dup.nome+'"): maiuscole e spazi non fanno differenza.';
+  return '';
+}
+function anaValidateInterface(v,excludeId,pool){
+  const nome=cleanTxt(v.nome), email=cleanTxt(v.email).toLowerCase();
+  if(!nome) return 'Il nome è obbligatorio.';
+  if(nome.length>120) return 'Il nome è troppo lungo (massimo 120 caratteri).';
+  if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return "L'email di login non è valida.";
+  const dupN=(pool||[]).find(i=>i.id!==excludeId && normTxt(i.nome)===normTxt(nome));
+  if(dupN) return 'Esiste già un\'interfaccia con questo nome ("'+dupN.nome+'").';
+  if(email){ const dupE=(pool||[]).find(i=>i.id!==excludeId && normTxt(i.email)===email); if(dupE) return 'L\'email di login è già usata dall\'interfaccia "'+dupE.nome+'".'; }
+  return '';
+}
+function anaValidateSchool(v){
+  const nome=cleanTxt(v.nome);
+  if(!nome) return 'Il nome è obbligatorio.';
+  if(nome.length>200) return 'Il nome è troppo lungo (massimo 200 caratteri).';
+  return '';
+}
+function anaValidate(sec,v,id){
+  if(sec==='docenti') return anaValidateTeacher(v,id,anaTeacherPool());
+  if(sec==='interfacce') return anaValidateInterface(v,id,STATE.interfaces);
+  return anaValidateSchool(v);
+}
+// doppioni tra le scuole (stesso nome e stessa citta', ignorando maiuscole e spazi): la tabella non e' caricata per intero, quindi si chiede al database
+async function anaSchoolDuplicate(v,excludeId){
+  const nome=cleanTxt(v.nome), citta=normTxt(v.citta);
+  const like=nome.replace(/[%_\\,()*]/g,' ').split(' ').filter(Boolean).join('%');
+  try{
+    const res=await sb.from('bdg_schools').select('id,nome,citta').ilike('nome','%'+like+'%').limit(50);
+    if(res.error) throw res.error;
+    const dup=(res.data||[]).find(s=>s.id!==excludeId && normTxt(s.nome)===normTxt(nome) && normTxt(s.citta)===citta);
+    return {dup:dup||null};
+  }catch(e){ console.error('doppioni scuole',e); return {error:errText(e)}; }
+}
+
+/* ---- scritture ---- */
+async function anaPersistTeacher(id,v){
+  const P=anaPerm().docenti;
+  if(!P.write) return {ok:false,msg:DENY_MSG+'.'};
+  const assunto=!!v.assunto;
+  const vals={
+    nome:cleanTxt(v.nome).toUpperCase(),               // nomi dei docenti in maiuscolo (convenzione dell'anagrafica)
+    ruolo:v.ruolo||null,
+    tariffa_oraria:assunto?0:anaParseRate(v.tariffa),
+    flag_cassa4:assunto?false:!!v.cassa4, flag_iva22:assunto?false:!!v.iva22, flag_ritenuta:assunto?false:!!v.ritenuta,
+    attivo:v.attivo!==false
+  };
+  if(assunto||HAS_ASSUNTO_COL) vals.flag_assunto=assunto;
+  if(!id){
+    const iface=P.anyIface?(v.interface_id||null):CURRENT.interfaceId;
+    if(!P.anyIface && !iface) return {ok:false,msg:DENY_MSG+'.'};
+    const row=Object.assign({id:uuid(),interface_id:iface},vals);
+    const em=cleanTxt(v.email).toLowerCase(); if(em) row.email=em;
+    const r=await anaRun('docente',()=>sb.from('bdg_teachers').insert(row).select(),1);
+    if(!r.ok) return r;
+    const t=mapTeacherRow(r.rows[0]); STATE.teachers.push(t);
+    return {ok:true,row:t,created:true};
+  }
+  const cur=STATE.teachers.find(x=>x.id===id);
+  if(!cur) return {ok:false,msg:'Docente non trovato: aggiorna la pagina.'};
+  if(!P.anyIface && cur.interface_id!==CURRENT.interfaceId) return {ok:false,msg:DENY_MSG+': puoi modificare solo i docenti della tua interfaccia.'};
+  const patch=Object.assign({},vals,{updated_at:new Date().toISOString()});
+  if(P.anyIface) patch.interface_id=v.interface_id||null;
+  const r=await anaRun('docente',()=>sb.from('bdg_teachers').update(patch).eq('id',id).select(),1);
+  if(!r.ok) return r;
+  Object.assign(cur,mapTeacherRow(r.rows[0]));
+  return {ok:true,row:cur};
+}
+function anaAreeFromText(s){
+  const seen=new Set(), out=[];
+  String(s||'').split(',').map(cleanTxt).filter(Boolean).forEach(a=>{ const k=a.toLowerCase(); if(!seen.has(k)){ seen.add(k); out.push(a); } });
+  return out;
+}
+async function anaPersistInterface(id,v){
+  const P=anaPerm().interfacce;
+  if(!P.write) return {ok:false,msg:DENY_MSG+': le interfacce le gestisce l\'amministratore.'};
+  const vals={nome:cleanTxt(v.nome), email:cleanTxt(v.email).toLowerCase()||null, aree:anaAreeFromText(v.aree), attivo:v.attivo!==false};
+  if(!id){
+    const row=interfaceRow(Object.assign({id:uuid()},vals));
+    const r=await anaRun('interfaccia',()=>sb.from('bdg_orientamento_interfaces').insert(row).select(),1);
+    if(!r.ok) return r;
+    const i=mapInterfaceRow(r.rows[0]); STATE.interfaces.push(i);
+    cloudAudit('aggiunta','bdg_orientamento_interfaces',i.nome,{nome:i.nome,email:i.email||null});
+    return {ok:true,row:i,created:true};
+  }
+  const cur=STATE.interfaces.find(x=>x.id===id);
+  if(!cur) return {ok:false,msg:'Interfaccia non trovata: aggiorna la pagina.'};
+  const before=Object.assign({},cur);
+  const patch=Object.assign({},vals,{updated_at:new Date().toISOString()});
+  const r=await anaRun('interfaccia',()=>sb.from('bdg_orientamento_interfaces').update(patch).eq('id',id).select(),1);
+  if(!r.ok) return r;
+  Object.assign(cur,mapInterfaceRow(r.rows[0]));
+  cloudAudit('modifica','bdg_orientamento_interfaces',cur.nome,anaDiff(before,cur,['nome','email','aree','attivo']));
+  return {ok:true,row:cur};
+}
+async function anaPersistSchool(id,v){
+  const P=anaPerm().scuole;
+  if(!P.write) return {ok:false,msg:DENY_MSG+'.'};
+  const vals={nome:cleanTxt(v.nome), citta:cleanTxt(v.citta)||null, provincia:cleanTxt(v.provincia)||null, regione:cleanTxt(v.regione)||null, tipo:cleanTxt(v.tipo)||null};
+  const COLS='id,nome,citta,provincia,regione,tipo';
+  if(!id){
+    // le scuole create qui hanno un id proprio (prefisso LOC-) che non puo' collidere con gli id del CRM al prossimo import
+    const row=Object.assign({id:'LOC-'+uuid().replace(/-/g,'').slice(0,15)},vals);
+    const r=await anaRun('scuola',()=>sb.from('bdg_schools').insert(row).select(COLS),1);
+    if(!r.ok) return r;
+    const s=r.rows[0]; SCHOOL_CACHE[s.id]=s;
+    cloudAudit('aggiunta','bdg_schools',s.nome,{nome:s.nome,citta:s.citta||null});
+    return {ok:true,row:s,created:true};
+  }
+  const cur=anaFind('scuole',id)||{};
+  const before=Object.assign({},cur);
+  const patch=Object.assign({},vals,{updated_at:new Date().toISOString()});
+  const r=await anaRun('scuola',()=>sb.from('bdg_schools').update(patch).eq('id',id).select(COLS),1);
+  if(!r.ok) return r;
+  const s=r.rows[0]; SCHOOL_CACHE[s.id]=s;
+  const k=ANA.schools.rows.findIndex(x=>x.id===id); if(k>=0) ANA.schools.rows[k]=s;
+  cloudAudit('modifica','bdg_schools',s.nome,anaDiff(before,s,['nome','citta','provincia','regione','tipo']));
+  return {ok:true,row:s};
+}
+// attivo/disattivo (docenti e interfacce: la tabella scuole non ha il campo)
+async function anaSetAttivo(sec,id,val){
+  const P=anaPerm()[sec];
+  if(sec==='scuole' || !P || !P.write){ toast(DENY_MSG+'.','err'); return {ok:false}; }
+  const item=anaFind(sec,id); if(!item){ toast('Elemento non trovato: aggiorna la pagina.','err'); return {ok:false}; }
+  if(sec==='docenti' && !P.anyIface && item.interface_id!==CURRENT.interfaceId){ toast(DENY_MSG+': puoi modificare solo i docenti della tua interfaccia.','err'); return {ok:false}; }
+  const table=sec==='docenti'?'bdg_teachers':'bdg_orientamento_interfaces';
+  const r=await anaRun(sec,()=>sb.from(table).update({attivo:!!val,updated_at:new Date().toISOString()}).eq('id',id).select(),1);
+  if(!r.ok){ toast(r.msg,'err'); return r; }
+  item.attivo=r.rows[0].attivo!==false;
+  if(sec==='interfacce') cloudAudit('modifica','bdg_orientamento_interfaces',item.nome,{attivo:{da:!val,a:!!val}});
+  anaAfterChange(sec);
+  toast(val?'Riattivato: '+item.nome:'Disattivato: '+item.nome);
+  return r;
+}
+async function anaToggle(sec,id){
+  const item=anaFind(sec,id); if(!item) return {ok:false};
+  if(item.attivo!==false && sec==='docenti'){
+    const pend=STATE.activities.filter(a=>a.teacher_id===id && a.stato==='programmata').length;
+    if(pend){
+      const ok=await showConfirm('Disattiva docente', item.nome+' ha '+plur(pend,'attività ancora programmata','attività ancora programmate')+'. Le attività restano, ma il docente non si potrà più scegliere per nuove attività.', 'Disattiva');
+      if(!ok) return {ok:false,cancelled:true};
+    }
+  }
+  return anaSetAttivo(sec,id,item.attivo===false);
+}
+
+/* ---- eliminazione: solo se l'elemento non e' usato ---- */
+async function anaCount(table,col,val){
+  const r=await sb.from(table).select('id',{count:'exact',head:true}).eq(col,val);
+  if(r.error) throw r.error;
+  return r.count||0;
+}
+// quante righe usano l'elemento (massimo tra database e dati gia' scaricati)
+async function anaUsage(sec,id){
+  if(sec==='scuole') return {attivita:Math.max(await anaCount('bdg_teacher_activities','school_id',id), STATE.activities.filter(x=>x.school_id===id).length)};
+  if(sec==='docenti'){
+    const a=await anaCount('bdg_teacher_activities','teacher_id',id), r=await anaCount('bdg_teacher_rda','teacher_id',id);
+    return {attivita:Math.max(a,STATE.activities.filter(x=>x.teacher_id===id).length), rda:Math.max(r,STATE.rdas.filter(x=>x.teacher_id===id).length)};
+  }
+  const n=await anaCount('bdg_teachers','interface_id',id);
+  return {docenti:Math.max(n,STATE.teachers.filter(t=>t.interface_id===id).length)};
+}
+function anaUsageTotal(u){ return Object.keys(u).reduce((s,k)=>s+u[k],0); }
+function anaUsageMsg(sec,item,u){
+  const nm='"'+(item&&item.nome||'')+'"';
+  if(sec==='docenti'){
+    const parts=[]; if(u.attivita) parts.push(plur(u.attivita,'attività','attività')); if(u.rda) parts.push(plur(u.rda,'RDA','RDA'));
+    return nm+' ha '+parts.join(' e ')+' registrate: non si può eliminare per non perdere lo storico.';
+  }
+  if(sec==='scuole') return nm+' è usata da '+plur(u.attivita,'attività','attività')+': non si può eliminare finché ci sono attività collegate (la tabella delle scuole non ha un campo "attivo" per disattivarla).';
+  return nm+' ha '+plur(u.docenti,'docente collegato','docenti collegati')+': non si può eliminare. Sposta o scollega prima i docenti.';
+}
+async function anaDelete(sec,id){
+  const P=anaPerm()[sec];
+  if(!P || !P.del){ toast(DENY_MSG+'.','err'); return {ok:false,denied:true}; }
+  if(!cloudReady()){ toast('Serve il collegamento al cloud per eliminare.','err'); return {ok:false}; }
+  const item=anaFind(sec,id); if(!item){ toast('Elemento non trovato: aggiorna la pagina.','err'); return {ok:false}; }
+  let usage;
+  try{ usage=await anaUsage(sec,id); }
+  catch(e){ console.error('uso',e); toast("Non riesco a verificare se è in uso ("+errText(e)+"): non è stato eliminato nulla.",'err'); return {ok:false}; }
+  if(anaUsageTotal(usage)>0){
+    const msg=anaUsageMsg(sec,item,usage);
+    if(sec!=='scuole' && item.attivo!==false){
+      const ok=await showConfirm('Non si può eliminare', msg+' Vuoi disattivarlo?', 'Disattiva');
+      if(ok) return anaSetAttivo(sec,id,false);
+    } else await showConfirm('Non si può eliminare', msg, 'Ho capito');
+    return {ok:false,blocked:true,usage};
+  }
+  const okDel=await showConfirm('Elimina definitivamente', 'Stai per eliminare "'+item.nome+'" ('+ANA_ONE[sec]+'). L\'operazione non si può annullare.', 'Elimina');
+  if(!okDel) return {ok:false,cancelled:true};
+  const table=sec==='docenti'?'bdg_teachers':(sec==='scuole'?'bdg_schools':'bdg_orientamento_interfaces');
+  const r=await anaRun(sec,()=>sb.from(table).delete().eq('id',id).select('id'),1);
+  if(!r.ok){ toast(r.msg,'err'); return r; }
+  if(sec==='docenti'){ STATE.teachers=STATE.teachers.filter(t=>t.id!==id); if(STATE.view===id) STATE.view='ALL'; }
+  else if(sec==='interfacce'){ STATE.interfaces=STATE.interfaces.filter(i=>i.id!==id); if(STATE.previewAs===id) STATE.previewAs=null; cloudAudit('eliminazione','bdg_orientamento_interfaces',item.nome,{nome:item.nome}); }
+  else { ANA.schools.rows=ANA.schools.rows.filter(s=>s.id!==id); delete SCHOOL_CACHE[id]; cloudAudit('eliminazione','bdg_schools',item.nome,{nome:item.nome}); }
+  anaAfterChange(sec);
+  toast('Eliminato: '+item.nome);
+  return r;
+}
+function anaAfterChange(sec){
+  if(sec==='docenti'||sec==='interfacce') fillSelects();
+  if(sec==='interfacce') renderPreviewAs();
+  save();
+  renderAll();
+}
+
+/* ---- elenco scuole (ricerca sul database, a pagine: sono migliaia) ---- */
+async function anaFetchSchools(reset){
+  const S=ANA.schools;
+  if(!cloudReady()){ S.rows=[]; S.more=false; S.error=''; S.loaded=false; S.loading=false; renderAnagrafiche(); return; }
+  if(reset){ S.rows=[]; S.page=0; S.more=false; }
+  const tok=++S.tok; S.loading=true; S.error=''; renderAnagrafiche();
+  try{
+    const from=S.page*ANA_PAGE;
+    let query=sb.from('bdg_schools').select('id,nome,citta,provincia,regione,tipo').order('nome').order('id').range(from,from+ANA_PAGE-1);
+    const q=cleanTxt(ANA.q);
+    if(q) q.split(' ').map(t=>t.replace(/[,()%*]/g,'')).filter(Boolean).forEach(t=>{ query=query.or('nome.ilike.%'+t+'%,citta.ilike.%'+t+'%,provincia.ilike.%'+t+'%,regione.ilike.%'+t+'%'); });
+    const res=await query;
+    if(tok!==S.tok) return;            // risposta superata da una ricerca piu' recente
+    if(res.error) throw res.error;
+    const rows=res.data||[];
+    rows.forEach(s=>{ SCHOOL_CACHE[s.id]=s; });
+    S.rows=S.rows.concat(rows); S.more=rows.length===ANA_PAGE; S.page++; S.loaded=true;
+  }catch(e){ if(tok!==S.tok) return; console.error('scuole',e); S.error=errText(e); }
+  S.loading=false; renderAnagrafiche();
+}
+
+/* ---- disegno della scheda ---- */
+function anaOnShow(){
+  renderAnagrafiche();
+  if(ANA.sec==='scuole' && cloudReady() && !ANA.schools.loaded && !ANA.schools.loading) anaFetchSchools(true);
+}
+function anaSetSec(s){
+  if(ANA.sec===s) return;
+  ANA.sec=s; ANA.q=''; ANA.stato='attivi'; ANA.iface='ALL';
+  const i=document.getElementById('anaSearch'); if(i) i.value='';
+  renderAnagrafiche();
+  if(s==='scuole' && cloudReady()) anaFetchSchools(true);
+}
+function anaStatoBadge(item){ return item.attivo===false?'<span class="badge speso">Disattivato</span>':'<span class="badge ok">Attivo</span>'; }
+function anaActionsHtml(sec,item){
+  const P=anaPerm()[sec];
+  if(!P || !cloudReady()) return '';
+  const id=esc(item.id), nm=esc(item.nome);
+  let h='';
+  if(P.write) h+=`<button type="button" class="btn ghost small" data-act="edit" data-id="${id}" aria-label="Modifica ${nm}">Modifica</button>`;
+  if(P.write && sec!=='scuole') h+=`<button type="button" class="btn ghost small" data-act="toggle" data-id="${id}" aria-label="${item.attivo===false?'Riattiva':'Disattiva'} ${nm}">${item.attivo===false?'Riattiva':'Disattiva'}</button>`;
+  if(P.del) h+=`<button type="button" class="btn danger small" data-act="del" data-id="${id}" aria-label="Elimina ${nm}">Elimina</button>`;
+  return h?`<div class="ana-acts">${h}</div>`:'';
+}
+function anaTeacherRows(){
+  const q=normTxt(ANA.q);
+  return anaTeacherPool().filter(t=>{
+    if(ANA.stato==='attivi' && t.attivo===false) return false;
+    if(ANA.stato==='disattivi' && t.attivo!==false) return false;
+    if(ANA.iface==='__none__'){ if(t.interface_id) return false; }
+    else if(ANA.iface!=='ALL' && t.interface_id!==ANA.iface) return false;
+    return !q || normTxt(t.nome).includes(q);
+  }).slice().sort(byNome);
+}
+function anaInterfaceRows(){
+  const q=normTxt(ANA.q);
+  return STATE.interfaces.filter(i=>{
+    if(ANA.stato==='attivi' && i.attivo===false) return false;
+    if(ANA.stato==='disattivi' && i.attivo!==false) return false;
+    return !q || normTxt(i.nome+' '+i.email+' '+(i.aree||[]).join(' ')).includes(q);
+  }).slice().sort(byNome);
+}
+function anaTableHtml(){
+  const sec=ANA.sec;
+  if(sec==='docenti'){
+    const rows=anaTeacherRows();
+    let h=`<thead><tr><th class="l">Nome</th><th class="l">Interfaccia</th><th class="l">Ruolo</th><th>Tariffa €/h</th><th class="l">Contributi</th><th class="l">Stato</th><th></th></tr></thead><tbody>`;
+    if(!rows.length) h+=`<tr><td colspan="7"><div class="empty">Nessun docente trovato.</div></td></tr>`;
+    rows.forEach(t=>{
+      const ifc=t.interface_id?interfaceById(t.interface_id):null;
+      const flags=FLAG_FISCALI.filter(([k])=>t[k]).map(([,l])=>l).join(', ');
+      h+=`<tr><td class="l nm">${esc(t.nome)}</td><td class="l">${esc(ifc?ifc.nome:'—')}</td><td class="l">${esc(t.ruolo||'—')}</td><td>${t.flag_assunto?'—':esc(eur2(t.tariffa_oraria))}</td><td class="l">${esc(flags||'—')}</td><td class="l">${anaStatoBadge(t)}</td><td>${anaActionsHtml('docenti',t)}</td></tr>`;
+    });
+    return {html:h+`</tbody>`,count:rows.length,hint:`${plur(rows.length,'docente','docenti')} mostrat${rows.length===1?'o':'i'}, in ordine alfabetico.`};
+  }
+  if(sec==='interfacce'){
+    const rows=anaInterfaceRows();
+    let h=`<thead><tr><th class="l">Nome</th><th class="l">Email (login)</th><th class="l">Corsi</th><th>Docenti</th><th class="l">Stato</th><th></th></tr></thead><tbody>`;
+    if(!rows.length) h+=`<tr><td colspan="6"><div class="empty">Nessuna interfaccia trovata.</div></td></tr>`;
+    rows.forEach(i=>{
+      const n=STATE.teachers.filter(t=>t.interface_id===i.id).length;
+      h+=`<tr><td class="l nm">${esc(i.nome)}</td><td class="l">${esc(i.email||'—')}</td><td class="l">${esc((i.aree||[]).join(', ')||'—')}</td><td>${n}</td><td class="l">${anaStatoBadge(i)}</td><td>${anaActionsHtml('interfacce',i)}</td></tr>`;
+    });
+    return {html:h+`</tbody>`,count:rows.length,hint:`${plur(rows.length,'interfaccia','interfacce')} mostrat${rows.length===1?'a':'e'}, in ordine alfabetico.`};
+  }
+  const S=ANA.schools;
+  let h=`<thead><tr><th class="l">Nome</th><th class="l">Città</th><th class="l">Prov.</th><th class="l">Regione</th><th class="l">Tipo</th><th></th></tr></thead><tbody>`;
+  if(!cloudReady()) h+=`<tr><td colspan="6"><div class="empty">Connettiti al cloud per vedere e modificare le scuole.</div></td></tr>`;
+  else if(S.error) h+=`<tr><td colspan="6"><div class="empty">Errore nel caricamento delle scuole: ${esc(S.error)}</div></td></tr>`;
+  else if(S.loading && !S.rows.length) h+=`<tr><td colspan="6"><div class="empty">Caricamento…</div></td></tr>`;
+  else if(!S.rows.length) h+=`<tr><td colspan="6"><div class="empty">Nessuna scuola trovata.</div></td></tr>`;
+  S.rows.forEach(s=>{
+    h+=`<tr><td class="l nm">${esc(s.nome)}</td><td class="l">${esc(s.citta||'—')}</td><td class="l">${esc(s.provincia||'—')}</td><td class="l">${esc(s.regione||'—')}</td><td class="l">${esc(s.tipo||'—')}</td><td>${anaActionsHtml('scuole',s)}</td></tr>`;
+  });
+  return {html:h+`</tbody>`,count:S.rows.length,hint:cloudReady()?(S.loading?'Caricamento…':`${plur(S.rows.length,'scuola mostrata','scuole mostrate')}, in ordine alfabetico${S.more?'. Ce ne sono altre: usa «Mostra altre» o restringi la ricerca.':'.'}`):''};
+}
+function anaDescText(){
+  const p=anaPerm(), m=p.mode;
+  if(ANA.sec==='docenti') return m==='iface' ? 'I docenti collegati alla tua interfaccia: puoi aggiungerli, correggerli e disattivarli.' : (m==='admin' ? 'Anagrafica dei docenti: tariffa, posizione fiscale, interfaccia che inserisce le loro attività. Solo tu puoi eliminare.' : 'Anagrafica dei docenti: puoi aggiungere, correggere e disattivare. L\'eliminazione è riservata all\'amministratore.');
+  if(ANA.sec==='scuole') return m==='admin' ? 'Anagrafica delle scuole (CRM). Puoi aggiungere, correggere ed eliminare quelle non usate da attività.' : 'Anagrafica delle scuole (CRM): puoi aggiungere e correggere. L\'eliminazione è riservata all\'amministratore.';
+  return m==='admin' ? 'Le persone che accedono a Docenti per conto di un\'area. Una scrittura nuova vale subito per i loro docenti.' : 'Le interfacce di orientamento: sola lettura. Le crea e le modifica solo l\'amministratore.';
+}
+function renderAnagrafiche(){
+  const panel=document.getElementById('panel-anagrafiche'); if(!panel) return;
+  const p=anaPerm(), secs=anaSections();
+  if(!secs.includes(ANA.sec)) ANA.sec=secs[0]||'docenti';
+  const sec=ANA.sec;
+  if(!p.mode || !secs.length){   // nessun accesso alle anagrafiche: nessun dato nel DOM
+    document.getElementById('anaDesc').textContent='Nessuna anagrafica disponibile per il tuo ruolo.';
+    document.getElementById('anaSecs').innerHTML=''; document.getElementById('anaTable').innerHTML=''; document.getElementById('anaHint').textContent='';
+    document.getElementById('anaNew').style.display='none'; document.getElementById('anaMore').style.display='none';
+    return;
+  }
+  document.getElementById('anaDesc').textContent=anaDescText();
+  const chips=document.getElementById('anaSecs');
+  chips.style.display=secs.length>1?'flex':'none';
+  chips.innerHTML=secs.map(s=>`<button type="button" class="chip${s===sec?' on':''}" role="tab" aria-selected="${s===sec}" tabindex="${s===sec?0:-1}" data-sec="${s}">${ANA_SEC_LABEL[s]}</button>`).join('');
+  const ro=document.getElementById('anaRo'), roMsg=!p.mode?'':(!cloudReady()?'Per aggiungere, modificare o eliminare serve il collegamento al cloud: accedi con il tuo account.':((p[sec]&&!p[sec].write)?'Sola lettura: il tuo ruolo non può modificare questa anagrafica.':''));
+  ro.style.display=roMsg?'':'none'; ro.textContent=roMsg;
+  const canNew=!!(p.mode && cloudReady() && p[sec] && p[sec].write);
+  const nb=document.getElementById('anaNew'); nb.style.display=canNew?'':'none'; document.getElementById('anaNewLbl').textContent=ANA_NEW_LABEL[sec];
+  document.getElementById('anaStatoField').style.display=(sec==='scuole')?'none':'';
+  document.getElementById('anaSearch').placeholder=sec==='scuole'?'Nome, città, provincia, regione…':(sec==='interfacce'?'Nome, email o corso…':'Cerca per nome…');
+  const iff=document.getElementById('anaIfaceField'), showIf=(sec==='docenti' && p.docenti.anyIface);
+  iff.style.display=showIf?'':'none';
+  if(showIf){
+    const sel=document.getElementById('anaIfaceFilter');
+    const opts=`<option value="ALL">Tutte</option><option value="__none__">Senza interfaccia</option>`+STATE.interfaces.slice().sort(byNome).map(i=>`<option value="${esc(i.id)}">${esc(i.nome)}</option>`).join('');
+    if(sel.dataset.opts!==opts){ sel.innerHTML=opts; sel.dataset.opts=opts; }
+    sel.value=ANA.iface;
+  }
+  document.getElementById('anaStato').value=ANA.stato;
+  const t=anaTableHtml();
+  document.getElementById('anaTable').innerHTML=t.html;
+  document.getElementById('anaHint').textContent=t.hint||'';
+  document.getElementById('anaMore').style.display=(sec==='scuole' && ANA.schools.more && cloudReady() && !ANA.schools.error)?'':'none';
+  document.getElementById('anaMoreBtn').disabled=!!ANA.schools.loading;
+}
+
+/* ---- modulo di aggiunta / modifica ---- */
+function anaIfaceOptions(sel){
+  const mng=anaPerm().docenti.anyIface;
+  const list=mng?STATE.interfaces.slice().sort(byNome):STATE.interfaces.filter(i=>i.id===CURRENT.interfaceId);
+  return (mng?'<option value="">— nessuna —</option>':'')+list.map(i=>`<option value="${esc(i.id)}"${i.id===sel?' selected':''}>${esc(i.nome)}${i.attivo===false?' (disattivata)':''}</option>`).join('');
+}
+function anaFormHtml(sec,item){
+  const it=item||{};
+  if(sec==='docenti'){
+    const ruoli=RUOLI.includes(it.ruolo)||!it.ruolo?RUOLI:[it.ruolo,...RUOLI];
+    const sel=item?it.interface_id:(anaPerm().docenti.anyIface?'':CURRENT.interfaceId);
+    return `<div class="grid2">
+      <div class="field full"><label for="af_nome">Nome e cognome <span class="req">*</span></label><input type="text" id="af_nome" maxlength="120" autocomplete="off" value="${esc(it.nome||'')}"></div>
+      <div class="field"><label for="af_ruolo">Ruolo</label><select id="af_ruolo"><option value="">—</option>${ruoli.map(r=>`<option value="${esc(r)}"${r===it.ruolo?' selected':(!item&&r==='Docente'?' selected':'')}>${esc(r)}</option>`).join('')}</select></div>
+      <div class="field"><label for="af_rate">Tariffa oraria (€/h) <span class="req">*</span></label><input type="number" id="af_rate" step="0.5" min="0" value="${esc(item?(it.flag_assunto?0:it.tariffa_oraria):50)}"></div>
+      <div class="field full"><label for="af_iface">Interfaccia collegata (chi inserisce le sue attività)</label><select id="af_iface"${anaPerm().docenti.anyIface?'':' disabled'}>${anaIfaceOptions(sel)}</select></div>
+      <div class="field full"><label>Contributi e posizione fiscale</label>${fiscalFlagsHtml('af-flag',null,item?it:null)}</div>
+      <div class="field full"><div class="check-field"><input type="checkbox" id="af_attivo"${it.attivo===false?'':' checked'}><label for="af_attivo">Attivo: si può scegliere per nuove attività</label></div></div>
+    </div>`;
+  }
+  if(sec==='interfacce'){
+    return `<div class="grid2">
+      <div class="field full"><label for="af_nome">Nome e cognome <span class="req">*</span></label><input type="text" id="af_nome" maxlength="120" autocomplete="off" value="${esc(it.nome||'')}"></div>
+      <div class="field full"><label for="af_email">Email di login</label><input type="email" id="af_email" autocomplete="off" value="${esc(it.email||'')}"><div class="hint" style="margin-top:5px">Collega la persona alle proprie righe: deve coincidere con l'email del suo account.</div></div>
+      <div class="field full"><label for="af_aree">Corsi (separati da virgola)</label><input type="text" id="af_aree" autocomplete="off" value="${esc((it.aree||[]).join(', '))}"></div>
+      <div class="field full"><div class="check-field"><input type="checkbox" id="af_attivo"${it.attivo===false?'':' checked'}><label for="af_attivo">Attiva</label></div></div>
+    </div>`;
+  }
+  return `<div class="grid2">
+      <div class="field full"><label for="af_nome">Nome della scuola <span class="req">*</span></label><input type="text" id="af_nome" maxlength="200" autocomplete="off" value="${esc(it.nome||'')}"></div>
+      <div class="field"><label for="af_citta">Città</label><input type="text" id="af_citta" autocomplete="off" value="${esc(it.citta||'')}"></div>
+      <div class="field"><label for="af_prov">Provincia</label><input type="text" id="af_prov" autocomplete="off" value="${esc(it.provincia||'')}"></div>
+      <div class="field"><label for="af_reg">Regione</label><input type="text" id="af_reg" autocomplete="off" value="${esc(it.regione||'')}"></div>
+      <div class="field"><label for="af_tipo">Tipo di istituto</label><input type="text" id="af_tipo" autocomplete="off" value="${esc(it.tipo||'')}"></div>
+    </div>`;
+}
+// "Assunto": nessuna tariffa e niente contributi (come negli altri moduli del docente)
+function anaSyncAssunto(){
+  const ass=document.querySelector('#anaBody .af-flag[data-flag="flag_assunto"]'); if(!ass) return;
+  document.querySelectorAll('#anaBody .af-flag').forEach(cb=>{ if(cb!==ass){ if(ass.checked) cb.checked=false; cb.disabled=ass.checked; } });
+  const r=document.getElementById('af_rate'); if(r){ r.disabled=ass.checked; if(ass.checked) r.value=0; }
+}
+function anaShowErr(msg){ const e=document.getElementById('anaErr'); e.textContent=msg||''; e.style.display=msg?'':'none'; }
+function anaSetBusy(on){
+  ANA.busy=on;
+  const s=document.getElementById('anaSave'), c=document.getElementById('anaCancel');
+  s.disabled=on; c.disabled=on; s.textContent=on?'Salvataggio…':(ANA.edit&&ANA.edit.id?'Salva':'Aggiungi');
+}
+function anaOpenForm(sec,id,opener){
+  const P=anaPerm()[sec];
+  if(!P || !P.write){ toast(DENY_MSG+'.','err'); return; }
+  if(!cloudReady()){ toast('Serve il collegamento al cloud per modificare le anagrafiche.','err'); return; }
+  const item=id?anaFind(sec,id):null;
+  if(id && !item){ toast('Elemento non trovato: aggiorna la pagina.','err'); return; }
+  ANA.edit={sec,id:id||null}; ANA.opener=opener||document.activeElement;
+  document.getElementById('anaTitle').textContent=id?ANA_TITLE_EDIT[sec]:ANA_TITLE_NEW[sec];
+  document.getElementById('anaBody').innerHTML=anaFormHtml(sec,item);
+  document.querySelectorAll('#anaBody .af-flag').forEach(cb=>{ if(cb.dataset.flag==='flag_assunto') cb.onchange=anaSyncAssunto; });
+  anaSyncAssunto();
+  anaShowErr(''); anaSetBusy(false);
+  document.getElementById('anaOverlay').classList.add('on');
+  const f=document.getElementById('af_nome'); if(f) f.focus();
+}
+function anaCloseForm(){
+  document.getElementById('anaOverlay').classList.remove('on');
+  ANA.edit=null; const o=ANA.opener; ANA.opener=null;
+  try{ if(o && o.focus && document.contains(o)) o.focus(); else { const n=document.getElementById('anaNew'); if(n && n.offsetParent) n.focus(); } }catch(e){}
+}
+function anaReadForm(sec){
+  const g=id=>{ const el=document.getElementById(id); return el?el.value:''; };
+  const c=id=>{ const el=document.getElementById(id); return !!(el&&el.checked); };
+  if(sec==='docenti'){
+    const f={}; document.querySelectorAll('#anaBody .af-flag').forEach(cb=>{ f[cb.dataset.flag]=cb.checked; });
+    return {nome:g('af_nome'),ruolo:g('af_ruolo'),tariffa:g('af_rate'),interface_id:g('af_iface'),assunto:!!f.flag_assunto,cassa4:!!f.flag_cassa4,iva22:!!f.flag_iva22,ritenuta:!!f.flag_ritenuta,attivo:c('af_attivo')};
+  }
+  if(sec==='interfacce') return {nome:g('af_nome'),email:g('af_email'),aree:g('af_aree'),attivo:c('af_attivo')};
+  return {nome:g('af_nome'),citta:g('af_citta'),provincia:g('af_prov'),regione:g('af_reg'),tipo:g('af_tipo')};
+}
+async function anaSubmit(){
+  if(ANA.busy || !ANA.edit) return {ok:false};
+  const {sec,id}=ANA.edit;
+  const v=anaReadForm(sec);
+  const err=anaValidate(sec,v,id);
+  if(err){ anaShowErr(err); return {ok:false,msg:err}; }
+  anaShowErr(''); anaSetBusy(true);
+  let r;
+  try{
+    if(sec==='scuole'){
+      const d=await anaSchoolDuplicate(v,id);
+      if(d.error){ r={ok:false,msg:'Controllo dei doppioni non riuscito ('+d.error+'): non è stato salvato nulla.'}; }
+      else if(d.dup){ r={ok:false,msg:'Esiste già una scuola con questo nome nella stessa città ("'+d.dup.nome+(d.dup.citta?' · '+d.dup.citta:'')+'").'}; }
+    }
+    if(!r) r=sec==='docenti'?await anaPersistTeacher(id,v):(sec==='interfacce'?await anaPersistInterface(id,v):await anaPersistSchool(id,v));
+  }catch(e){ console.error('anagrafiche',e); r={ok:false,msg:'Salvataggio non riuscito: '+errText(e)}; }
+  anaSetBusy(false);
+  if(!r.ok){ anaShowErr(r.msg); return r; }
+  anaCloseForm();
+  anaAfterChange(sec);
+  if(sec==='scuole' && r.created) anaFetchSchools(true);
+  toast((r.created?'Aggiunto: ':'Salvato: ')+(r.row&&r.row.nome||''));
+  return r;
+}
+function anaInit(){
+  const $=id=>document.getElementById(id); if(!$('panel-anagrafiche')) return;
+  $('anaSecs').addEventListener('click',e=>{ const b=e.target.closest('[data-sec]'); if(b) anaSetSec(b.dataset.sec); });
+  $('anaSecs').addEventListener('keydown',e=>{
+    if(e.key!=='ArrowLeft' && e.key!=='ArrowRight') return;
+    const secs=anaSections(), i=secs.indexOf(ANA.sec); if(i<0) return;
+    e.preventDefault(); anaSetSec(secs[(i+(e.key==='ArrowRight'?1:-1)+secs.length)%secs.length]);
+    const nb=document.querySelector('#anaSecs .chip.on'); if(nb) nb.focus();
+  });
+  $('anaSearch').addEventListener('input',e=>{ ANA.q=e.target.value; if(ANA.sec==='scuole'){ clearTimeout(ANA.searchT); ANA.searchT=setTimeout(()=>anaFetchSchools(true),300); } else renderAnagrafiche(); });
+  $('anaStato').addEventListener('change',e=>{ ANA.stato=e.target.value; renderAnagrafiche(); });
+  $('anaIfaceFilter').addEventListener('change',e=>{ ANA.iface=e.target.value; renderAnagrafiche(); });
+  $('anaNew').addEventListener('click',e=>anaOpenForm(ANA.sec,null,e.currentTarget));
+  $('anaMoreBtn').addEventListener('click',()=>anaFetchSchools(false));
+  $('anaTable').addEventListener('click',e=>{
+    const b=e.target.closest('[data-act]'); if(!b) return;
+    const id=b.dataset.id, act=b.dataset.act;
+    if(act==='edit') anaOpenForm(ANA.sec,id,b); else if(act==='toggle') anaToggle(ANA.sec,id); else if(act==='del') anaDelete(ANA.sec,id);
+  });
+  $('anaSave').addEventListener('click',anaSubmit);
+  $('anaCancel').addEventListener('click',anaCloseForm);
+  $('anaClose').addEventListener('click',anaCloseForm);
+  $('anaOverlay').addEventListener('keydown',e=>{
+    if(e.key==='Tab'){
+      const f=[...$('anaOverlay').querySelectorAll('button:not([disabled]),input:not([disabled]),select:not([disabled]),textarea:not([disabled])')].filter(x=>x.offsetParent!==null);
+      if(!f.length) return;
+      const first=f[0], last=f[f.length-1];
+      if(e.shiftKey && document.activeElement===first){ e.preventDefault(); last.focus(); }
+      else if(!e.shiftKey && document.activeElement===last){ e.preventDefault(); first.focus(); }
+    } else if(e.key==='Enter' && e.target.tagName==='INPUT' && e.target.type!=='checkbox'){ e.preventDefault(); anaSubmit(); }
+  });
+  const oa=$('adminOpenAna'); if(oa) oa.onclick=()=>{ $('adminOverlay').classList.remove('on'); switchTab('anagrafiche'); };
+}
+// il pulsante "Admin" della testata: l'admin apre il pannello (Anagrafiche + Anteprima), il responsabile va dritto alle Anagrafiche
 function openAdmin(){
-  renderInterfacesTable(); renderTeachersTable(); renderPreviewAs();
-  const nr=document.getElementById("newTeacherRuolo"); if(nr) nr.innerHTML=RUOLI.map(r=>`<option ${r==='Docente'?'selected':''}>${esc(r)}</option>`).join("");
-  const nc=document.getElementById("newTeacherContributi"); if(nc) nc.innerHTML=fiscalFlagsHtml('newteacher-fiscal',null,null);
+  if(CURRENT.role!=='admin'){
+    const b=document.querySelector('nav.tabs button[data-tab="anagrafiche"]');
+    if(b && b.style.display!=='none') switchTab('anagrafiche'); else toast("La sezione Anagrafiche non è abilitata per il tuo ruolo.");
+    return;
+  }
+  renderPreviewAs();
   document.querySelectorAll("#adminTabs button").forEach(b=>b.classList.remove("on"));
   document.querySelectorAll(".admin-sec").forEach(s=>s.classList.remove("on"));
-  document.querySelector('#adminTabs button[data-sec="interfacce"]').classList.add("on");
-  document.querySelector('.admin-sec[data-sec="interfacce"]').classList.add("on");
-  // "Anteprima" (vedere Docenti come una interfaccia) funziona solo con la vista admin: al responsabile non servirebbe a nulla
-  { const pvTab=document.querySelector('#adminTabs button[data-sec="utenti"]'); if(pvTab) pvTab.style.display=CURRENT.role==='admin'?'':'none'; }
+  document.querySelector('#adminTabs button[data-sec="anagrafiche"]').classList.add("on");
+  document.querySelector('.admin-sec[data-sec="anagrafiche"]').classList.add("on");
   document.getElementById("adminOverlay").classList.add("on");
 }
-function interfaceSelectHtml(cls,id,current){
-  return `<select class="${cls}" data-id="${id}">
-    <option value="">— nessuna —</option>
-    ${STATE.interfaces.map(i=>`<option value="${i.id}" ${i.id===current?'selected':''}>${esc(i.nome)}</option>`).join("")}
-  </select>`;
+
+/* ============================ TEMA (menu in testata + preferenza per utente) ============================ */
+// Il motore (window.nabaTheme, blocco inline-theme in <head>) applica il tema su <html>; qui ci sono il menu "Tema" in testata
+// e il collegamento con la preferenza dell'utente nel cloud: bdg_app_users.prefs.ui.theme, scritta con la RPC bdg_save_prefs.
+let _themeFromCloudDone=false;
+// tasto premuto nel menu -> indice della voce da evidenziare (puro: provato con test)
+function themeMenuNext(key,cur,len){
+  if(len<=0) return -1;
+  if(key==='ArrowDown') return (cur+1)%len;
+  if(key==='ArrowUp') return (cur-1+len)%len;
+  if(key==='Home') return 0;
+  if(key==='End') return len-1;
+  return cur;
 }
-// le interfacce (bdg_orientamento_interfaces) le scrive solo l'admin: il responsabile le vede in sola lettura
-function canEditInterfaces(){ return CURRENT.role==='admin'; }
-function renderInterfacesTable(){
-  const ro=!canEditInterfaces();
-  const note=document.getElementById("ifaceRoNote"), addRow=document.getElementById("ifaceAddRow");
-  if(note) note.style.display=ro?'':'none';
-  if(addRow) addRow.style.display=ro?'none':'flex';
-  let h=`<thead><tr><th class="l">Nome</th><th class="l">Email (login)</th><th class="l">Corsi</th><th>Attivo</th><th></th></tr></thead><tbody>`;
-  if(!STATE.interfaces.length) h+=`<tr><td colspan="5"><div class="empty">Nessuna interfaccia.</div></td></tr>`;
-  if(ro) STATE.interfaces.forEach(i=>{ h+=`<tr>
-    <td class="l">${esc(i.nome)}</td>
-    <td class="l">${esc(i.email||'—')}</td>
-    <td class="l">${esc((i.aree||[]).join(', ')||'—')}</td>
-    <td>${i.attivo!==false?'Sì':'No'}</td>
-    <td></td>
-  </tr>`; });
-  else STATE.interfaces.forEach(i=>{ h+=`<tr>
-    <td class="l">${esc(i.nome)}</td>
-    <td class="l"><input type="email" class="i-email" data-id="${i.id}" value="${esc(i.email||'')}" placeholder="email di login" style="border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;width:100%"></td>
-    <td class="l"><input type="text" class="i-aree" data-id="${i.id}" value="${esc((i.aree||[]).join(', '))}" placeholder="Corso1, Corso2" style="border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;width:100%"></td>
-    <td><input type="checkbox" class="i-attivo" data-id="${i.id}" ${i.attivo!==false?'checked':''}></td>
-    <td><button class="rowbtn i-del" data-id="${i.id}" title="Rimuovi">✕</button></td>
-  </tr>`; });
-  h+=`</tbody>`; document.getElementById("interfacesTable").innerHTML=h;
-  document.querySelectorAll(".i-email").forEach(inp=>inp.onchange=()=>{ const i=interfaceById(inp.dataset.id); if(!i)return; i.email=inp.value.trim(); save(); cloudUpsertInterface(i); });
-  document.querySelectorAll(".i-aree").forEach(inp=>inp.onchange=()=>{ const i=interfaceById(inp.dataset.id); if(!i)return; i.aree=inp.value.split(',').map(s=>s.trim()).filter(Boolean); save(); renderAll(); cloudUpsertInterface(i); });
-  document.querySelectorAll(".i-attivo").forEach(c=>c.onchange=()=>{ const i=interfaceById(c.dataset.id); if(!i)return; i.attivo=c.checked; save(); cloudUpsertInterface(i); });
-  document.querySelectorAll(".i-del").forEach(b=>b.onclick=()=>{ if(!confirm("Rimuovere l'interfaccia? (i docenti collegati restano, ma senza nessuno che inserisca per loro)"))return; STATE.interfaces=STATE.interfaces.filter(x=>x.id!==b.dataset.id); save(); fillSelects(); renderInterfacesTable(); renderTeachersTable(); renderAll(); });
+function themeCurrent(){ const c=document.documentElement.getAttribute('data-theme-choice'); return c || (window.nabaTheme?nabaTheme.get():'auto'); }
+function themeMenuMark(){
+  const menu=document.getElementById('themeMenu'), btn=document.getElementById('btnTheme'); if(!menu||!btn||!window.nabaTheme) return;
+  const cur=themeCurrent();
+  menu.querySelectorAll('.theme-item').forEach(b=>b.setAttribute('aria-checked', b.dataset.themeId===cur?'true':'false'));
+  btn.setAttribute('aria-label','Tema attuale: '+nabaTheme.label(cur)+'. Apri il menu per cambiarlo');
+  btn.title='Tema attuale: '+nabaTheme.label(cur);
 }
-function renderTeachersTable(){
-  let h=`<thead><tr><th class="l">Nome</th><th class="l">Email</th><th class="l">Interfaccia (chi inserisce)</th><th class="l">Ruolo</th><th class="l">Contributi</th><th>Tariffa €/h</th><th>Attivo</th><th></th></tr></thead><tbody>`;
-  if(!STATE.teachers.length) h+=`<tr><td colspan="8"><div class="empty">Nessun docente.</div></td></tr>`;
-  STATE.teachers.forEach(t=>{ h+=`<tr>
-    <td class="l">${esc(t.nome)}</td>
-    <td class="l"><input type="email" class="t-email" data-id="${t.id}" value="${esc(t.email||'')}" placeholder="email (contatto)" style="border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;width:100%"></td>
-    <td class="l">${interfaceSelectHtml('t-iface',t.id,t.interface_id)}</td>
-    <td class="l">${fixedSelectHtml('t-ruolo',t.id,RUOLI,t.ruolo)}</td>
-    <td class="l">${fiscalFlagsHtml('t-fiscal',t.id,t)}</td>
-    <td>${t.flag_assunto?'<span class="meta" title="Docente assunto: nessuna tariffa">—</span>':`<input type="number" class="t-rate" data-id="${t.id}" value="${t.tariffa_oraria}" style="width:70px;border:1px solid var(--line-strong);border-radius:7px;padding:5px 8px;text-align:right">`}</td>
-    <td><input type="checkbox" class="t-attivo" data-id="${t.id}" ${t.attivo!==false?'checked':''}></td>
-    <td>${CURRENT.role==='admin'?`<button class="rowbtn t-del" data-id="${t.id}" title="Rimuovi">✕</button>`:''}</td>
-  </tr>`; });
-  h+=`</tbody>`; document.getElementById("teachersTable").innerHTML=h;
-  document.querySelectorAll(".t-email").forEach(i=>i.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===i.dataset.id); if(!t)return; t.email=i.value.trim(); save(); cloudUpsertTeacher(t); });
-  document.querySelectorAll(".t-iface").forEach(s=>s.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===s.dataset.id); if(!t)return; t.interface_id=s.value||null; save(); renderAll(); cloudUpsertTeacher(t); });
-  document.querySelectorAll(".t-ruolo").forEach(s=>s.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===s.dataset.id); if(!t)return; t.ruolo=s.value||null; save(); cloudUpsertTeacher(t); });
-  document.querySelectorAll(".t-fiscal").forEach(cb=>cb.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===cb.dataset.id); if(!t)return; t[cb.dataset.flag]=cb.checked; if(cb.dataset.flag==='flag_assunto' && cb.checked){ t.flag_cassa4=false; t.flag_iva22=false; t.flag_ritenuta=false; } save(); renderAll(); if(cb.dataset.flag==='flag_assunto') renderTeachersTable(); cloudUpsertTeacher(t); });
-  document.querySelectorAll(".t-rate").forEach(i=>i.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===i.dataset.id); if(!t)return; t.tariffa_oraria=Number(i.value)||0; save(); renderAll(); cloudUpsertTeacher(t); });
-  document.querySelectorAll(".t-attivo").forEach(c=>c.onchange=()=>{ const t=STATE.teachers.find(x=>x.id===c.dataset.id); if(!t)return; t.attivo=c.checked; save(); cloudUpsertTeacher(t); });
-  document.querySelectorAll(".t-del").forEach(b=>b.onclick=()=>{ if(!confirm("Rimuovere il docente? (le attività collegate restano)"))return; STATE.teachers=STATE.teachers.filter(x=>x.id!==b.dataset.id); save(); fillSelects(); renderTeachersTable(); renderAll(); });
+function themeMenuToggle(open,focusItem){
+  const menu=document.getElementById('themeMenu'), btn=document.getElementById('btnTheme'); if(!menu||!btn) return;
+  const on=(open===undefined)?!menu.classList.contains('on'):!!open;
+  menu.classList.toggle('on',on); btn.setAttribute('aria-expanded',on?'true':'false');
+  if(on && focusItem){
+    const items=[...menu.querySelectorAll('.theme-item')]; if(!items.length) return;
+    const i=Math.max(0,items.findIndex(x=>x.getAttribute('aria-checked')==='true'));
+    items[focusItem==='last'?items.length-1:i].focus();
+  }
+}
+function themeMenuInit(){
+  const wrap=document.getElementById('themeWrap'), menu=document.getElementById('themeMenu'), btn=document.getElementById('btnTheme');
+  if(!wrap||!menu||!btn) return;
+  if(!window.nabaTheme){ wrap.style.display='none'; return; }   // senza motore dei temi non c'e' nulla da scegliere
+  const CHK='<svg class="chk" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" aria-hidden="true"><path d="M20 6L9 17l-5-5"/></svg>';
+  menu.innerHTML=nabaTheme.list.map(o=>`<button type="button" class="theme-item" role="menuitemradio" aria-checked="false" data-theme-id="${esc(o.id)}" tabindex="-1">${CHK}<span>${esc(o.label)}</span></button>`).join('');
+  menu.querySelectorAll('.theme-item').forEach(b=>b.onclick=()=>{ nabaTheme.set(b.dataset.themeId); themeMenuToggle(false); btn.focus(); });
+  btn.onclick=e=>themeMenuToggle(undefined,(e&&e.detail===0)?'checked':undefined);   // da tastiera (Invio/Spazio) il focus passa alla voce attuale
+  btn.addEventListener('keydown',e=>{
+    if(e.key==='ArrowDown'){ e.preventDefault(); themeMenuToggle(true,'checked'); }
+    else if(e.key==='ArrowUp'){ e.preventDefault(); themeMenuToggle(true,'last'); }
+  });
+  menu.addEventListener('keydown',e=>{
+    const items=[...menu.querySelectorAll('.theme-item')], cur=items.indexOf(document.activeElement);
+    if(['ArrowDown','ArrowUp','Home','End'].includes(e.key)){ e.preventDefault(); const n=themeMenuNext(e.key,cur<0?0:cur,items.length); if(items[n]) items[n].focus(); }
+    else if(e.key==='Escape'){ e.preventDefault(); e.stopPropagation(); themeMenuToggle(false); btn.focus(); }
+    else if(e.key==='Tab'){ themeMenuToggle(false); }
+  });
+  document.addEventListener('click',e=>{ if(!e.target.closest('#themeWrap')) themeMenuToggle(false); });
+  wrap.addEventListener('focusout',e=>{ if(e.relatedTarget && !wrap.contains(e.relatedTarget)) themeMenuToggle(false); });
+  nabaTheme.onChange(themeMenuMark);
+  nabaTheme.setSaver(themeSaver);
+  themeMenuMark();
+}
+// salva la scelta come predefinita dell'utente (dopo ogni cambio fatto dal menu); controlla l'esito e avvisa solo se fallisce
+function themeSaver(id){
+  if(!cloudReady()) return Promise.resolve();   // senza cloud la scelta resta su questo dispositivo
+  const email=String(cloudUser()||'').toLowerCase();
+  const u=(STATE.appUsers||{})[email];
+  const prevUi=(u&&u.prefs&&u.prefs.ui&&typeof u.prefs.ui==='object')?u.prefs.ui:{};
+  const next=Object.assign({},prevUi,{theme:id});
+  return Promise.resolve(sb.rpc('bdg_save_prefs',{p_tool:'ui',p_prefs:next})).then(res=>{
+    const error=res&&res.error;
+    if(error){ console.error('tema',error); toast(isDenied(error)?"Tema non salvato come predefinito: operazione non consentita dal tuo ruolo.":"Tema non salvato come predefinito ("+errText(error)+"): resta attivo solo su questo dispositivo."); return; }
+    if(u){ u.prefs=u.prefs||{}; u.prefs.ui=next; }
+  }).catch(e=>{ console.error('tema',e); toast("Tema non salvato come predefinito: resta attivo solo su questo dispositivo."); });
+}
+// al primo caricamento dopo il login: applica il tema predefinito dell'utente (senza risalvarlo)
+function themeApplyFromCloud(){
+  if(_themeFromCloudDone || !window.nabaTheme) return;
+  const e=cloudUser(); const u=e&&(STATE.appUsers||{})[String(e).toLowerCase()];
+  const id=u&&u.prefs&&u.prefs.ui&&u.prefs.ui.theme;
+  _themeFromCloudDone=true;
+  if(id) nabaTheme.fromCloud(id);
 }
 
 /* ============================ CLOUD (Supabase) ============================ */
@@ -2931,7 +3793,7 @@ function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clear
 const DENY_MSG="Operazione non consentita dal tuo ruolo";
 function isDenied(error){ return !!error && (error.code==='42501' || /row-level security|permission denied/i.test(error.message||'')); }
 function errText(error){ return isDenied(error) ? DENY_MSG : ((error&&error.message)||'riprova'); }
-function modalBusy(){ return document.getElementById('actOverlay').classList.contains('on')||document.getElementById('cloudOverlay').classList.contains('on'); }
+function modalBusy(){ return document.getElementById('actOverlay').classList.contains('on')||document.getElementById('cloudOverlay').classList.contains('on')||document.getElementById('anaOverlay').classList.contains('on'); }
 let _deniedPullT=null;
 // dopo un rifiuto la modifica resta solo a schermo: si rilegge il database cosi' la vista torna a mostrare cio' che c'e' davvero
 function pullAfterDenied(){
@@ -2939,7 +3801,7 @@ function pullAfterDenied(){
   _deniedPullT=setTimeout(()=>{
     if(!cloudReady()) return;
     if(modalBusy()){ pullAfterDenied(); return; }
-    cloudPullAll(true).then(()=>{ const ad=document.getElementById('adminOverlay'); if(ad&&ad.classList.contains('on')){ renderInterfacesTable(); renderTeachersTable(); } });
+    cloudPullAll(true).then(()=>{ renderAnagrafiche(); });
   },1500);
 }
 function cloudErr(ctx,error){
@@ -2954,8 +3816,8 @@ function activityRow(a){ return {id:a.id,teacher_id:a.teacher_id,school_id:a.sch
 function rdaRow(r){ return {id:r.id,teacher_id:r.teacher_id,mese:r.mese,tipo:r.tipo||null,stato:r.stato||'bozza',rif_rda:r.rif_rda||null,rif_rda_data:r.rif_rda_data||null,importo_totale:Number(r.importo_totale)||0,note:r.note||null}; }
 
 async function cloudInit(){ const cfg=cloudCfg(); if(!cfg||!window.supabase){ cloudSetDot('off'); cloudChecked=true; dataReady=true; gate(); return; } try{ sb=window.supabase.createClient(cfg.url,cfg.anonKey); const {data}=await sb.auth.getSession(); cloudSession=data.session||null; cloudChecked=true; if(cloudSession){ cloudSetDot('on'); await cloudPullAll(true); } else { dataReady=true; cloudSetDot('off'); gate(); } }catch(e){ console.error(e); cloudSetDot('err'); cloudChecked=true; dataReady=true; gate(); } }
-async function cloudLogin(email,pw){ if(!sb){ toast("Configura prima il progetto"); return; } if(!email||!pw){ toast("Inserisci email e password"); return; } const {data,error}=await sb.auth.signInWithPassword({email,password:pw}); if(error){ toast("Accesso fallito: "+error.message); cloudSetDot('err'); return; } cloudSession=data.session; dataReady=false; forceLogin=false; cloudSetDot('on'); toast("Connesso"); renderCloudModal(); await cloudPullAll(false); }
-async function cloudLogout(){ if(sb) await sb.auth.signOut(); cloudSession=null; dataReady=true; if(rtChannel&&sb){try{sb.removeChannel(rtChannel);}catch(e){}} rtChannel=null; cloudSetDot('off'); renderCloudModal(); gate(); toast("Disconnesso"); }
+async function cloudLogin(email,pw){ if(!sb){ toast("Configura prima il progetto"); return; } if(!email||!pw){ toast("Inserisci email e password"); return; } const {data,error}=await sb.auth.signInWithPassword({email,password:pw}); if(error){ toast("Accesso fallito: "+error.message); cloudSetDot('err'); return; } cloudSession=data.session; dataReady=false; forceLogin=false; _themeFromCloudDone=false; cloudSetDot('on'); toast("Connesso"); renderCloudModal(); await cloudPullAll(false); }
+async function cloudLogout(){ if(sb) await sb.auth.signOut(); cloudSession=null; dataReady=true; _themeFromCloudDone=false; if(rtChannel&&sb){try{sb.removeChannel(rtChannel);}catch(e){}} rtChannel=null; cloudSetDot('off'); renderCloudModal(); gate(); toast("Disconnesso"); }
 async function cloudPullAll(silent){
   if(!cloudReady()) return; cloudSetDot('sync');
   try{
@@ -2963,12 +3825,13 @@ async function cloudPullAll(silent){
     const {data:tc,error:e1}=await sb.from('bdg_teachers').select('*'); if(e1) throw e1;
     const {data:ac,error:e2}=await sb.from('bdg_teacher_activities').select('*'); if(e2) throw e2;
     const {data:rd,error:e3}=await sb.from('bdg_teacher_rda').select('*'); if(e3) throw e3;
-    STATE.interfaces=(ifc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",aree:x.aree||[],attivo:x.attivo!==false}));
+    STATE.interfaces=(ifc||[]).map(mapInterfaceRow);
     HAS_ASSUNTO_COL=!!(tc&&tc.length&&('flag_assunto' in tc[0]));
-    STATE.teachers=(tc||[]).map(x=>({id:x.id,nome:x.nome,email:x.email||"",interface_id:x.interface_id||null,ruolo:x.ruolo||"",flag_cassa4:!!x.flag_cassa4,flag_iva22:!!x.flag_iva22,flag_ritenuta:!!x.flag_ritenuta,flag_assunto:!!x.flag_assunto,tariffa_oraria:Number(x.tariffa_oraria)||50,attivo:x.attivo!==false,last_solicited_at:x.last_solicited_at||null}));
+    STATE.teachers=(tc||[]).map(mapTeacherRow);
     STATE.activities=(ac||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,school_id:x.school_id||null,luogo:x.luogo||null,area:x.area||null,nome:x.nome||"",tipo:x.tipo,data:x.data,ore:Number(x.ore)||0,tariffa_oraria:x.tariffa_oraria==null?null:Number(x.tariffa_oraria),importo:x.importo==null?null:Number(x.importo),stato:x.stato||'programmata',rda_id:x.rda_id||null,note:x.note||"",gruppo_id:x.gruppo_id||null,bonus_ore:x.bonus_ore==null?null:Number(x.bonus_ore),bonus_importo:x.bonus_importo==null?null:Number(x.bonus_importo),cal_added_at:x.cal_added_at||null,rda_mode:x.rda_mode||'fine_periodo',sede_sessione:x.sede_sessione||null,ora_evento:x.ora_evento||null,ora_evento_fine:x.ora_evento_fine||null}));
     STATE.rdas=(rd||[]).map(x=>({id:x.id,teacher_id:x.teacher_id,mese:x.mese,tipo:x.tipo||null,stato:x.stato||'bozza',rif_rda:x.rif_rda||"",rif_rda_data:x.rif_rda_data||null,importo_totale:Number(x.importo_totale)||0,note:x.note||""}));
     await cloudFetchRoles();
+    themeApplyFromCloud();
     await fetchSchoolNames([...new Set(STATE.activities.map(a=>a.school_id).filter(Boolean))]);
     // "ultimo accesso" per la schermata Utenti del Portale — richiede la migrazione backend_utenti;
     // try/catch DOPPIO (sincrono + .catch sulla promise) perché sb.rpc(...) su alcune versioni del
@@ -3007,9 +3870,9 @@ document.getElementById("btnSaveFilters").onclick=()=>prefsSave(false);
 document.getElementById("btnClearFilters").onclick=()=>{ if(confirm("Togliere i filtri predefiniti salvati?")) prefsSave(true); };
 
 /* ---- Log delle modifiche (bdg_audit_log, scritto da trigger sul database: migrazione supabase_migration_log.sql) ---- */
-const LOG_ENTITIES=["bdg_teacher_activities","bdg_teacher_rda","bdg_teachers"];
+const LOG_ENTITIES=["bdg_teacher_activities","bdg_teacher_rda","bdg_teachers","bdg_schools","bdg_orientamento_interfaces"];
 let LOG_ROWS=[];
-const LOG_ENT_LABEL={bdg_teacher_activities:'Attività',bdg_teacher_rda:'RDA',bdg_teachers:'Docente',bdg_travel_trips:'Viaggio',bdg_travel_items:'Voce di spesa'};
+const LOG_ENT_LABEL={bdg_teacher_activities:'Attività',bdg_teacher_rda:'RDA',bdg_teachers:'Docente',bdg_schools:'Scuola',bdg_orientamento_interfaces:'Interfaccia',bdg_travel_trips:'Viaggio',bdg_travel_items:'Voce di spesa'};
 const LOG_ACT_LABEL={aggiunta:'Aggiunta',modifica:'Modifica',eliminazione:'Eliminazione'};
 async function fetchLog(){
   const box=document.getElementById('logTable');
@@ -3019,12 +3882,13 @@ async function fetchLog(){
   if(error){ console.error(error); box.innerHTML='<tbody><tr><td>Errore nel caricamento del log: '+esc(errText(error))+'</td></tr></tbody>'; return; }
   LOG_ROWS=data||[]; renderLog();
 }
+function logValK(k,v){ return (k==='tipo' && typeof v==='string') ? tipoLabel(v) : logVal(v); }
 function logVal(v){ if(v===null||v===undefined||v==='') return '—'; if(typeof v==='object') return JSON.stringify(v); return String(v); }
 function logDetail(r){
   const d=r.details; if(!d||typeof d!=='object') return '';
-  if(r.action==='modifica') return Object.entries(d).map(([k,v])=>'<div><b>'+esc(k)+'</b>: '+esc(logVal(v&&v.da))+' → '+esc(logVal(v&&v.a))+'</div>').join('');
+  if(r.action==='modifica') return Object.entries(d).map(([k,v])=>'<div><b>'+esc(k)+'</b>: '+esc(logValK(k,v&&v.da))+' → '+esc(logValK(k,v&&v.a))+'</div>').join('');
   const keys=['tipo','data','importo','stato','nome','destinazione','scopo','data_inizio','data_fine','fornitore','rif_rda','mese','comp_da','comp_a','data_acquisto'];
-  return keys.filter(k=>d[k]!==undefined&&d[k]!==null&&d[k]!=='').map(k=>'<span style="margin-right:10px"><b>'+esc(k)+'</b>: '+esc(logVal(d[k]))+'</span>').join('');
+  return keys.filter(k=>d[k]!==undefined&&d[k]!==null&&d[k]!=='').map(k=>'<span style="margin-right:10px"><b>'+esc(k)+'</b>: '+esc(logValK(k,d[k]))+'</span>').join('');
 }
 function renderLog(){
   const q=(document.getElementById('logSearch').value||'').trim().toLowerCase(), act=document.getElementById('logAction').value;
@@ -3034,7 +3898,7 @@ function renderLog(){
   rows.forEach(r=>{
     const when=r.ts?new Date(r.ts).toLocaleString('it-IT',{day:'2-digit',month:'2-digit',year:'2-digit',hour:'2-digit',minute:'2-digit'}):'';
     const color=r.action==='eliminazione'?'var(--over)':(r.action==='aggiunta'?'var(--accent)':'var(--ink-soft)');
-    h+='<tr><td style="white-space:nowrap">'+esc(when)+'</td><td>'+esc(r.user_email||'—')+'</td><td style="color:'+color+';font-weight:600">'+esc(LOG_ACT_LABEL[r.action]||r.action)+'</td><td><div>'+esc(LOG_ENT_LABEL[r.entity]||r.entity)+'</div><div style="color:var(--ink-mute);font-size:12px">'+esc(r.summary||'')+'</div></td><td style="font-size:12px">'+logDetail(r)+'</td></tr>';
+    h+='<tr><td style="white-space:nowrap">'+esc(when)+'</td><td>'+esc(r.user_email||'—')+'</td><td style="color:'+color+';font-weight:600">'+esc(LOG_ACT_LABEL[r.action]||r.action)+'</td><td><div>'+esc(LOG_ENT_LABEL[r.entity]||r.entity)+'</div><div style="color:var(--ink-mute);font-size:12px">'+esc((r.entity==='bdg_teacher_activities'||r.entity==='bdg_teacher_rda')?tipoLabelText(r.summary||''):(r.summary||''))+'</div></td><td style="font-size:12px">'+logDetail(r)+'</td></tr>';
   });
   document.getElementById('logTable').innerHTML=h+'</tbody>';
 }
@@ -3051,7 +3915,6 @@ async function cloudFetchRoles(){
     STATE.appUsers=users; STATE.tabVisibility=vis;
   }catch(e){ console.error('roles fetch',e); }
 }
-function cloudUpsertInterface(i){ if(!cloudReady()||!canEditInterfaces())return; sb.from('bdg_orientamento_interfaces').upsert(interfaceRow(i)).then(({error})=>{ error?cloudErr('interfaccia',error):flashSynced(); }); }
 function cloudUpsertTeacher(t){ if(!cloudReady())return; sb.from('bdg_teachers').upsert(teacherRow(t)).then(({error})=>{ error?cloudErr('docente',error):flashSynced(); }); }
 function cloudUpsertActivity(a){ if(!cloudReady())return; sb.from('bdg_teacher_activities').upsert(activityRow(a)).then(({error})=>{ error?cloudErr('attività',error):flashSynced(); }); }
 // eliminazione con verifica: .select('id') restituisce le righe davvero cancellate, così un DELETE che il
@@ -3103,7 +3966,7 @@ async function syncBudgetMovement(r){
         comp_da:dates[0]||r.mese,
         comp_a:dates[dates.length-1]||r.mese,
         fornitore:t?t.nome:null,
-        oggetto:(t?t.nome:'')+(r.tipo?' · '+r.tipo:'')+' · '+monthLabel((r.mese||'').slice(0,7)),
+        oggetto:(t?t.nome:'')+(r.tipo?' · '+tipoLabel(r.tipo):'')+' · '+monthLabel((r.mese||'').slice(0,7)),
         tipo_pagamento:'RDA',
         source_rda_id:r.id,
         // l'RDA resta sempre compenso+cassa (mai IVA, vedi cassaMultiplier) — l'eventuale IVA del
@@ -3174,6 +4037,7 @@ function switchTab(tab){
   if(tab==='chiusura') renderChiusura();
   if(tab==='log') fetchLog();
   if(tab==='scuole') renderSchoolsTable();
+  if(tab==='anagrafiche') anaOnShow();
   if(tab==='calendario') renderCalendario();
 }
 document.getElementById("tabs").querySelectorAll("button").forEach(b=>b.onclick=()=>switchTab(b.dataset.tab));
@@ -3212,6 +4076,7 @@ document.getElementById("rdaHistSearch").oninput=renderRdaHistory;
 document.getElementById("btnNewAct").onclick=()=>openActivity(null);
 document.getElementById("btnNewActRiep").onclick=()=>{ switchTab('attivita'); openActivity(null); };
 document.getElementById("btnCalAdd").onclick=openCalModal;
+document.getElementById("btnActToday").onclick=scrollActToday;
 document.getElementById("calClose").onclick=()=>document.getElementById("calOverlay").classList.remove("on");
 document.getElementById("calDone").onclick=()=>document.getElementById("calOverlay").classList.remove("on");
 document.getElementById("actClose").onclick=()=>document.getElementById("actOverlay").classList.remove("on");
@@ -3267,32 +4132,6 @@ document.getElementById("cloudPull").onclick=()=>cloudPullAll(false);
 document.getElementById("btnAdmin").onclick=openAdmin;
 document.getElementById("adminClose").onclick=()=>document.getElementById("adminOverlay").classList.remove("on");
 document.getElementById("adminOverlay").onclick=e=>{ if(e.target.id==="adminOverlay") e.currentTarget.classList.remove("on"); };
-document.getElementById("btnAddIface").onclick=()=>{
-  if(!canEditInterfaces()){ toast(DENY_MSG+": le interfacce le gestisce l'amministratore.",'err'); return; }
-  const nome=(document.getElementById("newIfaceName").value||"").trim();
-  const email=(document.getElementById("newIfaceEmail").value||"").trim().toLowerCase();
-  const aree=(document.getElementById("newIfaceAree").value||"").split(',').map(s=>s.trim()).filter(Boolean);
-  if(!nome){ toast("Inserisci il nome dell'interfaccia"); return; }
-  const i={id:uuid(),nome,email,aree,attivo:true};
-  STATE.interfaces.push(i); save(); fillSelects(); renderInterfacesTable(); renderTeachersTable();
-  document.getElementById("newIfaceName").value=""; document.getElementById("newIfaceEmail").value=""; document.getElementById("newIfaceAree").value="";
-  cloudUpsertInterface(i);
-};
-document.getElementById("btnAddTeacher").onclick=()=>{
-  const nome=(document.getElementById("newTeacherName").value||"").trim();
-  const email=(document.getElementById("newTeacherEmail").value||"").trim().toLowerCase();
-  const interface_id=document.getElementById("newTeacherIface").value||null;
-  const ruolo=document.getElementById("newTeacherRuolo").value||'Docente';
-  const fiscalFlags={}; document.querySelectorAll("#newTeacherContributi input[type=checkbox]").forEach(cb=>{ fiscalFlags[cb.dataset.flag]=cb.checked; });
-  const rate=Number(document.getElementById("newTeacherRate").value)||50;
-  if(!nome){ toast("Inserisci il nome del docente"); return; }
-  if(fiscalFlags.flag_assunto){ fiscalFlags.flag_cassa4=false; fiscalFlags.flag_iva22=false; fiscalFlags.flag_ritenuta=false; }
-  const t={id:uuid(),nome,email,interface_id,ruolo,...fiscalFlags,tariffa_oraria:fiscalFlags.flag_assunto?0:rate,attivo:true};
-  STATE.teachers.push(t); save(); fillSelects(); renderTeachersTable(); renderAll();
-  document.getElementById("newTeacherName").value=""; document.getElementById("newTeacherEmail").value=""; document.getElementById("newTeacherIface").value=""; document.getElementById("newTeacherRate").value="50";
-  document.getElementById("newTeacherRuolo").value="Docente"; document.getElementById("newTeacherContributi").innerHTML=fiscalFlagsHtml('newteacher-fiscal',null,null);
-  cloudUpsertTeacher(t);
-};
 document.querySelectorAll("#adminTabs button").forEach(b=>b.onclick=()=>{
   document.querySelectorAll("#adminTabs button").forEach(x=>x.classList.remove("on"));
   b.classList.add("on");
@@ -3302,8 +4141,10 @@ document.querySelectorAll("#adminTabs button").forEach(b=>b.onclick=()=>{
 document.getElementById("ntClose").onclick=closeNewTeacherModal;
 document.getElementById("ntCancel").onclick=closeNewTeacherModal;
 document.getElementById("ntSave").onclick=saveNewTeacherQuick;
-document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ ["actOverlay","newTeacherOverlay","calOverlay","cloudOverlay","adminOverlay","confirmOverlay"].forEach(id=>document.getElementById(id).classList.remove("on")); closeAc(); } });
+document.addEventListener("keydown",e=>{ if(e.key==="Escape"){ ["actOverlay","newTeacherOverlay","calOverlay","cloudOverlay","adminOverlay","confirmOverlay","anaOverlay"].forEach(id=>document.getElementById(id).classList.remove("on")); closeAc(); } });
 
+anaInit();
+themeMenuInit();
 fillSelects();
 gate();
 cloudInit();

@@ -1,6 +1,78 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+<!-- inline-theme:begin -->
+<script>
+/* Motore dei temi NABA — sorgente CANONICO (v1).
+   Lo script scripts/inline-theme.js lo copia identico in <head> di Portale, Budget, Spese EC e Docenti
+   (blocco "naba-theme"). NON modificare il blocco dentro gli HTML: si cambia qui e si rilancia
+   "node scripts/inline-theme.js".
+
+   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark
+     - auto        = tema base che segue il sistema operativo (chiaro/scuro)
+     - light, dark = tema base fisso
+     - apple-*     = stile Apple (chiaro o scuro) sopra la stessa palette di base
+   Sul <html> imposta: data-theme="light|dark" (assente se auto), data-style="apple" (assente se base),
+   data-theme-choice="<id>". Le pagine gia' hanno le palette base (:root, @media prefers-color-scheme,
+   :root[data-theme="dark"]); lo stile Apple si scrive in CSS con :root[data-style="apple"] { ... }.
+
+   API: window.nabaTheme = { get(), set(id, opzioni), fromCloud(id), list, label(id), onChange(fn), setSaver(fn) }
+     set(id)        applica, ricorda su questo dispositivo (localStorage), avvisa gli altri frame/schede e, se la
+                    pagina ha registrato un "saver", salva la scelta come predefinita dell'utente nel cloud
+     fromCloud(id)  applica la scelta salvata dall'utente (al login) senza risalvarla
+     setSaver(fn)   fn(id) -> Promise: scrive nel cloud (le pagine usano bdg_save_prefs con la chiave 'ui') */
+(function () {
+  'use strict';
+  var KEY = 'naba_theme';
+  var LIST = [
+    { id: 'auto', label: 'Automatico (come il dispositivo)' },
+    { id: 'light', label: 'Chiaro' },
+    { id: 'dark', label: 'Scuro' },
+    { id: 'apple-light', label: 'Apple chiaro' },
+    { id: 'apple-dark', label: 'Apple scuro' }
+  ];
+  var listeners = [], saver = null;
+  function valid(id) { for (var i = 0; i < LIST.length; i++) if (LIST[i].id === id) return true; return false; }
+  function get() { try { var v = localStorage.getItem(KEY); return valid(v) ? v : 'auto'; } catch (e) { return 'auto'; } }
+  function apply(id) {
+    var r = document.documentElement, apple = id.indexOf('apple') === 0, mode = id === 'auto' ? '' : id.replace('apple-', '');
+    if (mode) r.setAttribute('data-theme', mode); else r.removeAttribute('data-theme');
+    if (apple) r.setAttribute('data-style', 'apple'); else r.removeAttribute('data-style');
+    r.setAttribute('data-theme-choice', id);
+    for (var i = 0; i < listeners.length; i++) { try { listeners[i](id); } catch (e) { /* un ascoltatore guasto non blocca gli altri */ } }
+  }
+  function remember(id) { try { localStorage.setItem(KEY, id); } catch (e) { /* storage non disponibile: il tema vale solo per questa pagina */ } }
+  function broadcast(id) {
+    var msg = { naba: 'theme', theme: id }, i, f;
+    try { if (window.parent && window.parent !== window) window.parent.postMessage(msg, location.origin); } catch (e) {}
+    try { f = document.getElementsByTagName('iframe'); for (i = 0; i < f.length; i++) { try { f[i].contentWindow.postMessage(msg, location.origin); } catch (e2) {} } } catch (e3) {}
+  }
+  function set(id, opt) {
+    if (!valid(id)) id = 'auto';
+    remember(id); apply(id); broadcast(id);
+    if (!(opt && opt.persist === false) && saver) { try { var p = saver(id); if (p && p.catch) p.catch(function () { /* salvataggio cloud non riuscito: resta il tema locale */ }); } catch (e) {} }
+  }
+  function fromCloud(id) { if (!valid(id)) return; remember(id); apply(id); broadcast(id); }
+  window.nabaTheme = {
+    get: get, set: set, fromCloud: fromCloud, list: LIST,
+    label: function (id) { for (var i = 0; i < LIST.length; i++) if (LIST[i].id === id) return LIST[i].label; return id; },
+    onChange: function (fn) { if (typeof fn === 'function') listeners.push(fn); },
+    setSaver: function (fn) { saver = typeof fn === 'function' ? fn : null; }
+  };
+  function down(id) {   // inoltra ai frame figli (non al genitore: evita giri a vuoto)
+    var msg = { naba: 'theme', theme: id }, f, i;
+    try { f = document.getElementsByTagName('iframe'); for (i = 0; i < f.length; i++) { try { f[i].contentWindow.postMessage(msg, location.origin); } catch (e2) {} } } catch (e3) {}
+  }
+  window.addEventListener('message', function (ev) {
+    if (ev.origin !== location.origin) return;
+    var d = ev.data;
+    if (d && d.naba === 'theme' && valid(d.theme) && d.theme !== document.documentElement.getAttribute('data-theme-choice')) { remember(d.theme); apply(d.theme); down(d.theme); }
+  });
+  window.addEventListener('storage', function (ev) { if (ev.key === KEY && valid(ev.newValue) && ev.newValue !== document.documentElement.getAttribute('data-theme-choice')) apply(ev.newValue); });
+  apply(get());   // subito, prima del primo disegno: niente lampo di tema sbagliato
+})();
+</script>
+<!-- inline-theme:end -->
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>NABA · Gestione Budget</title>
@@ -57,35 +129,94 @@ Resources:`;for(let t of c){if(!t||typeof t!=`string`)throw Error(`@supabase/aut
 /* inline-font:end */
 :root{
   --paper:#F5F3EC; --surface:#FFFFFF; --surface-2:#FBFAF6; --surface-mute:#EFEEE8;
-  --ink:#1B1D19; --ink-soft:#5F6459; --ink-mute:#93968A;
+  --ink:#1B1D19; --ink-soft:#5F6459; --ink-mute:#676B5F;
   --line:#E4E1D5; --line-strong:#D2CEBD;
-  --accent:#2E6B54; --accent-soft:#E3EFE8; --accent-ink:#1F4E3D;
-  --speso:#2E3532; --allocato:#C1892E; --residuo:#2E6B54; --over:#B5462F; --over-soft:#F7E4DD; --stima:#3E6FA6;
+  --accent:#2E6B54; --accent-soft:#E3EFE8; --accent-ink:#1F4E3D; --accent-fill:#2E6B54; --on-accent:#FFFFFF;
+  --speso:#2E3532; --allocato:#C1892E; --residuo:#2E6B54; --over:#AE432C; --over-soft:#F7E4DD; --stima:#3E6FA6;
   --warn:#B5791E; --warn-soft:#FBF0DD;
+  --allocato-ink:#7F5409; --warn-ink:#7F5409; --over-bar:#E2662A; --on-over:#FFFFFF;
   --shadow-sm:0 1px 2px rgba(27,29,25,.05), 0 1px 1px rgba(27,29,25,.04);
   --shadow-md:0 4px 16px rgba(27,29,25,.07), 0 1px 2px rgba(27,29,25,.05);
   --shadow-lg:0 16px 44px rgba(27,29,25,.16), 0 4px 12px rgba(27,29,25,.06);
   --radius:12px; --radius-lg:16px;
+  /* testata (sempre scura nel tema base), testo sulle superfici invertite (suggerimenti, avvisi, voci attive) */
+  --hdr-bg:#1B1D19; --hdr-fg:#F4F3EF; --hdr-mute:#A9AEA7; --hdr-ctl:rgba(255,255,255,.08); --hdr-ctl-b:rgba(255,255,255,.16); --hdr-ctl-h:rgba(255,255,255,.17);
+  --hdr-sim:#EC9A9A; --hdr-line:transparent; --hdr-scheme:dark;
+  --ink-inv-soft:#B9BDB6; --ink-inv-mute:#A9AEA7;
+  /* mappa di calore, righe sottili delle matrici, colore del testo delle etichette categoria, velo dei modali */
+  --heat:62,124,100; --heat-line:#F0EEE8; --heat-line2:#F4F2EC; --tag-pct:50%; --tag-to:#1B1D19; --overlay:rgba(10,11,9,.5);
+  color-scheme:light;
 }
 @media (prefers-color-scheme: dark){
   :root:not([data-theme="light"]){
     --paper:#171815; --surface:#1F211C; --surface-2:#242620; --surface-mute:#2A2C25;
-    --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#787C6E;
+    --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#9A9E90;
     --line:#33352C; --line-strong:#40422F;
-    --accent:#5AAE8C; --accent-soft:#213329; --accent-ink:#9AD8BB;
+    --accent:#5AAE8C; --accent-soft:#213329; --accent-ink:#9AD8BB; --accent-fill:#5AAE8C; --on-accent:#0E1F17;
     --speso:#C9C6BB; --allocato:#D9A659; --residuo:#5AAE8C; --over:#E17E64; --over-soft:#332019; --stima:#7CA5D6;
     --warn:#E0A94E; --warn-soft:#2E2717;
+    --allocato-ink:#D9A659; --warn-ink:#E0A94E; --over-bar:#E2662A; --on-over:#1A0E0A;
     --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 4px 16px rgba(0,0,0,.35); --shadow-lg:0 20px 50px rgba(0,0,0,.5);
+    --hdr-bg:#0F100E; --hdr-fg:#EDEBE2; --hdr-mute:#A3A89C; --hdr-ctl:rgba(255,255,255,.07); --hdr-ctl-b:rgba(255,255,255,.14); --hdr-ctl-h:rgba(255,255,255,.15);
+    --hdr-sim:#E69090; --hdr-line:#33352C; --hdr-scheme:dark;
+    --ink-inv-soft:#4A4E44; --ink-inv-mute:#575B4F;
+    --heat:62,124,100; --heat-line:#2C2E27; --heat-line2:#262821; --tag-pct:55%; --tag-to:#FFFFFF; --overlay:rgba(0,0,0,.62);
+    color-scheme:dark;
   }
 }
 :root[data-theme="dark"]{
   --paper:#171815; --surface:#1F211C; --surface-2:#242620; --surface-mute:#2A2C25;
-  --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#787C6E;
+  --ink:#EDEBE2; --ink-soft:#AFB3A5; --ink-mute:#9A9E90;
   --line:#33352C; --line-strong:#40422F;
-  --accent:#5AAE8C; --accent-soft:#213329; --accent-ink:#9AD8BB;
+  --accent:#5AAE8C; --accent-soft:#213329; --accent-ink:#9AD8BB; --accent-fill:#5AAE8C; --on-accent:#0E1F17;
   --speso:#C9C6BB; --allocato:#D9A659; --residuo:#5AAE8C; --over:#E17E64; --over-soft:#332019; --stima:#7CA5D6;
   --warn:#E0A94E; --warn-soft:#2E2717;
+  --allocato-ink:#D9A659; --warn-ink:#E0A94E; --over-bar:#E2662A; --on-over:#1A0E0A;
   --shadow-sm:0 1px 2px rgba(0,0,0,.3); --shadow-md:0 4px 16px rgba(0,0,0,.35); --shadow-lg:0 20px 50px rgba(0,0,0,.5);
+  --hdr-bg:#0F100E; --hdr-fg:#EDEBE2; --hdr-mute:#A3A89C; --hdr-ctl:rgba(255,255,255,.07); --hdr-ctl-b:rgba(255,255,255,.14); --hdr-ctl-h:rgba(255,255,255,.15);
+  --hdr-sim:#E69090; --hdr-line:#33352C; --hdr-scheme:dark;
+  --ink-inv-soft:#4A4E44; --ink-inv-mute:#575B4F;
+  --heat:62,124,100; --heat-line:#2C2E27; --heat-line2:#262821; --tag-pct:55%; --tag-to:#FFFFFF; --overlay:rgba(0,0,0,.62);
+  color-scheme:dark;
+}
+/* ---------- stile Apple: si appoggia al tema chiaro o scuro scelto (data-theme) e ne ridefinisce i token ----------
+   Il motore dei temi imposta data-style="apple" insieme a data-theme="light|dark". I componenti restano
+   quelli del tema base: cambiano colori, raggi, ombre, font e testata (vedi il blocco "Apple" in fondo al CSS). */
+:root[data-style="apple"]{
+  --font-ui:-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,"Inter",sans-serif;
+  --radius:14px; --radius-lg:18px; --radius-ctl:10px;
+}
+:root[data-style="apple"][data-theme="light"]{
+  --paper:#F5F5F7; --surface:#FFFFFF; --surface-2:#FAFAFC; --surface-mute:#EFEFF2;
+  --ink:#1D1D1F; --ink-soft:#515154; --ink-mute:#66666B;
+  --line:#E5E5EA; --line-strong:#D2D2D7;
+  --accent:#007AFF; --accent-soft:#E5F1FF; --accent-ink:#0062CC; --accent-fill:#0071E3; --on-accent:#FFFFFF;
+  --speso:#1D1D1F; --allocato:#C97800; --residuo:#0062CC; --over:#D70015; --over-soft:#FFE8E6; --stima:#0062CC;
+  --warn:#B25000; --warn-soft:#FFF4E0;
+  --allocato-ink:#8F4400; --warn-ink:#8F4400; --over-bar:#FF3B30; --on-over:#FFFFFF;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.04), 0 1px 1px rgba(0,0,0,.03);
+  --shadow-md:0 6px 20px rgba(0,0,0,.06), 0 1px 3px rgba(0,0,0,.05);
+  --shadow-lg:0 20px 60px rgba(0,0,0,.16), 0 6px 18px rgba(0,0,0,.06);
+  --hdr-bg:rgba(255,255,255,.72); --hdr-fg:#1D1D1F; --hdr-mute:#636368; --hdr-ctl:rgba(0,0,0,.05); --hdr-ctl-b:rgba(0,0,0,.10); --hdr-ctl-h:rgba(0,0,0,.09);
+  --hdr-sim:#B3261E; --hdr-line:rgba(0,0,0,.10); --hdr-scheme:light;
+  --ink-inv-soft:#C7C7CC; --ink-inv-mute:#AEAEB2;
+  --heat:0,122,255; --heat-line:#F0F0F3; --heat-line2:#F5F5F7; --tag-pct:62%; --tag-to:#000000; --overlay:rgba(0,0,0,.38);
+  color-scheme:light;
+}
+:root[data-style="apple"][data-theme="dark"]{
+  --paper:#000000; --surface:#1C1C1E; --surface-2:#242426; --surface-mute:#2C2C2E;
+  --ink:#F5F5F7; --ink-soft:#AEAEB2; --ink-mute:#98989D;
+  --line:#38383A; --line-strong:#48484A;
+  --accent:#0A84FF; --accent-soft:#0B2A4F; --accent-ink:#64ADFF; --accent-fill:#0A6CD9; --on-accent:#FFFFFF;
+  --speso:#F5F5F7; --allocato:#FF9F0A; --residuo:#64ADFF; --over:#FF6961; --over-soft:#3A1A19; --stima:#64ADFF;
+  --warn:#FFB340; --warn-soft:#3A2A0F;
+  --allocato-ink:#FFB340; --warn-ink:#FFB340; --over-bar:#FF453A; --on-over:#2A0A08;
+  --shadow-sm:0 1px 2px rgba(0,0,0,.4); --shadow-md:0 6px 20px rgba(0,0,0,.45); --shadow-lg:0 24px 60px rgba(0,0,0,.6);
+  --hdr-bg:rgba(28,28,30,.72); --hdr-fg:#F5F5F7; --hdr-mute:#AEAEB2; --hdr-ctl:rgba(255,255,255,.08); --hdr-ctl-b:rgba(255,255,255,.14); --hdr-ctl-h:rgba(255,255,255,.16);
+  --hdr-sim:#FF8A80; --hdr-line:rgba(255,255,255,.12); --hdr-scheme:dark;
+  --ink-inv-soft:#48484A; --ink-inv-mute:#636366;
+  --heat:10,110,225; --heat-line:#2C2C2E; --heat-line2:#262628; --tag-pct:55%; --tag-to:#FFFFFF; --overlay:rgba(0,0,0,.65);
+  color-scheme:dark;
 }
 *{box-sizing:border-box}
 html,body{margin:0}
@@ -102,27 +233,34 @@ input,select{font-family:inherit;font-size:14px}
 
 /* ---------- header ---------- */
 header{
-  background:var(--ink); color:var(--paper);
+  background:var(--hdr-bg); color:var(--hdr-fg); color-scheme:var(--hdr-scheme);
+  border-bottom:1px solid var(--hdr-line);
   padding:14px 22px; display:flex;align-items:center;gap:20px;flex-wrap:wrap;
   position:sticky;top:0;z-index:40; box-shadow:var(--shadow-md);
 }
 .brand{display:flex;flex-direction:column;gap:1px;margin-right:auto}
 .brand .t{font-weight:800;font-size:16px;letter-spacing:-.01em;display:flex;align-items:center;gap:9px}
 .brand .t .dot{width:9px;height:9px;border-radius:2px;background:var(--allocato);display:inline-block}
-.brand .s{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:#9DA39C}
+.brand .s{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.16em;text-transform:uppercase;color:var(--hdr-mute)}
 .hctl{display:flex;align-items:center;gap:8px;flex-wrap:wrap}
-.hgroup{display:flex;align-items:center;gap:6px;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.10);border-radius:8px;padding:5px 9px}
-.hgroup label{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:#9DA39C}
-.hgroup input,.hgroup select{background:transparent;border:0;color:#F4F3EF;font-size:13px;outline:none}
-.hgroup select option{color:#1B1D1C}
-.hgroup input[type=date]::-webkit-calendar-picker-indicator{filter:invert(1);opacity:.7;cursor:pointer}
+.hgroup{display:flex;align-items:center;gap:6px;background:var(--hdr-ctl);border:1px solid var(--hdr-ctl-b);border-radius:8px;padding:5px 9px}
+.hgroup label{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.12em;text-transform:uppercase;color:var(--hdr-mute)}
+.hgroup input,.hgroup select{background:transparent;border:0;color:var(--hdr-fg);font-size:13px;outline:none}
+.hgroup select option{color:var(--ink);background:var(--surface)}
+.hgroup:focus-within{box-shadow:0 0 0 2px var(--hdr-bg),0 0 0 4px var(--accent)}
+.hgroup input[type=date]::-webkit-calendar-picker-indicator{opacity:.75;cursor:pointer}
 .hgroup input[type=date]::-webkit-calendar-picker-indicator:hover{opacity:1}
 #refDateGroup.simulated{background:rgba(214,69,69,.16);border-color:rgba(214,69,69,.45)}
-#refDateGroup.simulated label,#refDateGroup.simulated input{color:#e08b8b}
+#refDateGroup.simulated label,#refDateGroup.simulated input{color:var(--hdr-sim)}
 #refDateReset{background:transparent;border:0;color:inherit;cursor:pointer;font-size:15px;line-height:1;padding:0 0 0 2px}
-.hbtn{background:rgba(255,255,255,.09);border:1px solid rgba(255,255,255,.14);color:#F4F3EF;border-radius:8px;padding:8px 13px;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:7px;transition:.15s}
-.hbtn:hover{background:rgba(255,255,255,.16)}
+#themeSel{max-width:11.5em;text-overflow:ellipsis;cursor:pointer}
+.hbtn{background:var(--hdr-ctl);border:1px solid var(--hdr-ctl-b);color:var(--hdr-fg);border-radius:8px;padding:8px 13px;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:7px;transition:.15s}
+.hbtn:hover{background:var(--hdr-ctl-h)}
 .hbtn svg{width:14px;height:14px}
+/* i pulsanti "hbtn" fuori dalla testata (barre degli strumenti di Movimenti/Finance) seguono i pulsanti normali */
+main .hbtn{background:var(--surface);color:var(--ink);border-color:var(--line-strong)}
+main .hbtn:hover{background:var(--surface-2)}
+main #btnFinImport{color:var(--on-accent);border-color:var(--accent-fill)!important;background:var(--accent-fill)!important}
 
 /* ---------- tabs ---------- */
 nav.tabs{display:flex;gap:4px;padding:5px;margin:20px 22px 0;background:var(--surface-2);border:1px solid var(--line);border-radius:12px;position:sticky;top:70px;z-index:35;overflow-x:auto;width:fit-content;max-width:calc(100% - 44px)}
@@ -167,14 +305,14 @@ tfoot td.l{text-align:left;font-family:'Inter',sans-serif}
 .catdot{display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:8px;vertical-align:middle}
 /* info icon + tooltip */
 .cat-info{display:inline-flex;align-items:center;justify-content:center;width:15px;height:15px;border-radius:50%;border:1px solid var(--line-strong);color:var(--ink-mute);font-size:9.5px;font-weight:700;font-family:Georgia,serif;font-style:italic;margin-left:7px;cursor:help;vertical-align:middle;line-height:1;user-select:none;flex:0 0 auto}
-.cat-info:hover,.cat-info:focus{border-color:var(--accent);color:var(--accent);outline:none}
+.cat-info:hover,.cat-info:focus{border-color:var(--accent);color:var(--accent-ink);outline:none}
 #tip{position:fixed;z-index:90;max-width:300px;background:var(--ink);color:var(--paper);border-radius:10px;padding:12px 13px;box-shadow:var(--shadow-lg);font-size:12px;line-height:1.45;opacity:0;pointer-events:none;transition:opacity .12s;transform:translateY(4px)}
 @media (prefers-reduced-motion:reduce){#tip{transition:opacity .01s}}
 #tip.on{opacity:1;transform:none}
 #tip .th{font-weight:700;font-size:12.5px;margin-bottom:2px}
-#tip .ts{font-family:'JetBrains Mono',monospace;font-size:10px;color:#B9BDB6;letter-spacing:.04em;margin-bottom:8px}
+#tip .ts{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-inv-soft);letter-spacing:.04em;margin-bottom:8px}
 #tip .tr{margin-top:6px}
-#tip .tr b{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:#9DA39C;font-weight:600;margin-bottom:1px}
+#tip .tr b{display:block;font-family:'JetBrains Mono',monospace;font-size:9px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-inv-mute);font-weight:600;margin-bottom:1px}
 #catHelp{margin-top:2px;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;padding:9px 11px;font-size:11.5px;color:var(--ink-soft);line-height:1.4}
 #catHelp b{color:var(--ink);font-weight:600}
 #catHelp .sap{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute)}
@@ -184,7 +322,7 @@ tfoot td.l{text-align:left;font-family:'Inter',sans-serif}
 .pbar i{position:absolute;top:0;bottom:0;display:block}
 .pbar .b-speso{background:var(--speso)}
 .pbar .b-alloc{background:var(--allocato)}
-.pbar .b-over{background:#E2662A;border-left:1px solid #fff}
+.pbar .b-over{background:var(--over-bar);border-left:1px solid var(--surface)}
 .pbar .bline{position:absolute;top:0;bottom:0;width:0;border-left:2px dashed var(--residuo);z-index:3}
 .pbar .cap{position:absolute;right:6px;top:50%;transform:translateY(-50%);font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--ink)}
 .pbar.over{box-shadow:inset 0 0 0 1.5px rgba(226,102,42,.5)}
@@ -199,28 +337,29 @@ tfoot td.l{text-align:left;font-family:'Inter',sans-serif}
 .chips{display:flex;gap:6px;flex-wrap:wrap}
 .chip{border:1px solid var(--line-strong);background:var(--surface);border-radius:20px;padding:6px 12px;font-size:12px;font-weight:600;color:var(--ink-soft);display:inline-flex;align-items:center;gap:7px;transition:.12s}
 .chip:hover{border-color:var(--ink)}
-.chip.on{background:var(--ink);color:#F4F3EF;border-color:var(--ink)}
+.chip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.chip.on .sw{box-shadow:0 0 0 1.5px var(--paper)}
 .chip.reset{border-style:dashed;border-color:var(--over);color:var(--over)}
 .chip.reset:hover{background:var(--over-soft)}
 .chip .sw{width:8px;height:8px;border-radius:2px}
 .seg{display:inline-flex;border:1px solid var(--line-strong);border-radius:8px;overflow:hidden}
 .seg button{background:var(--surface);border:0;padding:7px 13px;font-size:12px;font-weight:600;color:var(--ink-soft)}
-.seg button.on{background:var(--ink);color:#F4F3EF}
+.seg button.on{background:var(--ink);color:var(--paper)}
 .calwrap{padding:20px 18px 12px}
 #calSvg{width:100%;height:auto;display:block;overflow:visible}
 .spill{margin-top:12px;font-size:12px;color:var(--ink-soft);display:flex;align-items:center;gap:8px;padding:10px 14px;background:var(--warn-soft);border:1px solid var(--warn);border-radius:8px}
-.spill b{color:var(--allocato)}
+.spill b{color:var(--allocato-ink)}
 .calhint{margin-top:12px;font-size:11px;color:var(--ink-mute);font-style:italic}
 #calSvg rect[data-mk]{cursor:pointer}
 /* heatmap */
 table.heat thead th{font-size:9.5px;padding:10px 6px;text-align:center}
 table.heat thead th.l{text-align:left;padding-left:14px}
-table.heat td{padding:0;text-align:center;border-bottom:1px solid #F0EEE8}
+table.heat td{padding:0;text-align:center;border-bottom:1px solid var(--heat-line)}
 table.heat td.l{text-align:left;padding:9px 14px;font-family:'Inter';font-weight:500;white-space:nowrap;font-size:12.5px}
-table.heat td.cell{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:11px;cursor:pointer;position:relative;height:34px;border-left:1px solid #F4F2EC}
+table.heat td.cell{font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;font-size:11px;cursor:pointer;position:relative;height:34px;border-left:1px solid var(--heat-line2)}
 table.heat td.cell:hover{outline:2px solid var(--ink);outline-offset:-2px}
 table.heat td.tot{font-weight:700;background:var(--surface-2)}
-table.heat td.z{color:#CFCCC1}
+table.heat td.z{color:var(--ink-mute)}
 table.heat tfoot td{font-family:'JetBrains Mono',monospace;font-weight:700;font-size:11px;text-align:center;border-top:2px solid var(--ink);padding:9px 4px}
 table.heat tfoot td.l{text-align:left;padding-left:14px}
 .md-topbar{display:flex;align-items:center;gap:10px;margin-bottom:12px}
@@ -249,7 +388,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
 .search{display:flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--line-strong);border-radius:8px;padding:8px 12px;min-width:240px}
 .search input{border:0;outline:none;background:none;flex:1}
 .search svg{width:15px;height:15px;color:var(--ink-mute)}
-.btn{background:var(--accent);color:#fff;border:0;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;transition:.15s}
+.btn{background:var(--accent-fill);color:var(--on-accent);border:0;border-radius:8px;padding:10px 16px;font-size:13px;font-weight:600;display:inline-flex;align-items:center;gap:8px;transition:.15s}
 .btn:hover{filter:brightness(1.08)}
 .btn.ghost{background:var(--surface);color:var(--ink);border:1px solid var(--line-strong)}
 .btn.ghost:hover{background:var(--surface-2)}
@@ -259,7 +398,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
 .mv-table .obj{font-weight:500}
 .mv-table .meta{color:var(--ink-mute);font-size:11px}
 .tag{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.04em;padding:3px 7px;border-radius:5px;background:var(--surface-mute);color:var(--ink-soft);white-space:nowrap;display:inline-block}
-.tag.stima{background:#fff;color:var(--stima);border:1px dashed var(--stima);margin-left:6px}
+.tag.stima{background:var(--surface);color:var(--stima);border:1px dashed var(--stima);margin-left:6px}
 .rowbtn{background:none;border:0;padding:5px;border-radius:6px;color:var(--ink-mute)}
 .rowbtn:hover{background:var(--surface-mute);color:var(--ink)}
 .rowbtn svg{width:15px;height:15px;display:block}
@@ -272,7 +411,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
 .brow:last-child{border-bottom:0}
 .brow .cn{font-weight:600;display:flex;align-items:center}
 .binput{display:flex;align-items:center;gap:6px;background:var(--surface-2);border:1px solid var(--line-strong);border-radius:8px;padding:0 12px}
-.binput.ro{background:var(--surface-mute);opacity:.8}
+.binput.ro{background:var(--surface-mute)}
 .binput span{color:var(--ink-mute);font-family:'JetBrains Mono',monospace}
 .binput input{border:0;background:none;outline:none;padding:10px 0;width:100%;font-family:'JetBrains Mono',monospace;font-variant-numeric:tabular-nums;text-align:right;font-size:14px}
 .miniuse{font-size:11px;color:var(--ink-mute);font-family:'JetBrains Mono',monospace;text-align:right}
@@ -281,7 +420,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
 .miniuse .mbar .mbline{position:absolute;top:0;bottom:0;width:0;border-left:1.5px dashed var(--residuo);z-index:3}
 
 /* ---------- modal ---------- */
-.overlay{position:fixed;inset:0;background:rgba(10,11,9,.5);backdrop-filter:blur(2px);z-index:60;display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
+.overlay{position:fixed;inset:0;background:var(--overlay);backdrop-filter:blur(2px);z-index:60;display:none;align-items:flex-start;justify-content:center;padding:40px 16px;overflow:auto}
 .overlay.on{display:flex}
 .modal{background:var(--surface);border-radius:var(--radius-lg);width:100%;max-width:660px;box-shadow:var(--shadow-lg);animation:pop .18s ease}
 @media (prefers-reduced-motion:reduce){.modal{animation:none}}
@@ -311,18 +450,18 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
 .pm{flex:1;min-width:44px;text-align:center;background:var(--surface);border:1px solid var(--line);border-radius:7px;padding:7px 4px}
 .pm .mn{font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute)}
 .pm .mv{font-family:'JetBrains Mono',monospace;font-size:11.5px;font-weight:700;margin-top:3px}
-.pm.zero{opacity:.35}
+.pm.zero{opacity:.6}
 .pm.out{background:var(--warn-soft);border-color:var(--warn)}
-.pm.out .mv{color:var(--allocato)}
+.pm.out .mv{color:var(--allocato-ink)}
 .pnote{font-size:11px;color:var(--ink-soft);margin-top:9px}
 .iconx{background:none;border:0;color:var(--ink-mute);padding:5px;border-radius:7px}
 .iconx:hover{background:var(--surface-mute);color:var(--ink)}
 .iconx svg{width:18px;height:18px;display:block}
 
 /* toast */
-#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:#F4F3EF;padding:11px 18px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:80;box-shadow:0 10px 30px rgba(0,0,0,.25)}
+#toast{position:fixed;bottom:22px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--ink);color:var(--paper);padding:11px 18px;border-radius:10px;font-size:13px;font-weight:500;opacity:0;pointer-events:none;transition:.25s;z-index:80;box-shadow:0 10px 30px rgba(0,0,0,.25)}
 #toast.on{opacity:1;transform:translateX(-50%) translateY(0)}
-#toast.err{background:var(--over)}
+#toast.err{background:var(--over);color:var(--on-over)}
 .cloud-dot{width:8px;height:8px;border-radius:50%;display:inline-block;margin-right:2px}
 .cloud-dot.off{background:#9A9E97}
 .cloud-dot.on{background:#5FBF8F;box-shadow:0 0 0 3px rgba(95,191,143,.25)}
@@ -331,7 +470,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
 @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
 .cloud-state{padding:12px 14px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);font-size:13px;display:flex;align-items:center;gap:10px}
 .cloud-state .badge{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;padding:3px 8px;border-radius:6px;font-weight:700}
-.cloud-state .badge.on{background:var(--accent-soft);color:var(--accent)}
+.cloud-state .badge.on{background:var(--accent-soft);color:var(--accent-ink)}
 .cloud-state .badge.off{background:var(--surface-mute);color:var(--ink-soft)}
 .cloud-state .badge.err{background:var(--over-soft);color:var(--over)}
 .cloud-actions{display:flex;flex-direction:column;gap:8px}
@@ -382,10 +521,10 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
 
   /* ---- tabelle "responsive" → schede ---- */
   #panel-riepilogo .card.scroll, #panel-movimenti .card.scroll{border:0;box-shadow:none;background:transparent;overflow:visible;border-radius:0}
-  #panel-movimenti .card.scroll.estimates{border:1px dashed var(--line-strong)!important;border-radius:10px;background:var(--surface-2)!important;opacity:.85}
+  #panel-movimenti .card.scroll.estimates{border:1px dashed var(--line-strong)!important;border-radius:10px;background:var(--surface-2)!important}
   table.responsive thead{display:none}
   table.responsive tbody,table.responsive tr,table.responsive td{display:block;width:100%}
-  table.responsive tr{border:1px solid var(--line);border-radius:10px;margin:0 0 10px;padding:6px 14px;background:var(--surface);box-shadow:var(--shadow)}
+  table.responsive tr{border:1px solid var(--line);border-radius:10px;margin:0 0 10px;padding:6px 14px;background:var(--surface);box-shadow:var(--shadow-sm)}
   table.responsive tbody tr:hover{background:var(--surface)}
   table.responsive td{border:0;padding:7px 0;display:flex;justify-content:space-between;align-items:center;gap:12px;text-align:right;font-size:13px;border-bottom:1px solid var(--line)}
   table.responsive tr td:last-child{border-bottom:0}
@@ -470,6 +609,80 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
   #mvTable thead.mvhead tr.mv-filters th{display:block;flex:1 1 46%;padding:0!important;border:0}
   #mvTable thead.mvhead tr.mv-filters th:first-child{display:none}
 }
+
+/* ---------- controlli di modulo, stati e focus: valgono per tutti i temi (chiaro, scuro, Apple) ----------
+   I controlli nativi (campi, elenchi, selettore data, barre di scorrimento) seguono color-scheme dei token;
+   testo, segnaposto e campi disabilitati usano sempre i token, mai i colori predefiniti del browser. */
+input,select,textarea{color:var(--ink);caret-color:var(--ink)}
+input:not([type]),input[type=date],input[type=number],input[type=text],input[type=email],input[type=password],input[type=search],input[type=tel],input[type=url],input[type=month],input[type=time],select,textarea{background-color:var(--surface)}
+.hgroup input,.hgroup select,.search input,.binput input{background-color:transparent}
+input::placeholder,textarea::placeholder{color:var(--ink-mute);opacity:1}
+select option,select optgroup{background-color:var(--surface);color:var(--ink)}
+input[type=checkbox],input[type=radio]{accent-color:var(--accent-fill)}
+input:disabled,select:disabled,textarea:disabled{color:var(--ink-soft);-webkit-text-fill-color:var(--ink-soft);background-color:var(--surface-mute);opacity:1;cursor:not-allowed}
+.btn:disabled,.hbtn:disabled,.rowbtn:disabled{background:var(--surface-mute);color:var(--ink-soft);border:1px solid var(--line-strong);opacity:1;filter:none;cursor:not-allowed}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+header :focus-visible{outline-color:var(--hdr-fg)}
+.search:focus-within,.binput:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-soft)}
+.search input:focus-visible,.binput input:focus-visible,.hgroup input:focus-visible,.hgroup select:focus-visible,.field input:focus-visible,.field select:focus-visible,.field textarea:focus-visible{outline:none}
+
+/* ---------- STILE APPLE (data-style="apple", sopra il tema chiaro o scuro scelto) ----------
+   Stessi componenti del tema base: cambiano font di sistema, raggi, ombre morbide, testata traslucida,
+   pulsanti a pillola e accento blu. I colori arrivano dai token definiti in alto. */
+:root[data-style="apple"] body,
+:root[data-style="apple"] body *,
+:root[data-style="apple"] body *::before,
+:root[data-style="apple"] body *::after{font-family:var(--font-ui)}
+:root[data-style="apple"] .cat-info{font-family:Georgia,serif}
+:root[data-style="apple"] .amt,:root[data-style="apple"] .md-item .r,:root[data-style="apple"] .pm .mv,:root[data-style="apple"] .miniuse,:root[data-style="apple"] .tot,:root[data-style="apple"] .kpi .v{font-variant-numeric:tabular-nums}
+/* etichette minuscole in maiuscoletto del tema base: in Apple sono normali e un po' piu grandi */
+:root[data-style="apple"] .eyebrow,:root[data-style="apple"] thead th,:root[data-style="apple"] .field label,:root[data-style="apple"] .hgroup label,
+:root[data-style="apple"] .md-blockhead,:root[data-style="apple"] .preview .ph,:root[data-style="apple"] .pm .mn,:root[data-style="apple"] .brand .s,
+:root[data-style="apple"] .cloud-state .badge,:root[data-style="apple"] #tip .tr b,
+:root[data-style="apple"] table.responsive td::before,:root[data-style="apple"] .brow>div[data-mlab]::before{text-transform:none;letter-spacing:0}
+:root[data-style="apple"] .eyebrow,:root[data-style="apple"] .field label,:root[data-style="apple"] .md-blockhead{font-size:11.5px;font-weight:600}
+:root[data-style="apple"] thead th{font-size:11px;font-weight:600}
+:root[data-style="apple"] .hgroup label,:root[data-style="apple"] .brand .s{font-size:11px;font-weight:500}
+:root[data-style="apple"] table.heat thead th{font-size:10.5px}
+/* testata traslucida con sfocatura leggera */
+:root[data-style="apple"] header{-webkit-backdrop-filter:saturate(170%) blur(18px);backdrop-filter:saturate(170%) blur(18px);box-shadow:none}
+:root[data-style="apple"] .brand .t{letter-spacing:-.02em;font-weight:700}
+:root[data-style="apple"] .brand .t .dot{border-radius:50%;background:var(--accent)}
+:root[data-style="apple"] .hgroup{border-radius:12px}
+:root[data-style="apple"] .hgroup:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
+/* pulsanti a pillola */
+:root[data-style="apple"] .btn,:root[data-style="apple"] .hbtn,:root[data-style="apple"] .chip,:root[data-style="apple"] .seg,:root[data-style="apple"] .seg button,
+:root[data-style="apple"] nav.tabs,:root[data-style="apple"] nav.tabs button,:root[data-style="apple"] .tag,:root[data-style="apple"] #toast{border-radius:999px}
+:root[data-style="apple"] select.btn{padding-left:14px;padding-right:14px}
+:root[data-style="apple"] .btn{font-weight:600;box-shadow:none}
+:root[data-style="apple"] .btn:hover{filter:brightness(1.06)}
+:root[data-style="apple"] .btn.ghost,:root[data-style="apple"] .btn.danger{box-shadow:var(--shadow-sm)}
+:root[data-style="apple"] .btn.ghost:hover{background:var(--surface-mute)}
+:root[data-style="apple"] .rowbtn,:root[data-style="apple"] .iconx{border-radius:50%}
+/* schede come controllo segmentato */
+:root[data-style="apple"] nav.tabs{background:var(--surface-mute);border:0;padding:3px}
+:root[data-style="apple"] nav.tabs button{font-weight:500}
+:root[data-style="apple"] nav.tabs button.on{background:var(--surface);box-shadow:var(--shadow-sm);color:var(--ink)}
+:root[data-style="apple"] .seg{border-color:var(--line-strong);padding:2px;background:var(--surface-mute)}
+:root[data-style="apple"] .seg button{background:transparent}
+:root[data-style="apple"] .seg button.on{background:var(--surface);color:var(--ink);box-shadow:var(--shadow-sm)}
+/* superfici raggruppate con ombre morbide */
+:root[data-style="apple"] .card,:root[data-style="apple"] .kpi{box-shadow:var(--shadow-md)}
+:root[data-style="apple"] .kpi::before{display:none}
+:root[data-style="apple"] .kpi .lab .sw{border-radius:50%}
+:root[data-style="apple"] tfoot td{border-top:1px solid var(--line-strong)}
+:root[data-style="apple"] .modal{box-shadow:var(--shadow-lg)}
+:root[data-style="apple"] .overlay{-webkit-backdrop-filter:blur(10px) saturate(160%);backdrop-filter:blur(10px) saturate(160%)}
+:root[data-style="apple"] .mhead,:root[data-style="apple"] .mfoot{border-color:var(--line)}
+:root[data-style="apple"] .search,:root[data-style="apple"] .binput,:root[data-style="apple"] .field input,:root[data-style="apple"] .field select,:root[data-style="apple"] .field textarea,
+:root[data-style="apple"] .ac-list{border-radius:var(--radius-ctl)}
+:root[data-style="apple"] .preview,:root[data-style="apple"] .spill,:root[data-style="apple"] .cloud-state,:root[data-style="apple"] #catHelp,:root[data-style="apple"] #tip,
+:root[data-style="apple"] #mvBulk,:root[data-style="apple"] .pm{border-radius:12px}
+:root[data-style="apple"] .field input:focus,:root[data-style="apple"] .field select:focus,:root[data-style="apple"] .field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 28%,transparent)}
+:root[data-style="apple"] .search:focus-within,:root[data-style="apple"] .binput:focus-within{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 28%,transparent)}
+:root[data-style="apple"] .pbar,:root[data-style="apple"] .md-cat .bar,:root[data-style="apple"] .miniuse .mbar{border-radius:999px}
+:root[data-style="apple"] .md-cat.active{border-radius:10px}
+:root[data-style="apple"] #toast{box-shadow:var(--shadow-lg)}
 </style>
 </head>
 <body>
@@ -491,6 +704,10 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
       <label>Data rif.</label>
       <input type="date" id="refDate">
       <button type="button" id="refDateReset" title="Torna a oggi" style="display:none">↺</button>
+    </div>
+    <div class="hgroup" id="themeGroup" title="Aspetto della pagina: chiaro, scuro o stile Apple. La scelta resta salvata come predefinita per il tuo utente.">
+      <label for="themeSel">Tema</label>
+      <select id="themeSel" aria-label="Tema dell'interfaccia"></select>
     </div>
     <button class="hbtn" id="btnImport" style="display:none" title="Importa un file Excel con foglio DETTAGLIO e SOSTITUISCE le spese dell'anno (solo amministratore)">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 3v12m0 0l-4-4m4 4l4-4M4 17v2a2 2 0 002 2h12a2 2 0 002-2v-2"/></svg>Importa
@@ -533,7 +750,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
       <span><i class="sw" style="background:var(--speso)"></i>Speso</span>
       <span><i class="sw" style="background:var(--allocato)"></i>Allocato (futuro)</span>
       <span><i class="sw" style="background:var(--surface-mute)"></i>Residuo</span>
-      <span><i class="sw" style="background:#E2662A"></i>Sforamento</span>
+      <span><i class="sw" style="background:var(--over-bar)"></i>Sforamento</span>
       <span><i class="sw" style="width:2px;background:var(--residuo)"></i>Linea budget (100%)</span>
       <span style="margin-left:auto;color:var(--ink-mute)">Importi IVA inclusa</span>
     </div>
@@ -560,7 +777,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
     <div style="margin-top:14px" class="legend">
       <span><i class="sw" style="background:var(--speso)"></i>Speso</span>
       <span><i class="sw" style="background:var(--allocato)"></i>Allocato</span>
-      <span><i class="sw" style="background:repeating-linear-gradient(45deg,var(--ink-soft) 0 2px,#fff 2px 4px)"></i>Da anno fiscale precedente</span>
+      <span><i class="sw" style="background:repeating-linear-gradient(45deg,var(--ink-soft) 0 2px,var(--surface) 2px 4px)"></i>Da anno fiscale precedente</span>
       <span id="calBudgetLeg"></span>
     </div>
 
@@ -812,6 +1029,16 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
           <input type="number" id="fImporto" step="0.01" placeholder="0,00">
         </div>
         <div class="field">
+          <label>IVA %</label>
+          <input type="number" id="fIvaPct" step="0.5" min="0" placeholder="22">
+          <span class="hint" id="fIvaPctHint"></span>
+        </div>
+        <div class="field">
+          <label>Importo con IVA</label>
+          <input type="number" id="fLordo" step="0.01" placeholder="0,00">
+          <span class="hint">Compila il netto <b>oppure</b> il totale con IVA: l'altro si calcola con l'IVA %.</span>
+        </div>
+        <div class="field">
           <label>Competenza da</label>
           <input type="date" id="fCompDa">
           <span class="hint">Vuoto = spesa one-shot sul mese d'ordine.</span>
@@ -828,7 +1055,7 @@ table.heat tfoot td.l{text-align:left;padding-left:14px}
         <div class="field" id="fFornField" style="position:relative">
           <label>Fornitore</label>
           <input type="text" id="fForn" placeholder="Cerca fornitore… (le parole possono essere in qualsiasi ordine)" autocomplete="off">
-          <span class="hint" id="fFornIva" style="display:none;color:var(--accent);font-weight:600"></span>
+          <span class="hint" id="fFornIva" style="display:none;color:var(--accent-ink);font-weight:600"></span>
           <div class="ac-list" id="fFornAc"></div>
           <span class="hint">Anagrafica + fornitori già usati. Non lo trovi? Scegli "+ Aggiungi…" in fondo alla lista. Per spese da Docenti/Spese EC usa il nome del docente/orientatore.</span>
         </div>
@@ -987,6 +1214,8 @@ function centroForCategoria(cat){ return CAT_DIGITAL_ONLY.has(cat) ? "6600" : (c
 // tipologie Docenti che vanno sul centro 6400 (stessa regola della colonna centro_costo nelle viste SQL)
 const TIPI_DOCENTI_6400 = ["Test","Eventi PG"];
 function centroForTipoDocenti(tipo){ return TIPI_DOCENTI_6400.includes(tipo) ? "6400" : "6000"; }
+// nome mostrato della tipologia Docenti: il valore salvato resta "Test" (lo usano centri di costo, viste e permessi), si cambia solo l'etichetta
+function tipoDocLabel(t){ return t==="Test" ? "Esami d'ammissione" : (t||""); }
 function ccLabel(id){ const c=CENTRI_COSTO.find(x=>x.id===id); return c ? `${c.id} · ${c.nome}` : String(id); }
 function ccOf(e){ return (e && e.centroCosto) || CC_DEFAULT; }
 // centri che l'utente può vedere, come li concede il database (bdg_permissions + bdg_app_users.scope):
@@ -1041,7 +1270,7 @@ function budgetOf(ds,cc,create){
   return ds.budgetCC[cc];
 }
 const CAT_COLOR = {
-  "FIERE":"#3E7C64","CONS. COMM. MKTG":"#C8892E","MATERIALI":"#4A6FA5","EVENTI":"#B5462F","EVENTI PG":"#8C4A6B",
+  "FIERE":"#3E7C64","CONS. COMM. MKTG":"#C8892E","MATERIALI":"#4A6FA5","EVENTI":"var(--over)","EVENTI PG":"#8C4A6B",
   "TUTOR":"#7D6BA8","VIAGGI TRASF. ALTRI NO STAFF":"#2E9C8E","VIAGGI TRASF. STAFF":"#1F7A8C",
   "ALBERGHI RIST. STAFF":"#A87B4F","ALBERGHI RIST. NO STAFF":"#C99A5B","COMM. PASSIVE":"#5B6E4A","ALTRO":"#8A8F88"
 };
@@ -1407,7 +1636,7 @@ function riepSubtotalRowHtml(sub,d){
     <td class="l" data-label="Categoria">${sub.label}</td>
     <td data-label="Budget">${eur(budget)}</td>
     <td data-label="Speso">${eur(speso)}</td>
-    <td data-label="Allocato" style="color:var(--allocato)">${alloc>0?eur(alloc):'—'}</td>
+    <td data-label="Allocato" style="color:var(--allocato-ink)">${alloc>0?eur(alloc):'—'}</td>
     <td data-label="Impegnato">${eur(imp)}</td>
     <td data-label="Residuo" class="${res<0?'neg':''}">${eur(res)}</td>
     <td class="l cell-bar-empty" style="padding-left:20px"></td>
@@ -1446,7 +1675,7 @@ function renderRiep(d){
       <td class="l" data-label="Categoria" data-cat="${esc(c)}"><span class="catdot" style="background:${CAT_COLOR[c]||'#8A8F88'}"></span>${c}${excluded?' *':''}${catInfoIcon(c)}</td>
       <td data-label="Budget">${eur(o.budget)}</td>
       <td data-label="Speso">${eur(o.speso)}</td>
-      <td data-label="Allocato" style="color:${excluded?'inherit':'var(--allocato)'}">${o.allocato>0?eur(o.allocato):'—'}</td>
+      <td data-label="Allocato" style="color:${excluded?'inherit':'var(--allocato-ink)'}">${o.allocato>0?eur(o.allocato):'—'}</td>
       <td data-label="Impegnato">${eur(imp)}</td>
       <td data-label="Residuo" class="${res<0?'neg':''}">${eur(res)}</td>
       <td class="l cell-bar" data-label="Utilizzo" style="padding-left:20px">
@@ -1465,7 +1694,7 @@ function renderRiep(d){
   const gOver=d.gImpegnato>d.gBudget;
   html += `</tbody><tfoot><tr>
     <td class="l" data-label="Totale">Totale</td><td data-label="Budget">${eur(d.gBudget)}</td><td data-label="Speso">${eur(d.gSpeso)}</td>
-    <td data-label="Allocato" style="color:var(--allocato)">${eur(d.gAlloc)}</td><td data-label="Impegnato">${eur(d.gImpegnato)}</td>
+    <td data-label="Allocato" style="color:var(--allocato-ink)">${eur(d.gAlloc)}</td><td data-label="Impegnato">${eur(d.gImpegnato)}</td>
     <td data-label="Residuo" class="${d.gResiduo<0?'neg':''}">${eur(d.gResiduo)}</td>
     <td class="l cell-bar-empty" style="padding-left:20px"></td><td data-label="%" class="${gOver?'neg':''}" style="${gOver?'font-weight:700':''}">${pct(d.gImpegnato,d.gBudget)}%</td></tr></tfoot>`;
   document.getElementById("riepTable").innerHTML=html;
@@ -1529,8 +1758,8 @@ function renderCalendar(d){
 
   let g=`<svg id="calSvg" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" font-family="'JetBrains Mono',monospace">`;
   // tratteggio per la quota che arriva dall'anno fiscale precedente (colore pieno + righe bianche)
-  g+=`<defs><pattern id="hatchS" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--speso)"/><rect width="2.6" height="6" fill="#fff" fill-opacity=".6"/></pattern>
-    <pattern id="hatchA" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--allocato)"/><rect width="2.6" height="6" fill="#fff" fill-opacity=".6"/></pattern></defs>`;
+  g+=`<defs><pattern id="hatchS" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--speso)"/><rect width="2.6" height="6" fill="var(--surface)" fill-opacity=".6"/></pattern>
+    <pattern id="hatchA" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><rect width="6" height="6" fill="var(--allocato)"/><rect width="2.6" height="6" fill="var(--surface)" fill-opacity=".6"/></pattern></defs>`;
   // gridlines + y labels
   const steps=4;
   for(let i=0;i<=steps;i++){
@@ -1583,7 +1812,7 @@ function renderCalendar(d){
     g+=`<path d="${path}" fill="none" stroke="var(--ink)" stroke-width="2" stroke-linejoin="round"/>`;
     pts.forEach((p,i)=>{
       const col = i<=splitIdx ? "var(--speso)" : "var(--allocato)";
-      g+=`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${col}" stroke="#fff" stroke-width="1.5"><title>${lblMonth(monthData[i].k)} · cumulato ${eur(monthData[i].cum)}</title></circle>`;
+      g+=`<circle cx="${p[0]}" cy="${p[1]}" r="3.5" fill="${col}" stroke="var(--surface)" stroke-width="1.5"><title>${lblMonth(monthData[i].k)} · cumulato ${eur(monthData[i].cum)}</title></circle>`;
     });
   }
   // overlay cliccabili per mese (dettaglio)
@@ -1621,7 +1850,7 @@ function renderCalendar(d){
 function lblMonth(k){ const {y,m}=keyYM(k); return MESI_LONG[m-1]+" "+y; }
 
 /* ---------- heatmap categoria × mese ---------- */
-function heatColor(v,max){ if(v<=0||max<=0) return "transparent"; const t=Math.min(1,v/max); const a=0.10+t*0.72; return `rgba(62,124,100,${a.toFixed(3)})`; }
+function heatColor(v,max){ if(v<=0||max<=0) return "transparent"; const t=Math.min(1,v/max); const a=0.10+t*0.72; return `rgba(var(--heat),${a.toFixed(3)})`; }
 function renderHeatmap(d){
   const keys=fyMonthKeys();
   const cats=viewCatsActive(d);
@@ -1641,7 +1870,7 @@ function renderHeatmap(d){
       body+=`<td class="cell ${v<=0?'z':''}" data-c="${c}" data-mk="${k}" style="background:${heatColor(v,rmax)}">${v>0?fmt.format(Math.round(v/1000))+'k':'·'}</td>`;
     });
     if(c!==CAT_NO_TOTALS) colFuori+=o.fuori;
-    body+=`<td class="cell z" style="color:${o.fuori>0?'var(--allocato)':'#CFCCC1'}">${o.fuori>0?fmt.format(Math.round(o.fuori/1000))+'k':'·'}</td>`;
+    body+=`<td class="cell z" style="color:${o.fuori>0?'var(--allocato-ink)':'var(--ink-mute)'}">${o.fuori>0?fmt.format(Math.round(o.fuori/1000))+'k':'·'}</td>`;
     body+=`<td class="tot">${eur(rowTot)}</td></tr>`;
   });
   body+="</tbody>";
@@ -1681,7 +1910,7 @@ function monthContributions(monthKey, onlyCat){
     if(!r.categoria || !ccsView.includes(r.centro||CC_DEFAULT)) return;
     if(onlyCat && r.categoria!==onlyCat) return;
     const m=ym(r.mese); if(!m || m.key!==monthKey) return;
-    out.push({e:{categoria:r.categoria,fornitore:r.docenteNome||"Stima Docenti",oggetto:[r.tipo,r.luogo].filter(Boolean).join(" · ")+" (stima Docenti)",dataOrdine:r.data||r.mese,numOrdine:""},amt:(Number(r.importo)||0)*rowIvaFactor(r),futuro:true});
+    out.push({e:{categoria:r.categoria,fornitore:r.docenteNome||"Stima Docenti",oggetto:[tipoDocLabel(r.tipo),r.luogo].filter(Boolean).join(" · ")+" (stima Docenti)",dataOrdine:r.data||r.mese,numOrdine:""},amt:(Number(r.importo)||0)*rowIvaFactor(r),futuro:true});
   });
   out.sort((a,b)=>b.amt-a.amt);
   return out;
@@ -1833,8 +2062,8 @@ function renderMovimenti(){
     html+=`<tr>
       <td class="cell-chk" data-label=""><input type="checkbox" class="mvChk" data-id="${e.id}" ${MV.sel.has(e.id)?"checked":""}></td>
       <td class="l" data-label="Ordine"><div class="obj">${fmtD(e.dataOrdine)}</div><div class="meta">${esc(e.numOrdine)||'—'}</div></td>
-      <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[e.categoria]||'#8A8F88',.13)};color:${CAT_COLOR[e.categoria]||'#6A6F6A'}">${esc(e.categoria)||''}</span>${e.sourceRdaId?` <span class="tag" style="background:var(--warn-soft);color:var(--warn)" title="Generata automaticamente da un'attività Docenti">Auto · Docenti</span>`:''}</td>
-      <td class="l" data-label="Centro"><span class="tag" style="background:${hex2rgba(CC_COLOR[ccOf(e)]||'#8A8F88',.15)};color:${CC_COLOR[ccOf(e)]||'#6A6F6A'};font-weight:700" title="${esc(ccLabel(ccOf(e)))}">${esc(ccOf(e))}</span></td>
+      <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[e.categoria]||'#8A8F88',.13)};color:${tagInk(CAT_COLOR[e.categoria]||'#6A6F6A')}">${esc(e.categoria)||''}</span>${e.sourceRdaId?` <span class="tag" style="background:var(--warn-soft);color:var(--warn-ink)" title="Generata automaticamente da un'attività Docenti">Auto · Docenti</span>`:''}</td>
+      <td class="l" data-label="Centro"><span class="tag" style="background:${hex2rgba(CC_COLOR[ccOf(e)]||'#8A8F88',.15)};color:${tagInk(CC_COLOR[ccOf(e)]||'#6A6F6A')};font-weight:700" title="${esc(ccLabel(ccOf(e)))}">${esc(ccOf(e))}</span></td>
       <td class="l" data-label="Fornitore"><div class="obj">${esc(e.fornitore)||'—'}${(rowIvaFactor(e)===1 && ivaFactor(e.categoria)!==1)?' <span class="tag" style="background:var(--surface-mute);color:var(--ink-soft)" title="IVA 0% su questo movimento (collaboratore senza IVA)">senza IVA</span>':''}</div><div class="meta">${esc(e.oggetto)||''}</div></td>
       <td class="l" data-label="Competenza"><span class="meta">${comp}</span></td>
       <td data-label="Netto" style="color:var(--ink-mute)">${eur2(net)}</td>
@@ -1859,7 +2088,7 @@ function renderMvEstimates(catF,q){
   (STATE.docentiEstimates||[]).forEach(r=>{
     const my=ym(r.mese); if(!my||my.key<fs||my.key>fe) return;
     if(catF!=="ALL" && r.categoria!==catF) return;
-    const label=[r.tipo,r.luogo,r.docenteNome].filter(Boolean).join(" · ");
+    const label=[tipoDocLabel(r.tipo),r.luogo,r.docenteNome].filter(Boolean).join(" · ");
     if(q && !(label+" "+(r.categoria||"")).toLowerCase().includes(q)) return;
     if(!ccsView.includes(r.centro||CC_DEFAULT)) return;
     rows.push({categoria:r.categoria, centro:r.centro||CC_DEFAULT, data:r.data, label, sub:"Docenti", importo:r.importo, ivaPctOverride:r.ivaPctOverride, fornSuggest:r.docenteNome||''});
@@ -1885,7 +2114,7 @@ function renderMvEstimates(catF,q){
     const net = r.isEC ? gross/SPESE_EC_IVA_FACTOR : (+r.importo||0);
     html+=`<tr class="mve-row" data-i="${i}" style="cursor:pointer" title="Clic per registrarla come spesa reale">
       <td class="l" data-label="Data"><div class="obj">${fmtD(r.data)}</div></td>
-      <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[r.categoria]||'#8A8F88',.13)};color:${CAT_COLOR[r.categoria]||'#6A6F6A'}">${r.categoria||''}</span></td>
+      <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[r.categoria]||'#8A8F88',.13)};color:${tagInk(CAT_COLOR[r.categoria]||'#6A6F6A')}">${r.categoria||''}</span></td>
       <td class="l" data-label="Descrizione"><div class="obj">${esc(r.label)||'—'}</div><div class="meta">stima · ${r.sub}</div></td>
       <td data-label="Netto" style="color:var(--ink-mute)">${eur2(net)}</td>
       <td data-label="IVA incl.">${eur2(gross)}</td>
@@ -1911,6 +2140,8 @@ function openModalFromEstimate(r){
 }
 function fmtD(s){ if(!s) return "—"; const p=String(s).split("-"); if(p.length<3) return s; return p[2]+"/"+p[1]+"/"+p[0].slice(2); }
 function esc(s){ return (s==null?"":String(s)).replace(/[&<>"']/g,m=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+// testo delle etichette categoria/centro: il colore della categoria miscelato con il colore di base del tema (--tag-pct/--tag-to), per avere sempre contrasto leggibile
+function tagInk(h){ return "color-mix(in srgb,"+h+" var(--tag-pct),var(--tag-to))"; }
 function hex2rgba(h,a){ const n=parseInt(h.slice(1),16); return `rgba(${(n>>16)&255},${(n>>8)&255},${n&255},${a})`; }
 
 /* ---------- budget tab ---------- */
@@ -1927,7 +2158,7 @@ function renderBudget(d){
     const over=imp>b?((imp-b)/b)/(scaleMax-1)*(100-LINE):0;
     return `<div class="mbar">
       <i style="left:0;width:${within}%;background:${imp>b?'var(--speso)':'var(--accent)'}"></i>
-      ${over>0?`<i style="left:${LINE}%;width:${over}%;background:#E2662A"></i>`:''}
+      ${over>0?`<i style="left:${LINE}%;width:${over}%;background:var(--over-bar)"></i>`:''}
       <span class="mbline" style="left:${LINE}%"></span></div>`;
   };
   // il budget si modifica solo con UN centro di costo selezionato (con "Tutti" è la somma dei centri)
@@ -1946,7 +2177,7 @@ function renderBudget(d){
       <div class="binput" data-mlab="Disponibile netto"><span>€</span><input type="number" step="100" value="${o.budgetNet||0}" data-k="bud" ${editCc?'':'disabled title="Seleziona un solo centro di costo per modificare"'}></div>
       <div class="binput${canIva?'':' ro'}" data-mlab="IVA %" style="padding:0 8px"><input type="number" step="1" value="${ivaC}" data-k="iva" style="text-align:center" ${canIva?'':'readonly title="Solo l\'amministratore può modificare le aliquote IVA"'}><span>%</span></div>
       <div class="num" data-mlab="IVA inclusa" style="text-align:right;color:var(--ink)">${eur(o.budget)}</div>
-      <div class="miniuse" data-mlab="Impegnato">${eur(imp)} · <span style="${over?'color:#E2662A;font-weight:700':''}">${Math.round(p)}%${over?' ⚠':''}</span>
+      <div class="miniuse" data-mlab="Impegnato">${eur(imp)} · <span style="${over?'color:var(--over);font-weight:700':''}">${Math.round(p)}%${over?' ⚠':''}</span>
         ${mbar(imp,o.budget)}
       </div>`;
     const [budIn,ivaIn]=row.querySelectorAll("input");
@@ -1960,7 +2191,7 @@ function renderBudget(d){
   document.getElementById("budgetTotalNet").textContent=eur(totNet);
   document.getElementById("budgetTotal").textContent=eur(d.gBudget);
   const gOver=d.gImpegnato>d.gBudget;
-  document.getElementById("budgetTotUse").innerHTML=`${eur(d.gImpegnato)} · <span style="${gOver?'color:#E2662A;font-weight:700':''}">${pct(d.gImpegnato,d.gBudget)}%</span>
+  document.getElementById("budgetTotUse").innerHTML=`${eur(d.gImpegnato)} · <span style="${gOver?'color:var(--over);font-weight:700':''}">${pct(d.gImpegnato,d.gBudget)}%</span>
     ${mbar(d.gImpegnato,d.gBudget)}`;
 }
 
@@ -2198,9 +2429,32 @@ let formLocked=false;
 // righe generate dal bridge Docenti (sourceRdaId valorizzato) restano bloccate finché non si preme
 // "Forza modifica": si risincronizzano da sole da Docenti, una modifica manuale non protetta verrebbe
 // sovrascritta al prossimo aggiornamento senza che chi la fa se ne accorga
+/* ---------- Importo con IVA <-> netto (Luigi, 2026-10-14) ----------
+   L'utente può inserire il netto o il totale con IVA: l'altro si calcola con l'IVA %. L'IVA % di partenza è quella
+   della categoria (0% se il fornitore è un collaboratore senza IVA). Se l'utente la cambia, la nuova aliquota vale
+   per quel movimento (ivaPctOverride sulla riga); se coincide con quella di partenza non si salva nulla. */
+let _ivaAnchor="net", _ivaManual=false;   // quale dei due importi è l'ultimo digitato; se l'IVA % è stata scelta a mano
+function ivaDefaultPctForm(){
+  if(noIvaNameSet().has(normSup(get("fForn")))) return 0;
+  const p=STATE.ivaByCat&&STATE.ivaByCat[get("fCat")];
+  return p!=null ? Number(p) : (Number(STATE.ivaRate)||0);
+}
+function ivaFormPct(){ const v=parseFloat(get("fIvaPct")); return (isFinite(v)&&v>=0) ? v : ivaDefaultPctForm(); }
+function ivaSyncAmounts(){
+  const f=1+ivaFormPct()/100;
+  if(_ivaAnchor==="gross"){ const g=parseFloat(get("fLordo")); set("fImporto", isFinite(g) ? Math.round(g/f*10000)/10000 : ""); }
+  else { const n=parseFloat(get("fImporto")); set("fLordo", isFinite(n) ? Math.round(n*f*100)/100 : ""); }
+}
+function updateIvaHint(){
+  const el=document.getElementById("fIvaPctHint"); if(!el) return;
+  const d=ivaDefaultPctForm(), p=ivaFormPct();
+  const senza=noIvaNameSet().has(normSup(get("fForn")));
+  el.textContent = Math.abs(p-d)>1e-9 ? ("Diversa dall'IVA di partenza ("+d+"%): vale solo per questo movimento.") : (senza ? "Collaboratore senza IVA: 0%." : "IVA della categoria.");
+}
+function ivaDefaultsUpdate(){ if(!_ivaManual) set("fIvaPct", ivaDefaultPctForm()); ivaSyncAmounts(); updateIvaHint(); }
 function setFormLocked(locked){
   formLocked=locked;
-  ['fOrdine','fNum','fTipoPag','fCat','fCc','fImporto','fCompDa','fCompA','fConsegna','fForn','fOgg','fNote'].forEach(id=>{ document.getElementById(id).disabled=locked; });
+  ['fOrdine','fNum','fTipoPag','fCat','fCc','fImporto','fIvaPct','fLordo','fCompDa','fCompA','fConsegna','fForn','fOgg','fNote'].forEach(id=>{ document.getElementById(id).disabled=locked; });
   document.getElementById("btnDelete").disabled=locked;
   document.getElementById("lockBanner").style.display = locked ? "flex" : "none";
 }
@@ -2278,6 +2532,13 @@ function openModal(id){
   const wantCc = e ? ccOf(e) : (inView.length===1 ? inView[0] : CC_DEFAULT);
   document.getElementById("fCc").value = allowed.includes(wantCc) ? wantCc : (allowed[0]||CC_DEFAULT);
   document.getElementById("fCat").innerHTML=catOptions(e?e.categoria:null, document.getElementById("fCc").value);
+  { // IVA % del movimento: quella scelta sulla riga (se diversa da quella di partenza) altrimenti la standard
+    _ivaAnchor="net";
+    const defPct=ivaDefaultPctForm();
+    if(e && e.ivaPctOverride!=null){ set("fIvaPct",e.ivaPctOverride); _ivaManual=Math.abs(Number(e.ivaPctOverride)-defPct)>1e-9; }
+    else { set("fIvaPct",defPct); _ivaManual=false; }
+    ivaSyncAmounts(); updateIvaHint();
+  }
   fillDatalists();
   updateCatHelp();
   updateFornIvaHint();
@@ -2294,12 +2555,14 @@ function readForm(){
     dataOrdine:get("fOrdine")||null, numOrdine:get("fNum"), tipoPagamento:get("fTipoPag"), categoria:get("fCat"),
     importo:parseFloat(get("fImporto"))||0, compDa:get("fCompDa")||null, compA:get("fCompA")||null,
     dataConsegna:get("fConsegna")||null, fornitore:get("fForn"), oggetto:get("fOgg"), note:get("fNote"),
-    centroCosto:get("fCc")||CC_DEFAULT
+    centroCosto:get("fCc")||CC_DEFAULT,
+    // aliquota scelta nel modulo: salvata sulla riga solo se diversa da quella di partenza (categoria / senza IVA)
+    ivaPctOverride:(Math.abs(ivaFormPct()-ivaDefaultPctForm())>1e-9) ? ivaFormPct() : null
   };
 }
 function updatePreview(){
   const e=readForm();
-  if(editingId){ const orig=cur().expenses.find(x=>x.id===editingId); if(orig) e.ivaPctOverride=orig.ivaPctOverride; }
+  if(editingId){ const orig=cur().expenses.find(x=>x.id===editingId); if(orig && orig.sourceRdaId) e.ivaPctOverride=orig.ivaPctOverride; }   // righe Docenti: aliquota del docente
   const dist=distribute(e);
   const keys=Object.keys(dist).map(Number).sort((a,b)=>a-b);
   const box=document.getElementById("prevMonths");
@@ -2338,6 +2601,7 @@ function saveForm(){
     const prevIvaPctOverride = DS.expenses[i] ? DS.expenses[i].ivaPctOverride : null;
     const prevImp=DS.expenses[i]||{};
     saved=Object.assign({id:editingId, sourceRdaId:prevSourceRdaId||null, ivaPctOverride:prevIvaPctOverride!=null?prevIvaPctOverride:null, importBatch:prevImp.importBatch||null, sourceKey:prevImp.sourceKey||null}, e);
+    if(prevSourceRdaId) saved.ivaPctOverride=prevIvaPctOverride!=null?prevIvaPctOverride:null;   // bridge Docenti: l'aliquota è del docente
     DS.expenses[i]=saved;
     toast("Spesa aggiornata");
   } else {
@@ -2771,7 +3035,7 @@ function renderContabilita(d){
   kp.innerHTML=`
     <div class="kpi"><div class="lab"><span class="sw" style="background:var(--speso)"></span><span class="eyebrow">Contabile (estratto)</span></div><div class="v">${eur(totL)}</div><div class="sub">IVA incl. · fino a ${cutTxt}</div></div>
     <div class="kpi"><div class="lab"><span class="sw" style="background:var(--allocato)"></span><span class="eyebrow">Movimenti stesso periodo</span></div><div class="v">${eur(totM)}</div><div class="sub">RDA e manuali · fino a ${cutTxt}</div></div>
-    <div class="kpi"><div class="lab"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Differenza</span></div><div class="v" style="${Math.abs(delta)>1?'color:#B5462F':''}">${delta>=0?'+':''}${eur(delta)}</div><div class="sub">contabile − movimenti</div></div>
+    <div class="kpi"><div class="lab"><span class="sw" style="background:var(--ink)"></span><span class="eyebrow">Differenza</span></div><div class="v" style="${Math.abs(delta)>1?'color:var(--over)':''}">${delta>=0?'+':''}${eur(delta)}</div><div class="sub">contabile − movimenti</div></div>
     <div class="kpi"><div class="lab"><span class="sw" style="background:var(--residuo)"></span><span class="eyebrow">Copertura</span></div><div class="v">${cov==null?'—':cov+'%'}</div><div class="sub">contabile / movimenti</div></div>`;
 
   // chip categorie
@@ -2806,8 +3070,8 @@ function renderContabilita(d){
     const lp=cL.map((v,i)=>v==null?null:pt(i,v)).filter(Boolean);
     g+='<path d="M '+cM.map((v,i)=>pt(i,v)).join(" L ")+'" fill="none" stroke="var(--allocato)" stroke-width="2" stroke-dasharray="5 4"/>';
     if(lp.length) g+='<path d="M '+lp.join(" L ")+'" fill="none" stroke="var(--speso)" stroke-width="2.4"/>';
-    cL.forEach((v,i)=>{ if(v!=null) g+='<circle cx="'+(padL+i*(bw+gap)+bw/2)+'" cy="'+y(v)+'" r="3.5" fill="var(--speso)" stroke="#fff" stroke-width="1.5"><title>'+lblMonth(keys[i])+' · contabile cumulato '+eur(v)+'</title></circle>'; });
-    cM.forEach((v,i)=>{ g+='<circle cx="'+(padL+i*(bw+gap)+bw/2)+'" cy="'+y(v)+'" r="3" fill="var(--allocato)" stroke="#fff" stroke-width="1.2"><title>'+lblMonth(keys[i])+' · movimenti cumulati '+eur(v)+'</title></circle>'; });
+    cL.forEach((v,i)=>{ if(v!=null) g+='<circle cx="'+(padL+i*(bw+gap)+bw/2)+'" cy="'+y(v)+'" r="3.5" fill="var(--speso)" stroke="var(--surface)" stroke-width="1.5"><title>'+lblMonth(keys[i])+' · contabile cumulato '+eur(v)+'</title></circle>'; });
+    cM.forEach((v,i)=>{ g+='<circle cx="'+(padL+i*(bw+gap)+bw/2)+'" cy="'+y(v)+'" r="3" fill="var(--allocato)" stroke="var(--surface)" stroke-width="1.2"><title>'+lblMonth(keys[i])+' · movimenti cumulati '+eur(v)+'</title></circle>'; });
   }
   keys.forEach((k,i)=>{ const x=padL+i*(bw+gap); g+='<rect data-mk="'+k+'" x="'+(x-gap/2)+'" y="'+padT+'" width="'+(bw+gap)+'" height="'+plotH+'" fill="transparent" style="cursor:pointer"/>'; });
   g+="</svg>";
@@ -2824,11 +3088,11 @@ function renderContabilita(d){
     if(c!==CAT_NO_TOTALS){ gL+=tl; gLc+=tlc; gM+=tm; }
     tb+='<tr><td class="l"><span class="catdot" style="background:'+(CAT_COLOR[c]||"#8A8F88")+'"></span>'+esc(c)+'</td>';
     keys.forEach((k,i)=>{ const v=rv[i]; if(c!==CAT_NO_TOTALS) colT[k]+=v; tb+='<td class="cell '+(v===0?"z":"")+'" data-c="'+esc(c)+'" data-mk="'+k+'" style="background:'+(v>0?heatColor(v,rmax):(v<0?"rgba(181,70,47,.12)":"transparent"))+'">'+(v!==0?fmtShort(v):"·")+'</td>'; });
-    tb+='<td class="tot">'+eur(tl)+'</td><td class="tot" style="color:var(--ink-mute)">'+eur(tm)+'</td><td class="tot" style="color:'+(Math.abs(dl)>1?"#B5462F":"var(--ink-mute)")+'">'+(dl>=0?"+":"")+eur(dl)+'</td></tr>';
+    tb+='<td class="tot">'+eur(tl)+'</td><td class="tot" style="color:var(--ink-mute)">'+eur(tm)+'</td><td class="tot" style="color:'+(Math.abs(dl)>1?"var(--over)":"var(--ink-mute)")+'">'+(dl>=0?"+":"")+eur(dl)+'</td></tr>';
   });
   tb+="</tbody>";
   let ft='<tfoot><tr><td class="l">Totale</td>'; keys.forEach(k=>{ ft+='<td>'+(colT[k]!==0?fmtShort(colT[k]):"·")+'</td>'; }); const gd=gLc-gM;
-  ft+='<td>'+eur(gL)+'</td><td>'+eur(gM)+'</td><td style="color:'+(Math.abs(gd)>1?"#B5462F":"inherit")+'">'+(gd>=0?"+":"")+eur(gd)+'</td></tr></tfoot>';
+  ft+='<td>'+eur(gL)+'</td><td>'+eur(gM)+'</td><td style="color:'+(Math.abs(gd)>1?"var(--over)":"inherit")+'">'+(gd>=0?"+":"")+eur(gd)+'</td></tr></tfoot>';
   const t=document.getElementById("ctbTable"); t.innerHTML=head+tb+ft;
   t.querySelectorAll("td.cell[data-mk]").forEach(td=>td.addEventListener("click",()=>{ CTB.cat=td.getAttribute("data-c"); CTB.month=+td.getAttribute("data-mk"); renderContabilita(d); }));
   if(CTB.month!=null) renderCtbMonth(d,led,catList,cutoff); else document.getElementById("ctbMonthDetail").style.display="none";
@@ -2845,10 +3109,10 @@ function renderCtbMonth(d,led,catList,cutoff){
   box.innerHTML='<div class="card" style="padding:16px 18px"><div style="display:flex;align-items:center;gap:12px;margin-bottom:10px"><h3 class="sec" style="margin:0;font-size:15px;flex:1">Dettaglio '+esc(label)+'</h3><button class="btn ghost small" type="button" id="ctbMdClose">Chiudi</button></div>'
     +(comparable?'':'<p class="hint" style="margin:0 0 8px">Mese successivo all\'ultimo dell\'estratto: i Movimenti sono previsionali, non confrontabili.</p>')
     +'<table class="mv-table" style="width:100%"><thead><tr><th class="l">Categoria</th><th>Contabile</th><th>Movimenti</th><th>Δ</th></tr></thead><tbody>'
-    +catRows.map(r=>'<tr><td class="l"><span class="catdot" style="background:'+(CAT_COLOR[r.c]||"#8A8F88")+'"></span>'+esc(r.c)+'</td><td>'+eur2(r.l)+'</td><td style="color:var(--ink-mute)">'+eur2(r.m)+'</td><td style="color:'+(comparable&&Math.abs(r.l-r.m)>1?"#B5462F":"var(--ink-mute)")+'">'+(comparable?((r.l-r.m>=0?"+":"")+eur2(r.l-r.m)):"—")+'</td></tr>').join("")
+    +catRows.map(r=>'<tr><td class="l"><span class="catdot" style="background:'+(CAT_COLOR[r.c]||"#8A8F88")+'"></span>'+esc(r.c)+'</td><td>'+eur2(r.l)+'</td><td style="color:var(--ink-mute)">'+eur2(r.m)+'</td><td style="color:'+(comparable&&Math.abs(r.l-r.m)>1?"var(--over)":"var(--ink-mute)")+'">'+(comparable?((r.l-r.m>=0?"+":"")+eur2(r.l-r.m)):"—")+'</td></tr>').join("")
     +'<tr style="font-weight:700"><td class="l">Totale</td><td>'+eur2(tot.l)+'</td><td>'+eur2(tot.m)+'</td><td>'+(comparable?((tot.l-tot.m>=0?"+":"")+eur2(tot.l-tot.m)):"—")+'</td></tr></tbody></table>'
     +'<h4 style="margin:16px 0 6px;font-size:13px">Righe contabili del mese ('+lines.length+')</h4><div class="scroll"><table class="mv-table" style="width:100%"><thead><tr><th class="l">Data</th><th class="l">Documento</th><th class="l">Categoria</th><th class="l">Descrizione</th><th>Importo</th></tr></thead><tbody>'
-    +lines.slice(0,150).map(l=>'<tr><td class="l">'+esc(fmtD(l.date))+'</td><td class="l">'+esc(l.doc)+'</td><td class="l"><span class="tag" style="background:'+hex2rgba(CAT_COLOR[l.cat]||"#8A8F88",.13)+';color:'+(CAT_COLOR[l.cat]||"#6A6F6A")+'">'+esc(l.cat)+'</span></td><td class="l"><span class="meta">'+esc(l.memo)+'</span></td><td style="color:'+(l.amount<0?"#B5462F":"inherit")+'">'+eur2(l.amount)+'</td></tr>').join("")
+    +lines.slice(0,150).map(l=>'<tr><td class="l">'+esc(fmtD(l.date))+'</td><td class="l">'+esc(l.doc)+'</td><td class="l"><span class="tag" style="background:'+hex2rgba(CAT_COLOR[l.cat]||"#8A8F88",.13)+';color:'+tagInk(CAT_COLOR[l.cat]||"#6A6F6A")+'">'+esc(l.cat)+'</span></td><td class="l"><span class="meta">'+esc(l.memo)+'</span></td><td style="color:'+(l.amount<0?"var(--over)":"inherit")+'">'+eur2(l.amount)+'</td></tr>').join("")
     +(lines.length>150?'<tr><td colspan="5" class="l"><span class="meta">… altre '+(lines.length-150)+' righe</span></td></tr>':"")
     +'</tbody></table></div></div>';
   document.getElementById("ctbMdClose").onclick=()=>{ CTB.month=null; box.style.display="none"; };
@@ -3108,6 +3372,10 @@ document.getElementById("fCat").addEventListener("change",()=>{
   // il centro cambia da solo solo se la categoria scelta non esiste nel centro corrente (es. categoria Digital)
   if(!catCcs(catSel).includes(fcc.value) && [...fcc.options].some(o=>o.value===sug)) fcc.value=sug;
 });
+document.getElementById("fImporto").addEventListener("input",()=>{ _ivaAnchor="net"; ivaSyncAmounts(); });
+document.getElementById("fLordo").addEventListener("input",()=>{ _ivaAnchor="gross"; ivaSyncAmounts(); updatePreview(); });
+document.getElementById("fIvaPct").addEventListener("input",()=>{ _ivaManual=true; ivaSyncAmounts(); updateIvaHint(); updatePreview(); });
+document.getElementById("fCat").addEventListener("change",()=>{ ivaDefaultsUpdate(); updatePreview(); });
 document.getElementById("fCc").addEventListener("change",()=>{
   const keep=document.getElementById("fCat").value;
   document.getElementById("fCat").innerHTML=catOptions(keep, document.getElementById("fCc").value);
@@ -3118,7 +3386,7 @@ function updateFornIvaHint(){
   const on=noIvaNameSet().has(normSup(v));
   el.style.display=on?"":"none"; el.textContent=on?"Collaboratore senza IVA: su questo movimento l'IVA non si applica (elenco in Budget annuale).":"";
 }
-document.getElementById("fForn").addEventListener("input",e=>{ renderFornAc(e.target.value); updateFornIvaHint(); updatePreview(); });
+document.getElementById("fForn").addEventListener("input",e=>{ renderFornAc(e.target.value); updateFornIvaHint(); ivaDefaultsUpdate(); updatePreview(); });
 document.getElementById("fForn").addEventListener("focus",e=>renderFornAc(e.target.value));
 document.addEventListener("click",e=>{ if(!e.target.closest("#fFornField")) closeFornAc(); });
 document.getElementById("btnImport").onclick=()=>{ if(!adminOnlyGuard("l'importazione Excel (sostituisce le spese dell'anno)")) return; document.getElementById("fileInput").click(); };
@@ -3275,7 +3543,7 @@ function applyRole(){
 // sono stati tolti del tutto invece di lasciarli vuoti.
 function uuid(){ return (window.crypto&&crypto.randomUUID)?crypto.randomUUID():'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,c=>{const r=Math.random()*16|0;return (c==='x'?r:(r&0x3|0x8)).toString(16);}); }
 function isUuid(s){ return typeof s==='string' && /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(s); }
-function expToRow(e,fy){ return Object.assign(e.importBatch||e.sourceKey?Object.assign({import_batch:e.importBatch||null,source_key:e.sourceKey||null}, e.ivaPctOverride!=null?{iva_pct_override:e.ivaPctOverride}:{}):{}, { centro_costo:ccOf(e), id:e.id, fy_start:+fy, data_ordine:e.dataOrdine||null, num_ordine:e.numOrdine||null, categoria:e.categoria, cat_altro:e.catAltro||null, fornitore:e.fornitore||null, importo:Number(e.importo)||0, comp_da:e.compDa||null, comp_a:e.compA||null, data_consegna:e.dataConsegna||null, oggetto:e.oggetto||null, note:e.note||null, tipo_pagamento:e.tipoPagamento||'RDA' }); }
+function expToRow(e,fy){ return Object.assign(e.importBatch||e.sourceKey?{import_batch:e.importBatch||null,source_key:e.sourceKey||null}:{}, (!e.sourceRdaId && e.ivaPctOverride!==undefined)?{iva_pct_override:(e.ivaPctOverride==null?null:Number(e.ivaPctOverride))}:{}, { centro_costo:ccOf(e), id:e.id, fy_start:+fy, data_ordine:e.dataOrdine||null, num_ordine:e.numOrdine||null, categoria:e.categoria, cat_altro:e.catAltro||null, fornitore:e.fornitore||null, importo:Number(e.importo)||0, comp_da:e.compDa||null, comp_a:e.compA||null, data_consegna:e.dataConsegna||null, oggetto:e.oggetto||null, note:e.note||null, tipo_pagamento:e.tipoPagamento||'RDA' }); }
 function cloudSetDot(state){ if(state==='err') clearTimeout(flashSynced._t); /* un rifiuto subito dopo un'operazione riuscita non deve tornare "Sincronizzato" */ const d=document.getElementById("cloudDot"), l=document.getElementById("cloudLbl"); if(!d)return; d.className="cloud-dot "+state; l.textContent = state==='on'?'Sincronizzato':state==='sync'?'Sync…':state==='err'?'Errore':'Cloud'; }
 function flashSynced(){ cloudSetDot('sync'); _rtSelfUntil=Date.now()+2500; clearTimeout(flashSynced._t); flashSynced._t=setTimeout(()=>{ if(cloudReady())cloudSetDot('on'); },600); }
 // 42501 = la RLS ha rifiutato la scrittura: messaggio fisso e chiaro, mai "sincronizzato"; poi si rileggono dati e
@@ -3426,6 +3694,39 @@ async function prefsSave(clear){
 document.getElementById("btnSaveFilters").onclick=()=>prefsSave(false);
 document.getElementById("btnClearFilters").onclick=()=>{ if(confirm("Togliere i filtri predefiniti salvati?")) prefsSave(true); };
 
+/* ---- tema dell'interfaccia (auto, chiaro, scuro, Apple chiaro, Apple scuro) ----
+   Il motore e' window.nabaTheme (blocco "inline-theme" in <head>). Qui: il selettore "Tema" in testata, la
+   preferenza dell'utente letta da bdg_app_users.prefs.ui.theme dopo il login e il salvataggio della scelta con la
+   stessa RPC bdg_save_prefs dei filtri predefiniti (chiave 'ui'). Se il salvataggio fallisce il tema resta valido
+   su questo dispositivo e compare un avviso discreto. */
+(function themeInit(){
+  const T=window.nabaTheme, sel=document.getElementById("themeSel"), grp=document.getElementById("themeGroup");
+  if(!T||!sel){ if(grp) grp.style.display="none"; return; }
+  sel.innerHTML=T.list.map(o=>'<option value="'+esc(o.id)+'">'+esc(o.label)+'</option>').join("");
+  const sync=id=>{ sel.value=id||T.get(); sel.title=T.label(sel.value); };
+  sync(T.get());
+  sel.addEventListener("change",()=>T.set(sel.value));
+  T.onChange(sync);
+  T.setSaver(id=>{
+    if(!cloudReady()) return null;   // senza accesso al cloud la scelta vale solo su questo dispositivo
+    const email=String(cloudUser()||"").toLowerCase();
+    return Promise.resolve(sb.rpc("bdg_save_prefs",{p_tool:"ui",p_prefs:{theme:id}})).then(({error})=>{
+      if(error) throw error;
+      const u=(STATE.appUsers||{})[email]; if(u){ u.prefs=u.prefs||{}; u.prefs.ui=Object.assign({},u.prefs.ui,{theme:id}); }
+    }).catch(err=>{ console.error("salvataggio tema",err); toast("Tema applicato, ma non salvato nel tuo profilo: resta su questo dispositivo"); });
+  });
+})();
+let _themeCloudFor=null;
+// dopo la lettura di bdg_app_users: applica il tema predefinito dell'utente (una volta per utente, senza risalvarlo)
+function themeApplyFromCloud(){
+  const email=String(cloudUser()||"").toLowerCase();
+  if(!email||_themeCloudFor===email||!window.nabaTheme) return;
+  const u=(STATE.appUsers||{})[email]; if(!u) return;
+  _themeCloudFor=email;
+  const id=u.prefs&&u.prefs.ui&&u.prefs.ui.theme;
+  if(id) window.nabaTheme.fromCloud(id);
+}
+
 async function cloudFetchRoles(){
   if(!cloudReady()) return;
   try{
@@ -3434,6 +3735,7 @@ async function cloudFetchRoles(){
     const users={}; (au||[]).forEach(r=>{ users[String(r.email||'').toLowerCase()]={role:r.role,attivo:r.attivo!==false,scope:r.scope||null,extra_roles:r.extra_roles||[],last_seen_at:r.last_seen_at||null,prefs:r.prefs||{}}; });
     const vis={}; (tvz||[]).forEach(r=>{ if(!vis[r.tool])vis[r.tool]={}; if(!vis[r.tool][r.tab_key])vis[r.tool][r.tab_key]={}; vis[r.tool][r.tab_key][r.role]=!!r.visible; });
     STATE.appUsers=users; STATE.tabVisibility=vis;
+    try{ themeApplyFromCloud(); }catch(e2){ console.error('tema utente',e2); }
   }catch(e){ console.error('roles fetch',e); }
 }
 // ruoli (principale + extra) dalla cache di bdg_app_users: valgono anche prima che dataReady sia vero (durante il pull)
@@ -3823,7 +4125,7 @@ function bkShowPreview(o){
       <span class="hint">App</span><span>${esc(o.app)}</span>
     </div>
     <div class="card scroll" style="margin-bottom:14px"><table><thead><tr><th class="l">Sezione</th><th>Nel file</th><th>Attuale</th></tr></thead><tbody>${rows.map(r=>`<tr><td class="l">${esc(r[0])}</td><td>${esc(r[1])}</td><td>${esc(r[2])}</td></tr>`).join("")}</tbody></table></div>
-    ${warns.map(w=>`<div style="padding:10px 14px;border-radius:10px;background:var(--warn-soft);color:var(--warn);font-size:12.5px;margin-bottom:10px">${esc(w)}</div>`).join("")}
+    ${warns.map(w=>`<div style="padding:10px 14px;border-radius:10px;background:var(--warn-soft);color:var(--warn-ink);font-size:12.5px;margin-bottom:10px">${esc(w)}</div>`).join("")}
     <div style="padding:10px 14px;border-radius:10px;background:var(--surface-2);border:1px solid var(--line);font-size:12.5px;margin-bottom:14px"><b>Solo locale.</b> Questa operazione non scrive nulla sul cloud${cloudReady()?" e, essendo collegato, il prossimo «Scarica dal cloud» o aggiornamento da un altro utente riporterebbe qui i dati del cloud":""}. Passo successivo, se vuoi rendere definitivo il ripristino: finestra <b>Cloud</b> → «Prima configurazione: sovrascrivi il cloud» (con le sue conferme). Quel comando carica anni, movimenti, budget, cestino, IVA e report finance; contabilità, fornitori ed elenchi IVA restano locali.</div>
     <div class="field full"><label for="bkConfirm" style="display:block;font-size:12.5px;margin-bottom:6px">Per confermare scrivi <b>RIPRISTINA</b></label><input type="text" id="bkConfirm" autocomplete="off" spellcheck="false" style="width:100%"></div>`;
   const ap=document.getElementById("bkApply"); ap.style.display=""; ap.disabled=true; document.getElementById("bkCancel").textContent="Annulla";
@@ -3880,7 +4182,7 @@ function renderTrash(){
   list.forEach(e=>{
     h+=`<tr>
       <td class="l" data-label="Ordine"><div class="obj">${fmtD(e.dataOrdine)}</div><div class="meta">${esc(e.numOrdine)||'—'}</div></td>
-      <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[e.categoria]||'#8A8F88',.13)};color:${CAT_COLOR[e.categoria]||'#6A6F6A'}">${esc(e.categoria)}</span></td>
+      <td class="l" data-label="Categoria"><span class="tag" style="background:${hex2rgba(CAT_COLOR[e.categoria]||'#8A8F88',.13)};color:${tagInk(CAT_COLOR[e.categoria]||'#6A6F6A')}">${esc(e.categoria)}</span></td>
       <td class="l" data-label="Fornitore"><div class="obj">${esc(e.fornitore)||'—'}</div><div class="meta">${esc(e.oggetto)||''}</div></td>
       <td data-label="Importo">${eur2(+e.importo||0)}</td>
       <td class="l" data-label="Eliminata"><span class="meta">${e.deletedAt?fmtD(e.deletedAt.slice(0,10)):'—'}</span></td>
