@@ -1515,7 +1515,7 @@ function wireUtentiTable(){
   document.querySelectorAll('.ulink[data-goto]').forEach(b=>b.onclick=()=>{
     const goto=b.dataset.goto;
     if(goto==='spese-viaggiatori') openSpeseTab('impostazioni');
-    else if(goto==='docenti-interfacce') openBackendAdmin(frameDocenti,'docenti');
+    else if(goto==='docenti-interfacce') openDocentiTab('anagrafiche');
   });
 }
 
@@ -2041,6 +2041,10 @@ function openSpeseTab(tabKey){
   rememberScreen(); showApp('spese');
   try{ const btn=frameSpese.contentWindow.document.querySelector('nav.tabs button[data-tab="'+tabKey+'"]'); if(btn) btn.click(); }catch(e){}
 }
+function openDocentiTab(tabKey){
+  rememberScreen(); showApp('docenti');
+  try{ const btn=frameDocenti.contentWindow.document.querySelector('nav.tabs button[data-tab="'+tabKey+'"]'); if(btn) btn.click(); }catch(e){}
+}
 function triggerBudgetAction(btnId){
   rememberScreen(); showApp('budget');
   try{ const btn=frameBudget.contentWindow.document.getElementById(btnId); if(btn) btn.click(); }catch(e){}
@@ -2079,7 +2083,7 @@ document.querySelectorAll('.app-card[data-backend]').forEach(card=>{
     else if(action==='import') triggerBudgetAction('btnImport');
     else if(action==='export') triggerBudgetAction('btnExport');
     else if(action==='spese-impostazioni') openSpeseTab('impostazioni');
-    else if(action==='docenti-anagrafica') openBackendAdmin(frameDocenti,'docenti');
+    else if(action==='docenti-anagrafica') openDocentiTab('anagrafiche');
   };
 });
 
