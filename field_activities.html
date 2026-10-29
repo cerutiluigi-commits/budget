@@ -8,10 +8,12 @@
    (blocco "naba-theme"). NON modificare il blocco dentro gli HTML: si cambia qui e si rilancia
    "node scripts/inline-theme.js".
 
-   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark | naba-light | naba-dark
+   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark | naba-light | naba-dark | naba-light | naba-dark | naba-light | naba-dark
      - auto        = tema base che segue il sistema operativo (chiaro/scuro)
      - light, dark = tema base fisso
      - apple-*     = stile Apple (chiaro o scuro) sopra la stessa palette di base
+     - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
+     - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
      - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
    Sul <html> imposta: data-theme="light|dark" (assente se auto), data-style="apple" (assente se base),
    data-theme-choice="<id>". Le pagine gia' hanno le palette base (:root, @media prefers-color-scheme,
@@ -542,15 +544,17 @@ main.wide{max-width:1560px}
 /* ===================== STILE NABA =====================
    Impostato da nabaTheme: <html data-style="naba" data-theme="light|dark">. Stessa struttura dello stile Apple
    della pagina (stessi token e regole di forma) con palette e font del sito Calendario Lezioni. Generato da scripts/build-theme-naba.py. */
-:root[data-style="naba"]{--radius:4px;--radius-lg:6px}
+:root[data-style="naba"]{--radius:2px;--radius-lg:3px}
 :root[data-style="naba"][data-theme="light"]{--paper:#F3F2F0;--surface:#FFFFFF;--surface-2:#F8F7F5;--surface-mute:#EAE9E6;--ink:#0A0203;--ink-soft:#55575A;--ink-mute:#6B6D70;--line:#D9D9D9;--line-strong:#BDBEC0;--accent:#0A0203;--accent-soft:#ECEBE8;--accent-ink:#0A0203;--on-accent:#FFFFFF;--over:#C42430;--over-soft:#FCE8EA;--info-soft:#E6EEF8;--info-ink:#034EA2;color-scheme:light}
 :root[data-style="naba"][data-theme="dark"]{--paper:#0A0203;--surface:#161213;--surface-2:#1D1819;--surface-mute:#241F20;--ink:#F3F2F0;--ink-soft:#B5B6B8;--ink-mute:#9A9C9F;--line:#2E2A2B;--line-strong:#454142;--accent:#FFFFFF;--accent-soft:#2A2627;--accent-ink:#FFFFFF;--on-accent:#0A0203;--over:#FF7A80;--over-soft:#3A1A1C;--info-soft:#14223A;--info-ink:#8DB9EE;color-scheme:dark}
-:root[data-style="naba"] .btn{border-radius:999px;font-weight:700;color:var(--on-accent)}
+:root[data-style="naba"] .btn{border-radius:2px;font-weight:700;color:var(--on-accent)}
 :root[data-style="naba"] .btn.ghost{color:var(--ink)}
-:root[data-style="naba"] nav.tabs{background:var(--surface-mute);border-radius:999px}
-:root[data-style="naba"] nav.tabs button{border-radius:999px}
+:root[data-style="naba"] nav.tabs{background:var(--surface-mute);border-radius:2px}
+:root[data-style="naba"] nav.tabs button{border-radius:2px}
 :root[data-style="naba"] nav.tabs button.on{background:var(--ink);color:var(--paper)}
 :root[data-style="naba"] *:not(pre):not(code):not(kbd):not(samp){font-family:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif !important}
+:root[data-style="naba"] :is(input:not([type=radio]),select,textarea,button,[class*="card"],[class*="pop"],[class*="panel"],[class*="box"],[class*="warn"],[class*="err"],[class*="state"],[class*="list"],[class*="info"],[class*="modal"],[class*="chip"],[class*="tag"],[class*="badge"],[class*="pill"],[class*="toast"],[class*="menu"],[class*="tab"]):not([class*="dot"]):not([class*="avatar"]):not([class*="switch"]):not([class*="toggle"]){border-radius:2px}
+:root[data-style="naba"] :is([class*="card"],[class*="pop"],[class*="panel"],[class*="modal"],[class*="menu"]):not([class*="dot"]){border-radius:3px}
 :root[data-style="naba"] ::selection{background:#B41E8E;color:#fff}
 :root[data-style="naba"] .btn:not(.ghost):not(.danger):hover:not(:disabled){background:#B41E8E;border-color:#B41E8E;color:#fff;opacity:1;filter:none}
 :root[data-style="naba"] h1,:root[data-style="naba"] h2{letter-spacing:-.02em}

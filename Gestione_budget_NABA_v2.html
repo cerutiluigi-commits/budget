@@ -8,10 +8,12 @@
    (blocco "naba-theme"). NON modificare il blocco dentro gli HTML: si cambia qui e si rilancia
    "node scripts/inline-theme.js".
 
-   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark | naba-light | naba-dark
+   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark | naba-light | naba-dark | naba-light | naba-dark | naba-light | naba-dark
      - auto        = tema base che segue il sistema operativo (chiaro/scuro)
      - light, dark = tema base fisso
      - apple-*     = stile Apple (chiaro o scuro) sopra la stessa palette di base
+     - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
+     - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
      - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
    Sul <html> imposta: data-theme="light|dark" (assente se auto), data-style="apple" (assente se base),
    data-theme-choice="<id>". Le pagine gia' hanno le palette base (:root, @media prefers-color-scheme,
@@ -695,7 +697,7 @@ header :focus-visible{outline-color:var(--hdr-fg)}
    della pagina (stessi token e regole di forma) con palette e font del sito Calendario Lezioni. Generato da scripts/build-theme-naba.py. */
 :root[data-style="naba"]{
   --font-ui:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-  --radius:4px; --radius-lg:6px; --radius-ctl:4px;
+  --radius:2px; --radius-lg:3px; --radius-ctl:2px;
 }
 :root[data-style="naba"][data-theme="light"]{
   --paper:#F3F2F0; --surface:#FFFFFF; --surface-2:#F8F7F5; --surface-mute:#EAE9E6;
@@ -746,10 +748,10 @@ header :focus-visible{outline-color:var(--hdr-fg)}
 :root[data-style="naba"] header{-webkit-backdrop-filter:saturate(170%) blur(18px);backdrop-filter:saturate(170%) blur(18px);box-shadow:none}
 :root[data-style="naba"] .brand .t{letter-spacing:-.02em;font-weight:700}
 :root[data-style="naba"] .brand .t .dot{border-radius:50%;background:var(--accent)}
-:root[data-style="naba"] .hgroup{border-radius:12px}
+:root[data-style="naba"] .hgroup{border-radius:3px}
 :root[data-style="naba"] .hgroup:focus-within{box-shadow:0 0 0 3px color-mix(in srgb,var(--accent) 35%,transparent)}
 :root[data-style="naba"] .btn,:root[data-style="naba"] .hbtn,:root[data-style="naba"] .chip,:root[data-style="naba"] .seg,:root[data-style="naba"] .seg button,
-:root[data-style="naba"] nav.tabs,:root[data-style="naba"] nav.tabs button,:root[data-style="naba"] .tag,:root[data-style="naba"] #toast{border-radius:999px}
+:root[data-style="naba"] nav.tabs,:root[data-style="naba"] nav.tabs button,:root[data-style="naba"] .tag,:root[data-style="naba"] #toast{border-radius:3px}
 :root[data-style="naba"] select.btn{padding-left:14px;padding-right:14px}
 :root[data-style="naba"] .btn{font-weight:600;box-shadow:none}
 :root[data-style="naba"] .btn:hover{filter:brightness(1.06)}
@@ -772,13 +774,15 @@ header :focus-visible{outline-color:var(--hdr-fg)}
 :root[data-style="naba"] .search,:root[data-style="naba"] .binput,:root[data-style="naba"] .field input,:root[data-style="naba"] .field select,:root[data-style="naba"] .field textarea,
 :root[data-style="naba"] .ac-list{border-radius:var(--radius-ctl)}
 :root[data-style="naba"] .preview,:root[data-style="naba"] .spill,:root[data-style="naba"] .cloud-state,:root[data-style="naba"] #catHelp,:root[data-style="naba"] #tip,
-:root[data-style="naba"] #mvBulk,:root[data-style="naba"] .pm{border-radius:12px}
+:root[data-style="naba"] #mvBulk,:root[data-style="naba"] .pm{border-radius:3px}
 :root[data-style="naba"] .field input:focus,:root[data-style="naba"] .field select:focus,:root[data-style="naba"] .field textarea:focus{border-color:var(--accent);box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 28%,transparent)}
 :root[data-style="naba"] .search:focus-within,:root[data-style="naba"] .binput:focus-within{box-shadow:0 0 0 4px color-mix(in srgb,var(--accent) 28%,transparent)}
-:root[data-style="naba"] .pbar,:root[data-style="naba"] .md-cat .bar,:root[data-style="naba"] .miniuse .mbar{border-radius:999px}
-:root[data-style="naba"] .md-cat.active{border-radius:10px}
+:root[data-style="naba"] .pbar,:root[data-style="naba"] .md-cat .bar,:root[data-style="naba"] .miniuse .mbar{border-radius:3px}
+:root[data-style="naba"] .md-cat.active{border-radius:2px}
 :root[data-style="naba"] #toast{box-shadow:var(--shadow-lg)}
 :root[data-style="naba"] *:not(pre):not(code):not(kbd):not(samp){font-family:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif !important}
+:root[data-style="naba"] :is(input:not([type=radio]),select,textarea,button,[class*="card"],[class*="pop"],[class*="panel"],[class*="box"],[class*="warn"],[class*="err"],[class*="state"],[class*="list"],[class*="info"],[class*="modal"],[class*="chip"],[class*="tag"],[class*="badge"],[class*="pill"],[class*="toast"],[class*="menu"],[class*="tab"]):not([class*="dot"]):not([class*="avatar"]):not([class*="switch"]):not([class*="toggle"]){border-radius:2px}
+:root[data-style="naba"] :is([class*="card"],[class*="pop"],[class*="panel"],[class*="modal"],[class*="menu"]):not([class*="dot"]){border-radius:3px}
 :root[data-style="naba"] ::selection{background:#B41E8E;color:#fff}
 :root[data-style="naba"] .btn:not(.ghost):not(.danger):hover:not(:disabled){background:#B41E8E;border-color:#B41E8E;color:#fff;opacity:1;filter:none}
 :root[data-style="naba"] h1,:root[data-style="naba"] h2{letter-spacing:-.02em}

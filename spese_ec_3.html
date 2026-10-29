@@ -8,10 +8,12 @@
    (blocco "naba-theme"). NON modificare il blocco dentro gli HTML: si cambia qui e si rilancia
    "node scripts/inline-theme.js".
 
-   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark | naba-light | naba-dark
+   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark | naba-light | naba-dark | naba-light | naba-dark | naba-light | naba-dark
      - auto        = tema base che segue il sistema operativo (chiaro/scuro)
      - light, dark = tema base fisso
      - apple-*     = stile Apple (chiaro o scuro) sopra la stessa palette di base
+     - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
+     - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
      - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
    Sul <html> imposta: data-theme="light|dark" (assente se auto), data-style="apple" (assente se base),
    data-theme-choice="<id>". Le pagine gia' hanno le palette base (:root, @media prefers-color-scheme,
@@ -537,7 +539,7 @@ header :focus-visible{outline-color:var(--head-fg)}
    della pagina (stessi token e regole di forma) con palette e font del sito Calendario Lezioni. Generato da scripts/build-theme-naba.py. */
 :root[data-style="naba"]{
   --font-ui:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; --font-mono:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;
-  --radius:4px; --radius-lg:6px;
+  --radius:2px; --radius-lg:3px;
   --paper:#F3F2F0; --surface:#FFFFFF; --surface-2:#F8F7F5; --surface-mute:#EAE9E6;
   --ink:#0A0203; --ink-soft:#55575A; --ink-mute:#6B6D70;
   --line:#D9D9D9; --line-strong:#BDBEC0;
@@ -576,30 +578,32 @@ header :focus-visible{outline-color:var(--head-fg)}
 :root[data-style="naba"] header{-webkit-backdrop-filter:saturate(180%) blur(18px);backdrop-filter:saturate(180%) blur(18px);box-shadow:none}
 @supports not ((backdrop-filter:blur(1px)) or (-webkit-backdrop-filter:blur(1px))){:root[data-style="naba"] header{background:var(--surface)}}
 :root[data-style="naba"] .brand .dot{border-radius:50%}
-:root[data-style="naba"] .hgroup{border-radius:12px}
-:root[data-style="naba"] .btn,:root[data-style="naba"] .hbtn,:root[data-style="naba"] .riep-filters-toggle{border-radius:999px}
+:root[data-style="naba"] .hgroup{border-radius:3px}
+:root[data-style="naba"] .btn,:root[data-style="naba"] .hbtn,:root[data-style="naba"] .riep-filters-toggle{border-radius:3px}
 :root[data-style="naba"] .btn{padding:10px 18px}
 :root[data-style="naba"] .btn.small{padding:6px 14px}
 :root[data-style="naba"] .btn:hover{filter:brightness(.94)}
-:root[data-style="naba"] nav.tabs{background:var(--surface-mute);border:0;border-radius:999px}
-:root[data-style="naba"] nav.tabs button{border-radius:999px}
+:root[data-style="naba"] nav.tabs{background:var(--surface-mute);border:0;border-radius:3px}
+:root[data-style="naba"] nav.tabs button{border-radius:3px}
 :root[data-style="naba"] nav.tabs button.on{background:var(--surface);box-shadow:var(--shadow-sm)}
 :root[data-style="naba"] .card,:root[data-style="naba"] .kpi,:root[data-style="naba"] .trip,:root[data-style="naba"] .tree,:root[data-style="naba"] .riep-detail,:root[data-style="naba"] .login-card{border-color:transparent;box-shadow:var(--shadow-sm)}
 :root[data-style="naba"] .kpi::before{display:none}
 :root[data-style="naba"] .kpi .sw,:root[data-style="naba"] .catdot{border-radius:50%}
-:root[data-style="naba"] .calbar{border-radius:999px}
-:root[data-style="naba"] .field input,:root[data-style="naba"] .field select,:root[data-style="naba"] .field textarea{border-radius:10px}
-:root[data-style="naba"] .tag{border-radius:999px;padding:3px 10px}
+:root[data-style="naba"] .calbar{border-radius:3px}
+:root[data-style="naba"] .field input,:root[data-style="naba"] .field select,:root[data-style="naba"] .field textarea{border-radius:2px}
+:root[data-style="naba"] .tag{border-radius:3px;padding:3px 10px}
 :root[data-style="naba"] .rowbtn{border-radius:50%}
 :root[data-style="naba"] .chip:hover{border-color:var(--accent)}
 :root[data-style="naba"] .chip.on{background:var(--btn-bg);color:var(--on-accent);border-color:var(--btn-bg)}
 :root[data-style="naba"] .cal-daynum-today{background:var(--btn-bg);color:var(--on-accent)}
 :root[data-style="naba"] .overlay{-webkit-backdrop-filter:blur(8px);backdrop-filter:blur(8px)}
-:root[data-style="naba"] #toast{border-radius:999px;padding:11px 20px}
-:root[data-style="naba"] .role-banner{border-radius:14px}
+:root[data-style="naba"] #toast{border-radius:3px;padding:11px 20px}
+:root[data-style="naba"] .role-banner{border-radius:3px}
 :root[data-style="naba"] .eyebrow,:root[data-style="naba"] thead th,:root[data-style="naba"] .field label,:root[data-style="naba"] .hgroup label,:root[data-style="naba"] .login-lbl,:root[data-style="naba"] .cal-dow div{letter-spacing:.06em}
 :root[data-style="naba"] tbody td,:root[data-style="naba"] tfoot td,:root[data-style="naba"] .kpi .v,:root[data-style="naba"] .item-row .amt,:root[data-style="naba"] .trip-h .tot,:root[data-style="naba"] .calrow .val,:root[data-style="naba"] .riep-stat .rv{font-variant-numeric:tabular-nums}
 :root[data-style="naba"] *:not(pre):not(code):not(kbd):not(samp){font-family:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif !important}
+:root[data-style="naba"] :is(input:not([type=radio]),select,textarea,button,[class*="card"],[class*="pop"],[class*="panel"],[class*="box"],[class*="warn"],[class*="err"],[class*="state"],[class*="list"],[class*="info"],[class*="modal"],[class*="chip"],[class*="tag"],[class*="badge"],[class*="pill"],[class*="toast"],[class*="menu"],[class*="tab"]):not([class*="dot"]):not([class*="avatar"]):not([class*="switch"]):not([class*="toggle"]){border-radius:2px}
+:root[data-style="naba"] :is([class*="card"],[class*="pop"],[class*="panel"],[class*="modal"],[class*="menu"]):not([class*="dot"]){border-radius:3px}
 :root[data-style="naba"] ::selection{background:#B41E8E;color:#fff}
 :root[data-style="naba"] .btn:not(.ghost):not(.danger):hover:not(:disabled){background:#B41E8E;border-color:#B41E8E;color:#fff;opacity:1;filter:none}
 :root[data-style="naba"] h1,:root[data-style="naba"] h2{letter-spacing:-.02em}
