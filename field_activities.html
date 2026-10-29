@@ -8,12 +8,10 @@
    (blocco "naba-theme"). NON modificare il blocco dentro gli HTML: si cambia qui e si rilancia
    "node scripts/inline-theme.js".
 
-   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark | naba-light | naba-dark | naba-light | naba-dark | naba-light | naba-dark
+   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark | naba-light | naba-dark
      - auto        = tema base che segue il sistema operativo (chiaro/scuro)
      - light, dark = tema base fisso
      - apple-*     = stile Apple (chiaro o scuro) sopra la stessa palette di base
-     - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
-     - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
      - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
    Sul <html> imposta: data-theme="light|dark" (assente se auto), data-style="apple" (assente se base),
    data-theme-choice="<id>". Le pagine gia' hanno le palette base (:root, @media prefers-color-scheme,
@@ -555,6 +553,7 @@ main.wide{max-width:1560px}
 :root[data-style="naba"] *:not(pre):not(code):not(kbd):not(samp){font-family:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif !important}
 :root[data-style="naba"] :is(input:not([type=radio]),select,textarea,button,[class*="card"],[class*="pop"],[class*="panel"],[class*="box"],[class*="warn"],[class*="err"],[class*="state"],[class*="list"],[class*="info"],[class*="modal"],[class*="chip"],[class*="tag"],[class*="badge"],[class*="pill"],[class*="toast"],[class*="menu"],[class*="tab"]):not([class*="dot"]):not([class*="avatar"]):not([class*="switch"]):not([class*="toggle"]){border-radius:2px}
 :root[data-style="naba"] :is([class*="card"],[class*="pop"],[class*="panel"],[class*="modal"],[class*="menu"]):not([class*="dot"]){border-radius:3px}
+:root[data-style="naba"]{--area-visual:#E8B000;--area-comm:#1FA38A;--area-design:#7FA3C9;--area-set:#D12A2E;--area-fashion:#D02FB4;--area-media:#2A4DC4;--cal-corsi:#B41E8E;--cal-festivi:#9A9C9F;--cal-esami:#034EA2;--cal-lezioni:#D12A2E}
 :root[data-style="naba"] ::selection{background:#B41E8E;color:#fff}
 :root[data-style="naba"] .btn:not(.ghost):not(.danger):hover:not(:disabled){background:#B41E8E;border-color:#B41E8E;color:#fff;opacity:1;filter:none}
 :root[data-style="naba"] h1,:root[data-style="naba"] h2{letter-spacing:-.02em}
@@ -2004,8 +2003,8 @@ function fillFairFilters(p,F){
   document.getElementById(p+"Area").innerHTML=`<option value="">Tutte</option>`+ars.map(a=>`<option value="${esc(a.id)}" data-kw="${esc(areaKw(a.id))}">${esc(a.nome)}</option>`).join("");
   document.getElementById(p+"Area").value=F.area;
 }
-// ogni fiera ha il suo colore: un tono scelto dall'id (sempre lo stesso per la stessa fiera, in tutti i giorni e in tutte le viste)
-const FAIR_HUES=[152,210,265,330,18,42,190,95,295,355,230,70];
+// ogni fiera ha il suo colore, uno dei sei delle aree NABA (ocra, verde acqua, azzurro, rosso, magenta, blu): scelto dall'id (sempre lo stesso per la stessa fiera, in tutti i giorni e in tutte le viste)
+const FAIR_HUES=[44,168,210,356,312,226];
 function fairHue(f){ let h=0; const k=String(f&&f.id!=null?f.id:""); for(let i=0;i<k.length;i++) h=(h*31+k.charCodeAt(i))>>>0; return FAIR_HUES[h%FAIR_HUES.length]; }
 function fairChip(f,iso){
   const lbl=f.nome+", "+fairRange(f)+", "+fairStatoLabel(f.stato);

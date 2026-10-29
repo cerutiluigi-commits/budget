@@ -8,12 +8,10 @@
    (blocco "naba-theme"). NON modificare il blocco dentro gli HTML: si cambia qui e si rilancia
    "node scripts/inline-theme.js".
 
-   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark | naba-light | naba-dark | naba-light | naba-dark | naba-light | naba-dark
+   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark | naba-light | naba-dark
      - auto        = tema base che segue il sistema operativo (chiaro/scuro)
      - light, dark = tema base fisso
      - apple-*     = stile Apple (chiaro o scuro) sopra la stessa palette di base
-     - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
-     - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
      - naba-*      = stile NABA (come il sito Calendario Lezioni), chiaro o scuro
    Sul <html> imposta: data-theme="light|dark" (assente se auto), data-style="apple" (assente se base),
    data-theme-choice="<id>". Le pagine gia' hanno le palette base (:root, @media prefers-color-scheme,
@@ -235,6 +233,8 @@ input:disabled,select:disabled{background:var(--surface-mute);color:var(--ink-mu
 .topbar .brand{display:flex;align-items:center;gap:9px}
 .topbar .brand .dot{width:9px;height:9px;border-radius:2px;background:var(--allocato);display:inline-block}
 .topbar .brand .t{font-weight:700;font-size:15px;letter-spacing:-.01em}
+.topbar .brand .sec{font-size:15px;font-weight:500;color:var(--ink-mute);letter-spacing:-.01em}
+.topbar .brand .sec::before{content:"/";margin-right:9px;opacity:.5}
 .topbar-right{margin-left:auto;display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;justify-content:flex-end}
 #whoami{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--topbar-soft);overflow-wrap:anywhere}
 .hbtn{background:var(--hbtn-bg);border:1px solid var(--hbtn-line);color:var(--topbar-ink);border-radius:var(--r-btn);padding:8px 13px;font-size:12.5px;font-weight:600;display:inline-flex;align-items:center;gap:7px;transition:.15s}
@@ -491,6 +491,7 @@ a.app-card{text-decoration:none;color:inherit}
 :root[data-style="naba"] *:not(pre):not(code):not(kbd):not(samp){font-family:'Archivo',system-ui,-apple-system,'Segoe UI',Roboto,sans-serif !important}
 :root[data-style="naba"] :is(input:not([type=radio]),select,textarea,button,[class*="card"],[class*="pop"],[class*="panel"],[class*="box"],[class*="warn"],[class*="err"],[class*="state"],[class*="list"],[class*="info"],[class*="modal"],[class*="chip"],[class*="tag"],[class*="badge"],[class*="pill"],[class*="toast"],[class*="menu"],[class*="tab"]):not([class*="dot"]):not([class*="avatar"]):not([class*="switch"]):not([class*="toggle"]){border-radius:2px}
 :root[data-style="naba"] :is([class*="card"],[class*="pop"],[class*="panel"],[class*="modal"],[class*="menu"]):not([class*="dot"]){border-radius:3px}
+:root[data-style="naba"]{--area-visual:#E8B000;--area-comm:#1FA38A;--area-design:#7FA3C9;--area-set:#D12A2E;--area-fashion:#D02FB4;--area-media:#2A4DC4;--cal-corsi:#B41E8E;--cal-festivi:#9A9C9F;--cal-esami:#034EA2;--cal-lezioni:#D12A2E}
 :root[data-style="naba"] ::selection{background:#B41E8E;color:#fff}
 :root[data-style="naba"] .btn:not(.ghost):not(.danger):hover:not(:disabled){background:#B41E8E;border-color:#B41E8E;color:#fff;opacity:1;filter:none}
 :root[data-style="naba"] h1,:root[data-style="naba"] h2{letter-spacing:-.02em}
@@ -502,7 +503,7 @@ a.app-card{text-decoration:none;color:inherit}
 <body>
 
 <div class="topbar">
-  <div class="brand"><span class="dot"></span><span class="t">NABA · Suite</span></div>
+  <div class="brand"><span class="dot"></span><span class="t">NABA · Suite</span><span class="sec" id="brandSec" hidden></span></div>
   <div class="topbar-right">
     <span id="whoami" style="display:none"></span>
     <button class="hbtn" id="btnHome" style="display:none">← Home</button>
@@ -1282,7 +1283,11 @@ function showScreen(name){
   document.getElementById('screenNewPw').style.display = name==='newpw' ? 'flex' : 'none';
   document.getElementById('screenApp').style.display = name==='app' ? 'flex' : 'none';
   document.getElementById('btnHome').style.display = (name==='app'||name==='backend'||name==='utenti'||name==='permessi'||name==='profilo') ? '' : 'none';
-  document.getElementById('btnProfilo').setAttribute('aria-current', name==='profilo' ? 'page' : 'false');
+  document.getElementById('btnProfilo').setAttribute('aria-current', name==='profilo' ? 'page' : 'false');  // titolo della sezione accanto al marchio: dice sempre dove ci si trova
+  const APP_NOMI={budget:'Budget',spese:'Spese EC',docenti:'Docenti',field:'Field Activities'};
+  const SEZ_NOMI={backend:'Backend',utenti:'Utenti',permessi:'Permessi',profilo:'Profilo'};
+  const sec=name==='app' ? APP_NOMI[currentApp] : SEZ_NOMI[name];
+  const bs=document.getElementById('brandSec'); bs.textContent=sec||''; bs.hidden=!sec;
 }
 function showApp(app){
   // a ogni (ri)ingresso nella scheda il centro di costo torna al predefinito dell'utente
