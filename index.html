@@ -316,6 +316,14 @@ input:disabled,select:disabled{background:var(--surface-mute);color:var(--ink-mu
 .utable th{text-align:left;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);padding:10px 12px;border-bottom:1px solid var(--line-strong);white-space:nowrap}
 .utable td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top}
 .utable tr:last-child>td{border-bottom:0}
+.uexp{display:flex;align-items:center;gap:8px;width:100%;border:0;background:none;padding:2px 0;font:inherit;font-size:12.5px;font-weight:600;color:var(--ink);cursor:pointer;text-align:left;flex-wrap:wrap}
+.uexp b{display:inline-flex;align-items:center;justify-content:center;width:20px;height:20px;border:1px solid var(--line-strong);border-radius:6px;background:var(--surface);font-size:14px;line-height:1}
+.uexp:hover b{border-color:var(--accent)}
+.vhead{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.vhead h1{margin:0}
+.vguide{display:inline-flex;align-items:center;gap:6px;text-decoration:none;white-space:nowrap}
+a.app-card{text-decoration:none;color:inherit}
+.guide-h{margin:26px 0 10px;font-size:15px;font-weight:700}
 .uchip{display:inline-flex;align-items:center;gap:5px;border:1px solid var(--line-strong);background:var(--surface);border-radius:var(--r-chip);padding:4px 10px;font-size:11px;font-weight:600;color:var(--ink-soft);cursor:pointer}
 .uchip.on{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .uwarn{color:var(--over);font-size:12px;font-weight:600}
@@ -562,6 +570,14 @@ input:disabled,select:disabled{background:var(--surface-mute);color:var(--ink-mu
         <span class="app-sub">Nome, email di login, tariffa oraria</span>
       </button>
     </div>
+    <h2 class="guide-h">Guide video</h2>
+    <div class="landing-grid" id="guideGrid">
+      <a class="app-card backend" href="guida-backend-utenti.html" target="_blank" rel="noopener"><span class="app-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="app-title">Utenti e ruoli</span><span class="app-sub">Creare un utente, ruoli, centri di costo</span></a>
+      <a class="app-card backend" href="guida-backend-permessi.html" target="_blank" rel="noopener"><span class="app-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="app-title">Permessi e viste</span><span class="app-sub">Cosa vede e fa ogni ruolo, schede visibili</span></a>
+      <a class="app-card backend" href="guida-backend-field.html" target="_blank" rel="noopener"><span class="app-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="app-title">Field Activities</span><span class="app-sub">Ruoli, EC, obiettivi, fiere, import</span></a>
+      <a class="app-card backend" href="guida-backend-budget.html" target="_blank" rel="noopener"><span class="app-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="app-title">Budget</span><span class="app-sub">Budget annuale, regole fornitori, registro</span></a>
+      <a class="app-card backend" href="guida-backend-spese-docenti.html" target="_blank" rel="noopener"><span class="app-icon"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M8 5v14l11-7z"/></svg></span><span class="app-title">Spese EC e Docenti</span><span class="app-sub">Viaggiatori, categorie, interfacce, docenti</span></a>
+    </div>
   </div>
 </div>
 
@@ -570,7 +586,7 @@ input:disabled,select:disabled{background:var(--surface-mute);color:var(--ink-mu
      duplicate identiche nel Pannello Admin di ognuno dei 3 tool (Luigi, 2026-09-25) -->
 <div class="screen" id="screenUtenti">
   <div class="landing-wrap utenti-wrap">
-    <h1>Utenti</h1>
+    <div class="vhead"><h1>Utenti</h1><a class="btn ghost vguide" href="guida-backend-utenti.html" target="_blank" rel="noopener">▶ Guida video</a></div>
     <p class="sub">Ruolo, entità collegata (docente/interfaccia o orientatore/viaggiatore), visibilità e ultimo accesso. Il nome della persona si crea/modifica nella sua anagrafica (Spese EC → Viaggiatori, Docenti → Interfacce) — qui vedi solo se il collegamento con quell'email c'è o manca.</p>
     <div class="ucard"><table class="utable" id="utentiTable"></table></div>
     <div class="ucard pad">
@@ -595,7 +611,7 @@ input:disabled,select:disabled{background:var(--surface-mute);color:var(--ink-mu
      La sicurezza vera è nella RLS del database: qui si nasconde la card e si controlla il ruolo prima di scrivere. -->
 <div class="screen" id="screenPermessi">
   <div class="landing-wrap utenti-wrap pm-wrap">
-    <h1>Permessi</h1>
+    <div class="vhead"><h1>Permessi</h1><a class="btn ghost vguide" href="guida-backend-permessi.html" target="_blank" rel="noopener">▶ Guida video</a></div>
     <p class="sub">Per ogni oggetto dei dati (tabella o vista) e per ogni ruolo decidi cosa si può leggere, scrivere e cancellare. Le regole sono applicate dal database, quindi valgono per tutte le app e dalla richiesta successiva di ogni utente. Apri una riga per cambiare i livelli: le modifiche restano in bozza finché non premi «Salva».</p>
     <div class="pm-bar" id="pmBar">
       <span class="pm-count" id="pmCount" tabindex="-1" aria-live="polite">Nessuna modifica in bozza</span>
@@ -1382,9 +1398,11 @@ function linkedEntityHtml(email,role,extraRoles){
 // scelti qui, salvati in bdg_app_users.scope.centri_costo (array di stringhe '6000'/'6400'/'6600')
 const CENTRI_COSTO_PORTALE=[{id:'6000',nome:'Domestic on Field'},{id:'6400',nome:'Direct Domestic'},{id:'6600',nome:'Digital'}];
 function scopeCentri(u){ return (u.scope && Array.isArray(u.scope.centri_costo)) ? u.scope.centri_costo.map(String) : []; }
+const UTENTI_OPEN=new Set();   // responsabili con il blocco dei centri aperto (di default chiuso, tranne se mancano i centri)
 function responsabileScopeRowHtml(email,u){
   const sc=u.scope||{};
   const sel=scopeCentri(u);
+  const open=UTENTI_OPEN.has(email)||!sel.length;
   const ccChips=CENTRI_COSTO_PORTALE.map(c=>{
     const on=sel.includes(c.id);
     return `<label class="uchip ${on?'on':''}"><input type="checkbox" class="uScopeCc" data-email="${esc(email)}" data-v="${esc(c.id)}" ${on?'checked':''}> ${esc(c.id)} · ${esc(c.nome)}</label>`;
@@ -1393,7 +1411,10 @@ function responsabileScopeRowHtml(email,u){
   // il centro predefinito (vista di partenza) può essere solo uno dei centri scelti, oppure «tutti i suoi centri»
   const cd=(sc.centro_default==='ALL' || sel.includes(sc.centro_default)) ? sc.centro_default : '';
   const defOpts=CENTRI_COSTO_PORTALE.filter(c=>sel.includes(c.id)).map(c=>`<option value="${esc(c.id)}" ${cd===c.id?"selected":""}>${esc(c.id)} · ${esc(c.nome)}</option>`).join("");
-  return `<tr><td colspan="7" style="background:var(--paper)">
+  const riep=sel.length?(sel.join(" · ")+(cd==="ALL"?" · apre su tutti":(cd?" · apre su "+cd:""))):'<span class="uwarn" style="padding:1px 8px">⚠ nessun centro: non vede dati</span>';
+  return `<tr class="uscope"><td colspan="7" style="background:var(--paper)">
+    <button type="button" class="uexp" data-expand="${esc(email)}" aria-expanded="${open?"true":"false"}"><b>${open?"−":"+"}</b> Centri di costo del responsabile <span class="usub">${riep}</span></button>
+    <div class="uexp-body" style="display:${open?"block":"none"};margin-top:10px">
     <div style="font-size:11px;font-weight:700;color:var(--ink-mute);margin-bottom:6px">CENTRI DI COSTO DEL RESPONSABILE — vede e modifica solo i dati di questi centri (Budget, Docenti)</div>
     ${ccWarn}
     <div class="usub" style="margin-bottom:4px" id="ccLbl-${esc(email)}">Centri di costo</div>
@@ -1404,10 +1425,13 @@ function responsabileScopeRowHtml(email,u){
       <option value="ALL" ${cd==="ALL"?"selected":""}>Tutti i suoi centri</option>
       ${defOpts}
     </select>
+    </div>
   </td></tr>`;
 }
 function renderUtentiTable(){
-  const rows=Object.entries(UTENTI_DATA.users).sort((a,b)=>a[0].localeCompare(b[0]));
+  // ordine: prima chi ha ancora il ruolo da assegnare, poi orientatori, docenti, responsabili e per ultimi gli admin; a parità, per email
+  const ORD_RUOLI={orientatore:1,docente:2,responsabile:3,admin:4};
+  const rows=Object.entries(UTENTI_DATA.users).sort((a,b)=>((ORD_RUOLI[a[1].role]||0)-(ORD_RUOLI[b[1].role]||0))||a[0].localeCompare(b[0]));
   let h=`<thead><tr><th>Email</th><th>Ruolo</th><th>Tag extra</th><th>Entità collegata</th><th>Attivo</th><th>Ultimo accesso</th><th></th></tr></thead><tbody>`;
   if(!rows.length) h+=`<tr><td colspan="7"><div class="hint" style="padding:16px 0">Nessun utente configurato.</div></td></tr>`;
   rows.forEach(([email,u])=>{
@@ -1463,6 +1487,12 @@ function ultimoAdminAttivo(email){
 }
 const MSG_ULTIMO_ADMIN="Non si può: è l'ultimo amministratore attivo. Prima rendi amministratore un'altra persona.";
 function wireUtentiTable(){
+  document.querySelectorAll('[data-expand]').forEach(b=>b.onclick=()=>{
+    const em=b.dataset.expand, body=b.nextElementSibling; if(!body) return;
+    const apri=body.style.display==='none';
+    if(apri) UTENTI_OPEN.add(em); else UTENTI_OPEN.delete(em);
+    body.style.display=apri?'block':'none'; b.setAttribute('aria-expanded',apri?'true':'false'); if(b.firstElementChild) b.firstElementChild.textContent=apri?'−':'+';
+  });
   document.querySelectorAll('.uRoleSel').forEach(s=>s.onchange=()=>{
     const email=s.dataset.email, u=UTENTI_DATA.users[email]; if(!u) return;
     if(!ROLES_PORTALE.some(r=>r.id===s.value)) return; // la voce "Da assegnare" non è una scelta valida

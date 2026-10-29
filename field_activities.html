@@ -382,11 +382,21 @@ main.wide{max-width:1560px}
 .calday.out .dn{opacity:.45}
 .calday .dn{font-family:'JetBrains Mono',monospace;font-size:11.5px;color:var(--ink-soft)}
 .calday.today .dn{background:var(--accent);color:#fff;border-radius:6px;padding:0 6px;align-self:flex-start;font-weight:700}
-.fchip{display:block;width:100%;text-align:left;border:0;border-radius:6px;padding:3px 6px;font-family:'Inter',sans-serif;font-size:11.5px;font-weight:600;line-height:1.3;cursor:pointer;background:var(--accent-soft);color:var(--accent-ink);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
-.fchip.fissata{background:var(--warn-soft);color:var(--warn)}
-.fchip.svolta{background:var(--info-soft);color:var(--info-ink)}
-.fchip.annullata{background:var(--surface-mute);color:var(--ink-soft);text-decoration:line-through}
+.calday .ftags{display:flex;flex-wrap:wrap;gap:3px}
+.fchip{--bg:hsl(var(--fh,150) 58% 91%);--fg:hsl(var(--fh,150) 55% 22%);--bd:hsl(var(--fh,150) 42% 64%);flex:1 1 calc(50% - 3px);min-width:52px;min-height:46px;display:flex;flex-direction:column;justify-content:space-between;gap:2px;text-align:left;border:1px solid var(--bd);border-radius:8px;padding:4px 6px;font-family:'Inter',sans-serif;line-height:1.2;cursor:pointer;background:var(--bg);color:var(--fg);overflow:hidden;min-width:0}
+.fchip:hover{filter:brightness(.97);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.fchip .fn{font-size:11px;font-weight:700;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;overflow-wrap:anywhere}
+.fchip .fw{font-size:9.5px;opacity:.85;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.fchip .fs{font-family:'JetBrains Mono',monospace;font-size:8.5px;letter-spacing:.06em;text-transform:uppercase;font-weight:700;opacity:.8}
+.fchip.pianificata{border-style:dashed}
+.fchip.fissata .fs::before{content:"\25CF  "}
+.fchip.svolta .fs::before{content:"\2713  "}
+.fchip.annullata{opacity:.55}
+.fchip.annullata .fn{text-decoration:line-through}
 .fchip.cont{border-top-left-radius:0;border-bottom-left-radius:0}
+:root[data-theme="dark"] .fchip{--bg:hsl(var(--fh,150) 28% 20%);--fg:hsl(var(--fh,150) 55% 82%);--bd:hsl(var(--fh,150) 32% 42%)}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]) .fchip{--bg:hsl(var(--fh,150) 28% 20%);--fg:hsl(var(--fh,150) 55% 82%);--bd:hsl(var(--fh,150) 32% 42%)}}
+.act-row.fair-row{border-left:4px solid hsl(var(--fh,150) 48% 55%)}
 .fmore{font-size:11px;color:var(--ink-mute);padding:0 4px}
 .fmonth{padding:9px 16px;background:var(--surface-2);border-bottom:1px solid var(--line);font-family:'JetBrains Mono',monospace;font-size:11px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);font-weight:700}
 .chips{display:flex;flex-wrap:wrap;gap:6px}
@@ -603,6 +613,7 @@ main.wide{max-width:1560px}
         <p class="sec-desc" style="margin:0">Per ogni area: il referente (EC), l'obiettivo di orientamenti e quello di workshop. La regione somma le sue aree. Alimentano il riepilogo del Field Reporting.</p>
       </div>
       <div class="fld" style="min-width:220px"><label for="oFy">Campagna</label><select id="oFy"></select></div>
+      <a class="btn ghost" href="guida-backend-field.html" target="_blank" rel="noopener" style="align-self:flex-end;text-decoration:none">▶ Guida video</a>
       <button class="btn ghost" id="objAlpha" type="button">Ordine alfabetico</button>
       <button class="btn ghost" id="objCopy" type="button">Copia dalla campagna precedente</button>
       <button class="btn" id="objSave" type="button" style="display:none">Salva</button>
@@ -1892,9 +1903,13 @@ function fillFairFilters(p,F){
   document.getElementById(p+"Area").innerHTML=`<option value="">Tutte</option>`+ars.map(a=>`<option value="${esc(a.id)}" data-kw="${esc(areaKw(a.id))}">${esc(a.nome)}</option>`).join("");
   document.getElementById(p+"Area").value=F.area;
 }
+// ogni fiera ha il suo colore: un tono scelto dall'id (sempre lo stesso per la stessa fiera, in tutti i giorni e in tutte le viste)
+const FAIR_HUES=[152,210,265,330,18,42,190,95,295,355,230,70];
+function fairHue(f){ let h=0; const k=String(f&&f.id!=null?f.id:""); for(let i=0;i<k.length;i++) h=(h*31+k.charCodeAt(i))>>>0; return FAIR_HUES[h%FAIR_HUES.length]; }
 function fairChip(f,iso){
   const lbl=f.nome+", "+fairRange(f)+", "+fairStatoLabel(f.stato);
-  return `<button type="button" class="fchip ${esc(f.stato)}${iso!==f.start_date?' cont':''}" data-fair="${esc(f.id)}" title="${esc(lbl)}" aria-label="${esc(lbl)}">${esc(f.nome)}</button>`;
+  const where=[f.citta,f.provincia?("("+String(f.provincia).toUpperCase()+")"):""].filter(Boolean).join(" ")||f.regione||"";
+  return `<button type="button" class="fchip ${esc(f.stato)}${iso!==f.start_date?' cont':''}" style="--fh:${fairHue(f)}" data-fair="${esc(f.id)}" title="${esc(lbl)}" aria-label="${esc(lbl)}"><span class="fn">${esc(f.nome)}</span>${where?`<span class="fw">${esc(where)}</span>`:""}<span class="fs">${esc(fairStatoLabel(f.stato))}</span></button>`;
 }
 function renderCalendar(){
   const box=document.getElementById("calBox"), sum=document.getElementById("calSummary"), nav=document.getElementById("calNav");
@@ -1918,8 +1933,8 @@ function renderCalendar(){
     sum.innerHTML=`<span><b>${inMonth.length}</b> ${inMonth.length===1?"fiera":"fiere"} in questo periodo</span>`;
     let h=`<div class="calgrid" role="grid" aria-label="${esc(document.getElementById("calTitle").textContent)}">`+["lun","mar","mer","gio","ven","sab","dom"].map(d=>`<div class="dow" role="columnheader">${d}</div>`).join("");
     cells.forEach(iso=>{
-      const on=fairsOnDay(list,iso), out=+iso.slice(5,7)-1!==CAL.m, shown=on.slice(0,3);
-      h+=`<div class="calday${out?' out':''}${iso===today?' today':''}" role="gridcell"><span class="dn">${+iso.slice(8,10)}</span>${shown.map(f=>fairChip(f,iso)).join("")}${on.length>3?`<span class="fmore">+${on.length-3} altre</span>`:""}</div>`;
+      const on=fairsOnDay(list,iso), out=+iso.slice(5,7)-1!==CAL.m, shown=on.slice(0,4);
+      h+=`<div class="calday${out?' out':''}${iso===today?' today':''}" role="gridcell"><span class="dn">${+iso.slice(8,10)}</span>${shown.length?`<div class="ftags">${shown.map(f=>fairChip(f,iso)).join("")}</div>`:""}${on.length>4?`<span class="fmore">+${on.length-4} altre</span>`:""}</div>`;
     });
     box.innerHTML=h+"</div>"; return;
   }
@@ -1936,7 +1951,7 @@ function renderCalendar(){
 }
 function fairRowHtml(f,manage){
   const ars=fairAreaNames(f.id), where=fairWhere(f), days=f.start_date&&f.end_date?daysInclusive(f.start_date,f.end_date):1;
-  return `<div class="act-row${f.stato==='annullata'?' annull':''}" data-fair="${esc(f.id)}">
+  return `<div class="act-row fair-row${f.stato==='annullata'?' annull':''}" style="--fh:${fairHue(f)}" data-fair="${esc(f.id)}">
     <div class="dt">${esc(fairRange(f))}</div>
     <div class="ty"><span class="who">${esc(f.nome)}</span><span class="sub">${esc(where||"—")}${ars.length?` · ${esc(ars.join(", "))}`:""}</span></div>
     <div class="meta">${days>1?`<span class="tag">${days} giorni</span>`:""}<span class="badge ${esc(f.stato)}">${esc(fairStatoLabel(f.stato))}</span></div>
