@@ -362,6 +362,12 @@ input:disabled,select:disabled{background:var(--surface-mute);color:var(--ink-mu
 .pm-op label,.pm-op .pm-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-mute)}
 .pm-op select{width:100%}
 .pm-op .pm-val{font-size:13px}
+.pv-table th,.pv-table td{text-align:center}
+.pv-table th:first-child,.pv-table td:first-child{text-align:left}
+.pv-table .pv-app th{text-align:left;background:var(--paper);font-size:12px;letter-spacing:.02em}
+.pv-table td.pv-mod{background:var(--warn-soft)}
+.pv-table input.pvChk{width:18px;height:18px;cursor:pointer;accent-color:var(--accent)}
+.pv-table input.pvChk:disabled{cursor:not-allowed;opacity:.55}
 .pm-fixed-list{margin:0;padding-left:18px;font-size:12.5px;line-height:1.5}
 .pm-fixed-list li{margin-bottom:6px}
 .pm-dialog{border:1px solid var(--line-strong);border-radius:var(--r-card);padding:22px;width:calc(100% - 32px);max-width:640px;background:var(--surface);color:var(--ink);box-shadow:var(--shadow)}
@@ -602,6 +608,17 @@ input:disabled,select:disabled{background:var(--surface-mute);color:var(--ink-mu
     <div id="pmContent" style="display:none">
       <div class="ucard"><table class="utable pm-table" id="pmTable"></table></div>
       <p class="hint" id="pmExtra"></p>
+      <div class="ucard pad" id="pvCard">
+        <div class="eyebrow" style="margin-bottom:10px">Visibilità delle sezioni</div>
+        <p class="hint" style="margin:0 0 10px">Quali schede di ogni app vede ciascun ruolo. È la scelta più semplice per dare o togliere una vista: spunta la casella e salva. Per vedere i dati, però, il ruolo deve avere anche il permesso di lettura (la tabella sopra): se manca, compare un avviso. Admin vede sempre tutto. La scheda Log di Spese EC e Docenti è sempre riservata ad admin e responsabile.</p>
+        <div class="pm-bar" id="pvBar" style="position:static">
+          <span class="pm-count" id="pvCount" aria-live="polite">Nessuna modifica in bozza</span>
+          <button type="button" class="btn ghost" id="pvCancel" disabled>Annulla modifiche</button>
+          <button type="button" class="btn" id="pvSave" disabled>Salva visibilità…</button>
+        </div>
+        <div class="pm-msg" id="pvMsg" role="status" aria-live="polite"></div>
+        <div style="overflow-x:auto"><div id="pvTable"></div></div>
+      </div>
       <div class="ucard pad">
         <div class="eyebrow" style="margin-bottom:10px">Regole fisse (non modificabili da qui)</div>
         <p class="hint" style="margin:0 0 8px">Servono a evitare che una modifica alla tabella tolga all'amministratore la possibilità di rimediare, o apra la gestione degli utenti.</p>
@@ -1598,7 +1615,7 @@ const PM_STRUMENTI={
 let PM=null, PM_TOK=0; // PM = stato della schermata (null se chiusa); PM_TOK invalida i caricamenti rimasti in volo
 function pmNew(){ return {base:{},tabVis:null,tabVisErr:"",extra:[],open:new Set(),draft:{},loading:true,saving:false,ok:false}; }
 function pmReset(){ PM=null; PM_TOK++; }
-function pmDirty(){ return !!(PM && Object.keys(PM.draft).length); }
+function pmDirty(){ return !!(PM && Object.keys(PM.draft).length) || !!(PV && Object.keys(PV.draft).length); }
 function pmOgg(t){ return PM_OGGETTI.find(o=>o.t===t)||null; }
 function pmOpsDi(o){ return o.solo ? PM_OPS.filter(x=>x.id==="lettura") : PM_OPS; }
 // livelli che hanno senso per l'oggetto: «proprie» solo con own_rule, «centri» solo con centro_rule
@@ -1814,12 +1831,101 @@ function pmRenderTutto(){
   if(mancantiAdmin) note.push("Mancano "+mancantiAdmin+" righe dell'admin: senza, l'admin non avrebbe accesso a quegli oggetti. Le righe dell'admin non si modificano da qui: rilancia lo script supabase_rls_per_user.sql.");
   if(PM.tabVisErr) note.push("Non è stato possibile leggere la visibilità delle sezioni ("+PM.tabVisErr+"): gli avvisi sulle schede visibili usano la visibilità predefinita (admin e responsabile vedono tutte le schede, gli altri ruoli nessuna) e possono non corrispondere alla situazione reale.");
   document.getElementById("pmExtra").textContent=note.join(" ");
-  pmRenderBar(); pmRenderWarn();
+  pmRenderBar(); pmRenderWarn(); pvRender();
+}
+
+/* ---- Visibilità sezioni: quali schede di ogni app vede ciascun ruolo (bdg_tab_visibility, solo admin) ----
+   Come le schede dei permessi: bozza, riepilogo di conferma, scrittura verificata. L'admin vede sempre tutto (colonna bloccata);
+   la scheda Log di Spese EC e Docenti resta riservata ad admin e responsabile. */
+let PV={draft:{},saving:false};
+function pvNome(r){ const x=PM_RUOLI.find(q=>q.id===r); return x?x.nome:r; }
+function pvFissa(tool,k,ruolo){ return ruolo==="admin" || (k==="log" && tool!=="budget"); }
+function pvVis(tool,k,ruolo){
+  const key=tool+"|"+k+"|"+ruolo;
+  return Object.prototype.hasOwnProperty.call(PV.draft,key) ? PV.draft[key] : pmSchedeVisibili(tool,ruolo).includes(k);
+}
+function pvCambi(){
+  const out=[];
+  Object.keys(PV.draft).forEach(key=>{
+    const p=key.split("|"), tool=p[0], k=p[1], ruolo=p[2];
+    if(PV.draft[key]!==pmSchedeVisibili(tool,ruolo).includes(k)) out.push({tool:tool,tab_key:k,role:ruolo,visible:PV.draft[key]});
+  });
+  return out;
+}
+function pvMsg(tipo,testo){ const m=document.getElementById("pvMsg"); if(!m) return; m.className="pm-msg"+(tipo?" "+tipo:""); m.textContent=testo||""; }
+function pvRender(){
+  const box=document.getElementById("pvTable"); if(!box) return;
+  if(!PM || !PM.ok){ box.innerHTML=""; return; }
+  if(PM.tabVisErr){ box.innerHTML=`<div class="uwarn" role="alert">Non è stato possibile leggere la visibilità attuale (${esc(PM.tabVisErr)}): per sicurezza qui non si modifica.</div>`; document.getElementById("pvSave").disabled=true; document.getElementById("pvCancel").disabled=true; return; }
+  const ruoli=PM_RUOLI.map(r=>r.id);
+  let h=`<table class="utable pv-table"><thead><tr><th>App › scheda</th>${ruoli.map(r=>`<th>${esc(pvNome(r))}</th>`).join("")}</tr></thead><tbody>`;
+  Object.keys(PM_STRUMENTI).forEach(tool=>{
+    const def=PM_STRUMENTI[tool];
+    h+=`<tr class="pv-app"><th colspan="${ruoli.length+1}">${esc(def.nome)}</th></tr>`;
+    Object.keys(def.schede).forEach(k=>{
+      h+=`<tr><td>${esc(def.schede[k])}</td>`;
+      ruoli.forEach(r=>{
+        const on=pvVis(tool,k,r), fissa=pvFissa(tool,k,r), key=tool+"|"+k+"|"+r;
+        const mod=Object.prototype.hasOwnProperty.call(PV.draft,key)&&PV.draft[key]!==pmSchedeVisibili(tool,r).includes(k);
+        h+=`<td class="${mod?"pv-mod":""}"><input type="checkbox" class="pvChk" data-k="${esc(key)}" ${on||r==="admin"?"checked":""} ${fissa||PV.saving?"disabled":""} aria-label="${esc(def.nome+" › "+def.schede[k]+" per "+pvNome(r))}"></td>`;
+      });
+      h+=`</tr>`;
+    });
+  });
+  h+=`</tbody></table>`;
+  box.innerHTML=h;
+  const n=pvCambi().length;
+  document.getElementById("pvCount").textContent=n?(n+(n===1?" modifica in bozza":" modifiche in bozza")):"Nessuna modifica in bozza";
+  document.getElementById("pvSave").disabled=PV.saving||!n;
+  document.getElementById("pvCancel").disabled=PV.saving||!n;
+}
+function pvOnChange(chk){
+  if(!PM||!PM.ok||PV.saving) return;
+  const key=chk.dataset.k, p=key.split("|");
+  if(pvFissa(p[0],p[1],p[2])) return;
+  if(chk.checked===pmSchedeVisibili(p[0],p[2]).includes(p[1])) delete PV.draft[key]; else PV.draft[key]=chk.checked;
+  pvMsg("",""); pvRender();
+}
+function pvAnnulla(){ PV.draft={}; pvMsg("",""); pvRender(); }
+async function pvSalva(){
+  if(!PM || !PM.ok || PM.tabVisErr || PV.saving || PM.saving) return;
+  if(!pmRuoloOk()) return;
+  const cambi=pvCambi(); if(!cambi.length) return;
+  const nome=c=>PM_STRUMENTI[c.tool].nome+" › "+PM_STRUMENTI[c.tool].schede[c.tab_key]+" · "+pvNome(c.role);
+  const h=`<p>Stai per cambiare la visibilità di <b>${cambi.length}</b> ${cambi.length===1?"scheda":"schede"}. Vale dal prossimo accesso di ogni utente del ruolo (chi è già dentro la vede al prossimo caricamento).</p><ul>`
+    +cambi.map(c=>`<li><b>${esc(nome(c))}</b>: ${c.visible?"<span class=\"pm-up\">resta visibile / diventa visibile</span>":"<span class=\"pm-down\">viene nascosta</span>"}</li>`).join("")+`</ul>`;
+  const t="Stai per cambiare la visibilità di "+cambi.length+" schede:\n"+cambi.map(c=>"- "+nome(c)+": "+(c.visible?"visibile":"nascosta")).join("\n");
+  const tok0=PM_TOK, si=await pmConferma("Conferma la visibilità delle sezioni",h,t,"Conferma e salva");
+  if(!si) return;
+  if(tok0!==PM_TOK || !PM || !PM.ok || PV.saving) return;
+  if(!pmRuoloOk()) return;
+  const tok=PM_TOK; PV.saving=true; pvRender(); pvMsg("","Salvataggio in corso…");
+  let esito;
+  try{ esito=await sb.from("bdg_tab_visibility").upsert(cambi,{onConflict:"tool,tab_key,role"}).select("tool,tab_key,role,visible"); }
+  catch(e){ esito={error:e}; }
+  if(tok!==PM_TOK) return;
+  PV.saving=false;
+  // una scrittura negata dalla RLS non da' errore ma tocca 0 righe: si controlla di quante ne e' tornate
+  if(esito.error || !esito.data || esito.data.length!==cambi.length){
+    if(esito.error) console.error(esito.error);
+    pvMsg("err","Visibilità NON salvata: "+(esito.error?dbErrMsg(esito.error):"operazione non consentita dal tuo ruolo (nessuna riga modificata)."));
+    pvRender(); return;
+  }
+  if(!PM.tabVis) PM.tabVis=Object.create(null);
+  esito.data.forEach(r=>{
+    if(!PM.tabVis[r.tool]) PM.tabVis[r.tool]=Object.create(null);
+    if(!PM.tabVis[r.tool][r.tab_key]) PM.tabVis[r.tool][r.tab_key]=Object.create(null);
+    PM.tabVis[r.tool][r.tab_key][r.role]=!!r.visible;
+  });
+  PV.draft={};
+  pvMsg("ok","Visibilità salvata ("+cambi.length+(cambi.length===1?" scheda":" schede")+").");
+  pvRender(); pmRenderWarn();
 }
 
 /* ---- caricamento / salvataggio ---- */
 async function pmLoad(){
   const tok=PM_TOK, p=PM;
+  PV.draft={};
   p.loading=true; p.ok=false; pmRenderBar(); pmMsg("","Caricamento dei permessi…");
   try{
     const [pm,tv]=await Promise.all([
@@ -1860,7 +1966,7 @@ async function pmLoad(){
 }
 async function apriPermessi(){
   if(!requireAdmin()) return;
-  PM_TOK++; PM=pmNew();
+  PM_TOK++; PM=pmNew(); PV={draft:{},saving:false}; pvMsg("","");
   document.getElementById("pmContent").style.display="none";
   document.getElementById("pmWarn").innerHTML="";
   showScreen("permessi");
@@ -2010,6 +2116,9 @@ document.getElementById("pmTable").addEventListener("click",e=>{
 document.getElementById("pmTable").addEventListener("change",e=>{
   const s=e.target.closest&&e.target.closest("select.pm-sel"); if(s) pmOnChange(s);
 });
+document.getElementById("pvTable").addEventListener("change",e=>{ const c=e.target.closest&&e.target.closest("input.pvChk"); if(c) pvOnChange(c); });
+document.getElementById("pvSave").onclick=pvSalva;
+document.getElementById("pvCancel").onclick=pvAnnulla;
 document.getElementById("pmSave").onclick=pmSalva;
 document.getElementById("pmCancel").onclick=pmAnnulla;
 document.getElementById("pmReload").onclick=pmRicarica;
