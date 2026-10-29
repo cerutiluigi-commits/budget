@@ -36,7 +36,8 @@
   ];
   var listeners = [], saver = null;
   function valid(id) { for (var i = 0; i < LIST.length; i++) if (LIST[i].id === id) return true; return false; }
-  function get() { try { var v = localStorage.getItem(KEY); return valid(v) ? v : 'auto'; } catch (e) { return 'auto'; } }
+  function predefinito() { try { return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'naba-dark' : 'naba-light'; } catch (e) { return 'naba-light'; } }
+  function get() { try { var v = localStorage.getItem(KEY); return valid(v) ? v : predefinito(); } catch (e) { return predefinito(); } }
   function apply(id) {
     var r = document.documentElement, style = id.indexOf('apple') === 0 ? 'apple' : (id.indexOf('naba') === 0 ? 'naba' : ''), mode = id === 'auto' ? '' : id.replace(/^(apple|naba)-/, '');
     if (mode) r.setAttribute('data-theme', mode); else r.removeAttribute('data-theme');
@@ -447,7 +448,7 @@ tfoot td.l{text-align:left}
 #actOverlay.help-mode [data-doc]{display:block}
 #actOverlay.help-mode .ws-only.show[data-doc]{display:block}
 #aHelpToggle.on{background:var(--accent-fill);color:var(--on-accent);border-color:var(--accent-fill)}
-.help-ic{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent-ink);background:var(--surface);font-weight:700;font-size:10.5px;line-height:1;cursor:pointer;margin-left:6px;vertical-align:middle;transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .15s}
+.help-ic{display:inline-flex;align-items:center;justify-content:center;width:19px;height:19px;border-radius:50%;border:1.5px solid var(--accent);color:var(--accent-ink);background:var(--surface);font-weight:700;font-size:10.5px;line-height:1;cursor:pointer;margin:-4px 0 -4px 6px;vertical-align:middle;transition:transform .15s cubic-bezier(.34,1.56,.64,1),box-shadow .15s}
 .help-ic:hover{transform:scale(1.14);box-shadow:0 0 0 4px var(--accent-soft)}
 .helppop{position:absolute;z-index:40;width:260px;background:var(--surface);border:1px solid var(--line);border-radius:12px;box-shadow:var(--shadow-lg);padding:13px;top:26px;left:0;
   opacity:0;transform:scale(.94) translateY(-6px);transform-origin:top left;pointer-events:none;
@@ -4490,6 +4491,30 @@ themeMenuInit();
 fillSelects();
 gate();
 cloudInit();
+</script>
+<script>
+/* ogni finestra (overlay) si apre dall'alto: se la precedente era stata scorsa e chiusa, la successiva non riparte dallo stesso punto */
+(function(){
+  function alTop(ov){
+    try{
+      ov.scrollTop=0;
+      var els=ov.querySelectorAll('*');
+      for(var i=0;i<els.length;i++){ if(els[i].scrollTop>0) els[i].scrollTop=0; }
+    }catch(e){}
+  }
+  function osserva(ov){
+    if(ov.__alTop) return; ov.__alTop=true;
+    var era=ov.classList.contains('on');
+    new MutationObserver(function(){
+      var ora=ov.classList.contains('on');
+      if(ora && !era) alTop(ov);
+      era=ora;
+    }).observe(ov,{attributes:true,attributeFilter:['class']});
+  }
+  function tutte(){ var o=document.querySelectorAll('.overlay'); for(var i=0;i<o.length;i++) osserva(o[i]); }
+  tutte();
+  new MutationObserver(tutte).observe(document.documentElement,{childList:true,subtree:true});
+})();
 </script>
 </body>
 </html>

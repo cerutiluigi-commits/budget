@@ -36,7 +36,8 @@
   ];
   var listeners = [], saver = null;
   function valid(id) { for (var i = 0; i < LIST.length; i++) if (LIST[i].id === id) return true; return false; }
-  function get() { try { var v = localStorage.getItem(KEY); return valid(v) ? v : 'auto'; } catch (e) { return 'auto'; } }
+  function predefinito() { try { return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'naba-dark' : 'naba-light'; } catch (e) { return 'naba-light'; } }
+  function get() { try { var v = localStorage.getItem(KEY); return valid(v) ? v : predefinito(); } catch (e) { return predefinito(); } }
   function apply(id) {
     var r = document.documentElement, style = id.indexOf('apple') === 0 ? 'apple' : (id.indexOf('naba') === 0 ? 'naba' : ''), mode = id === 'auto' ? '' : id.replace(/^(apple|naba)-/, '');
     if (mode) r.setAttribute('data-theme', mode); else r.removeAttribute('data-theme');
