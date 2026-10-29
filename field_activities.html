@@ -1,6 +1,78 @@
 <!DOCTYPE html>
 <html lang="it">
 <head>
+<!-- inline-theme:begin -->
+<script>
+/* Motore dei temi NABA — sorgente CANONICO (v1).
+   Lo script scripts/inline-theme.js lo copia identico in <head> di Portale, Budget, Spese EC e Docenti
+   (blocco "naba-theme"). NON modificare il blocco dentro gli HTML: si cambia qui e si rilancia
+   "node scripts/inline-theme.js".
+
+   Scelte dell'utente (id): auto | light | dark | apple-light | apple-dark
+     - auto        = tema base che segue il sistema operativo (chiaro/scuro)
+     - light, dark = tema base fisso
+     - apple-*     = stile Apple (chiaro o scuro) sopra la stessa palette di base
+   Sul <html> imposta: data-theme="light|dark" (assente se auto), data-style="apple" (assente se base),
+   data-theme-choice="<id>". Le pagine gia' hanno le palette base (:root, @media prefers-color-scheme,
+   :root[data-theme="dark"]); lo stile Apple si scrive in CSS con :root[data-style="apple"] { ... }.
+
+   API: window.nabaTheme = { get(), set(id, opzioni), fromCloud(id), list, label(id), onChange(fn), setSaver(fn) }
+     set(id)        applica, ricorda su questo dispositivo (localStorage), avvisa gli altri frame/schede e, se la
+                    pagina ha registrato un "saver", salva la scelta come predefinita dell'utente nel cloud
+     fromCloud(id)  applica la scelta salvata dall'utente (al login) senza risalvarla
+     setSaver(fn)   fn(id) -> Promise: scrive nel cloud (le pagine usano bdg_save_prefs con la chiave 'ui') */
+(function () {
+  'use strict';
+  var KEY = 'naba_theme';
+  var LIST = [
+    { id: 'auto', label: 'Automatico (come il dispositivo)' },
+    { id: 'light', label: 'Chiaro' },
+    { id: 'dark', label: 'Scuro' },
+    { id: 'apple-light', label: 'Apple chiaro' },
+    { id: 'apple-dark', label: 'Apple scuro' }
+  ];
+  var listeners = [], saver = null;
+  function valid(id) { for (var i = 0; i < LIST.length; i++) if (LIST[i].id === id) return true; return false; }
+  function get() { try { var v = localStorage.getItem(KEY); return valid(v) ? v : 'auto'; } catch (e) { return 'auto'; } }
+  function apply(id) {
+    var r = document.documentElement, apple = id.indexOf('apple') === 0, mode = id === 'auto' ? '' : id.replace('apple-', '');
+    if (mode) r.setAttribute('data-theme', mode); else r.removeAttribute('data-theme');
+    if (apple) r.setAttribute('data-style', 'apple'); else r.removeAttribute('data-style');
+    r.setAttribute('data-theme-choice', id);
+    for (var i = 0; i < listeners.length; i++) { try { listeners[i](id); } catch (e) { /* un ascoltatore guasto non blocca gli altri */ } }
+  }
+  function remember(id) { try { localStorage.setItem(KEY, id); } catch (e) { /* storage non disponibile: il tema vale solo per questa pagina */ } }
+  function broadcast(id) {
+    var msg = { naba: 'theme', theme: id }, i, f;
+    try { if (window.parent && window.parent !== window) window.parent.postMessage(msg, location.origin); } catch (e) {}
+    try { f = document.getElementsByTagName('iframe'); for (i = 0; i < f.length; i++) { try { f[i].contentWindow.postMessage(msg, location.origin); } catch (e2) {} } } catch (e3) {}
+  }
+  function set(id, opt) {
+    if (!valid(id)) id = 'auto';
+    remember(id); apply(id); broadcast(id);
+    if (!(opt && opt.persist === false) && saver) { try { var p = saver(id); if (p && p.catch) p.catch(function () { /* salvataggio cloud non riuscito: resta il tema locale */ }); } catch (e) {} }
+  }
+  function fromCloud(id) { if (!valid(id)) return; remember(id); apply(id); broadcast(id); }
+  window.nabaTheme = {
+    get: get, set: set, fromCloud: fromCloud, list: LIST,
+    label: function (id) { for (var i = 0; i < LIST.length; i++) if (LIST[i].id === id) return LIST[i].label; return id; },
+    onChange: function (fn) { if (typeof fn === 'function') listeners.push(fn); },
+    setSaver: function (fn) { saver = typeof fn === 'function' ? fn : null; }
+  };
+  function down(id) {   // inoltra ai frame figli (non al genitore: evita giri a vuoto)
+    var msg = { naba: 'theme', theme: id }, f, i;
+    try { f = document.getElementsByTagName('iframe'); for (i = 0; i < f.length; i++) { try { f[i].contentWindow.postMessage(msg, location.origin); } catch (e2) {} } } catch (e3) {}
+  }
+  window.addEventListener('message', function (ev) {
+    if (ev.origin !== location.origin) return;
+    var d = ev.data;
+    if (d && d.naba === 'theme' && valid(d.theme) && d.theme !== document.documentElement.getAttribute('data-theme-choice')) { remember(d.theme); apply(d.theme); down(d.theme); }
+  });
+  window.addEventListener('storage', function (ev) { if (ev.key === KEY && valid(ev.newValue) && ev.newValue !== document.documentElement.getAttribute('data-theme-choice')) apply(ev.newValue); });
+  apply(get());   // subito, prima del primo disegno: niente lampo di tema sbagliato
+})();
+</script>
+<!-- inline-theme:end -->
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Field Activities · NABA</title>
