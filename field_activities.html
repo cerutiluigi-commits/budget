@@ -358,8 +358,8 @@ main.wide{max-width:1560px}
 .mchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .mchip{border:1px solid var(--line-strong);border-radius:999px;padding:4px 11px;font-size:12px;background:var(--surface);color:var(--ink);cursor:pointer}
 .mchip.on{background:var(--accent);border-color:var(--accent);color:#fff}
-.mbody{display:grid;grid-template-columns:minmax(240px,1fr) minmax(360px,560px);gap:16px;align-items:start}
-@media(max-width:820px){.mbody{grid-template-columns:1fr}}
+.mbody.mbody-map{display:grid;grid-template-columns:minmax(240px,1fr) minmax(360px,560px);gap:16px;align-items:start}
+@media(max-width:820px){.mbody.mbody-map{grid-template-columns:1fr}}
 .mmap svg{width:100%;height:auto;max-height:620px;display:block}
 .mmap path{stroke:var(--surface);stroke-width:.6;cursor:pointer}
 .mmap path:hover{stroke:var(--accent-ink);stroke-width:1.4}
@@ -3201,7 +3201,7 @@ function renderMap(){
     <label class="mst">Stato <select id="mStato" data-nocb="1"><option value="">Tutte</option><option value="svolta">Svolte</option><option value="fissata">Fissate</option></select></label>
     <span class="mtot"><b>${agg.tot}</b> attività</span></div>
     <div class="mchips" role="group" aria-label="Tipi di attività da contare">${chips}<button type="button" class="btn ghost small" data-mall="1">Tutti</button><button type="button" class="btn ghost small" data-mnone="1">Nessuno</button></div>
-    <div class="mbody"><div class="mmap">${svg}</div><div class="mside">${tabella}${MAP.sel?mapDetailHtml(selE,selLabel):`<div class="hint">Clicca su una zona o su una voce dell'elenco per vedere il dettaglio per tipo.</div>`}
+    <div class="mbody mbody-map"><div class="mmap">${svg}</div><div class="mside">${tabella}${MAP.sel?mapDetailHtml(selE,selLabel):`<div class="hint">Clicca su una zona o su una voce dell'elenco per vedere il dettaglio per tipo.</div>`}
     ${(agg.senza||fuori.length)?`<div class="hint">${agg.senza?agg.senza+" attività senza "+(lv==="reg"?"regione":"provincia")+" non sono sulla mappa. ":""}${fuori.length?"Non riconosciute sulla mappa: "+esc(fuori.map(e=>e.label).join(", "))+".":""}</div>`:""}</div></div>
     <div class="hint">Seguono il periodo e l'orientatore scelti nei filtri sopra. Le annullate non sono contate. Più scuro = più attività.</div></div>`;
   const st=document.getElementById("mStato"); if(st) st.value=MAP.stato;
