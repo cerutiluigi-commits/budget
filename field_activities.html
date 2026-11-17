@@ -263,6 +263,53 @@ main.wide{max-width:1560px}
   .act-row .meta{flex:0 1 auto;min-width:0;justify-content:flex-end}
   .act-row .dt,.act-row .stud{flex:0 0 auto}
 }
+/* elenco attivita': UNA riga per attivita' (>= 900px: griglia con le stesse colonne dell'intestazione .act-head, variabile --acols impostata da renderList;
+   sotto: due righe ordinate, senza intestazione). Le righe fiera (.fair-row) non usano .act-grid e restano com'erano. Solo token di tema, nessun colore fisso. */
+.act-head{display:none}
+.act-row.act-grid{gap:4px 12px;padding:8px 12px;align-items:center;flex-wrap:wrap}
+.act-grid>*{min-width:0}
+.act-row.act-grid .dt{min-width:0;font-size:12px;white-space:nowrap}
+.act-grid .c-or,.act-grid .c-rs{font-size:12.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.act-grid .lbl{color:var(--ink-soft)}
+.act-grid .c-wh{display:flex;align-items:center;gap:.4em;font-size:13px}
+.act-grid .wh-g{flex:0 4 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;color:var(--ink-soft)}
+.act-grid .wh-s{flex:none;color:var(--ink-soft)}
+.act-grid .wh-n{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:var(--ink)}
+.act-grid .tip{position:relative;display:inline-block;max-width:100%;vertical-align:middle;border-radius:6px;cursor:help}
+.act-grid .tip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.act-grid .tip:focus-visible::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + 6px);z-index:40;width:max-content;min-width:180px;max-width:min(360px,80vw);white-space:pre-line;background:var(--ink);color:var(--paper);padding:8px 10px;border-radius:8px;font:500 12px/1.4 'Inter',sans-serif;box-shadow:var(--shadow-md)}
+.act-grid .tip .tag,.act-grid .c-ar .tag{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.act-grid .c-ar{display:flex;min-width:0}
+.act-grid .c-ar .nil{color:var(--ink-soft)}
+.act-grid .c-st{display:flex;flex-wrap:wrap;gap:2px 4px;align-items:center}
+.act-row.act-grid .stud{flex-direction:row;align-items:baseline;gap:4px;min-width:0}
+.act-row.act-grid .stud span{margin-top:0}
+.act-row.act-grid.annull .dt,.act-row.act-grid.annull .c-or,.act-row.act-grid.annull .c-rs,.act-row.act-grid.annull .wh-g,.act-row.act-grid.annull .wh-n{text-decoration:line-through}
+.act-row.act-grid.annull .wh-n,.act-row.act-grid.annull .dt,.act-row.act-grid.annull .stud b{color:var(--ink-soft)}   /* annullata: barrata e in grigio, senza opacita' (il contrasto resta quello del testo secondario) */
+@media(max-width:899px){
+  .act-grid::before{content:"";order:5;flex:0 0 100%;height:0}
+  .act-grid .sel{order:0}.act-grid .dt{order:1}.act-grid .c-wh{order:2;flex:1 1 180px}.act-grid .c-st{order:3;flex:0 0 auto}.act-grid .act-actions{order:4}
+  .act-grid .c-or{order:6}.act-grid .c-rs{order:7}.act-grid .c-ty{order:8;flex:0 1 auto}.act-grid .c-ar{order:9}.act-grid .stud{order:10;margin-left:auto}
+  .act-grid .c-ar:empty{display:none}
+}
+@media(max-width:600px){
+  .act-grid::before{display:none}
+  .act-grid .c-st{order:2}.act-grid .act-actions{order:3}
+  .act-grid .c-wh{order:4;flex:1 1 100%;display:block;white-space:normal}
+  .act-grid .wh-g,.act-grid .wh-n{display:inline;white-space:normal;overflow:visible}
+  .act-grid .wh-s{margin:0 .3em}
+}
+@media(min-width:900px){
+  .act-head{display:grid;grid-template-columns:var(--acols);column-gap:8px;align-items:center;padding:7px 12px;border-bottom:1px solid var(--line);background:var(--surface-2);border-radius:var(--radius) var(--radius) 0 0;font-family:'JetBrains Mono',monospace;font-size:9.5px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft)}
+  .act-head>span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  .act-head .r{text-align:right}
+  .act-row.act-grid{display:grid;grid-template-columns:var(--acols);column-gap:8px;padding:6px 12px;min-height:44px}
+  .act-grid .lbl{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .act-grid .c-ty{min-width:0}
+  .act-row.act-grid .stud{flex-direction:column;align-items:flex-end;gap:0;justify-self:stretch}
+  .act-row.act-grid .stud span{margin-top:2px}
+  .act-grid .act-actions{justify-self:end}
+}
 .empty{padding:34px 20px;text-align:center;color:var(--ink-soft)}
 .empty b{display:block;color:var(--ink);font-size:15px;margin-bottom:4px}
 .empty .btn{margin-top:12px}
@@ -1387,21 +1434,55 @@ function readSorts(){
   return out.length?out:[{k:'data',d:'desc'}];
 }
 function renderAll(){ fillFilterOptions(); renderList(); renderFairs(); }
+/* ---- riga dell'elenco: UNA riga per attivita', colonne allineate all'intestazione (.act-head): stessa griglia, variabile --acols ---- */
+// a capo dentro un attributo title: un elemento per riga, ognuno escapato, uniti con &#10;
+function ttl(lines){ return lines.map(esc).join("&#10;"); }
+// nome leggibile ricavato dall'e-mail (nei dati non c'e' un nome migliore): "davide.gallina@partners.naba.it" -> "Davide Gallina"
+function personName(email){ const e=String(email==null?"":email).trim(); return e?ecLabel(e):""; }
+// referenti (EC) in carica oggi per un'area; con una memoria valida solo durante il disegno dell'elenco (renderList la crea e la toglie)
+let ACT_EC=null;
+function areaEcs(areaId){
+  if(areaId==null||areaId==="") return [];
+  const k=String(areaId); if(ACT_EC&&ACT_EC.has(k)) return ACT_EC.get(k);
+  const r=currentEc(k,todayISO()); if(ACT_EC) ACT_EC.set(k,r); return r;
+}
+// colonne: [selezione] Data [Orientatore, solo per chi vede tutti] Resp. area, Dove, Tipo, Area, Leads, Stato [pulsanti]; le stesse in actHeadHtml e actRowHtml
+function actCols(){
+  const w=canWrite();
+  return [w?"20px":"","78px",isManager()?"minmax(60px,1.2fr)":"","minmax(60px,1.2fr)","minmax(104px,3fr)","minmax(84px,2fr)","minmax(50px,.8fr)","46px","80px",w?"146px":""].filter(Boolean).join(" ");
+}
+function actHeadHtml(){
+  const w=canWrite();
+  return `<div class="act-head" aria-hidden="true">${w?`<span></span>`:""}<span>Data</span>${isManager()?`<span>Orientatore</span>`:""}<span>Resp. area</span><span>Dove</span><span>Tipo</span><span>Area</span><span class="r">Leads</span><span>Stato</span>${w?`<span></span>`:""}</div>`;
+}
 function actRowHtml(a){
   const ws=STATE.workshops[a.id];
-  const queued=isQueued(a.id);
-  const where=[a.citta,a.provincia?("("+String(a.provincia).toUpperCase()+")"):"",a.regione].filter(Boolean).join(" · ");
-  // un solo tag per il workshop: «Workshop a Scuola · Design · 20 h» (modalità, corso, ore); se il tipo è Workshop sostituisce il tag del tipo (niente «Workshop» due volte)
+  const queued=isQueued(a.id), canEdit=canWrite(), mgr=isManager(), isWs=a.tipo===TIPO_WORKSHOP;
+  // dove: Regione · Provincia · Citta' · Scuola (la scuola in grassetto, con «…» se manca spazio; il testo intero e' nel suggerimento)
+  const geo=[a.regione,a.provincia?String(a.provincia).toUpperCase():"",a.citta].filter(Boolean).join(" · ");
+  const school=a.school_name||"Scuola non indicata";
+  // tipo: un solo tag. Per il workshop e' «Workshop a Scuola · Design · 20 h» (modalità, corso, ore) al posto del tipo; il resto delle informazioni sta nel suggerimento del tag
   const wsTxt=ws?[taxLabel('workshop_modalita',ws.modalita)||"Workshop",taxLabel('corso',ws.corso),ws.ore_lezione!=null?(String(ws.ore_lezione).replace(".",",")+" h"):""].filter(Boolean).join(" · "):"";
-  const tipoTag=(a.tipo===TIPO_WORKSHOP&&ws)?"":`<span class="tag">${esc(taxLabel('tipo',a.tipo)||a.tipo||"—")}</span>`;
+  const tipoLab=taxLabel('tipo',a.tipo)||a.tipo||"—";
+  const tagTxt=(isWs&&ws)?wsTxt:tipoLab;
+  const area=areaName(a.area_id), camp=a.campaign_id?campaignName(a.campaign_id):"";
+  const tip=["Tipo: "+tipoLab].concat(ws?["Workshop: "+wsTxt]:[],camp?["Campagna: "+camp]:[],ws&&ws.tema?["Tema: "+ws.tema]:[],ws&&ws.docente_nome?["Docente: "+ws.docente_nome]:[],a.virtuale?["Virtuale"]:[],area?["Area: "+area]:[]);
+  const tid="tip-"+esc(a.id);
+  // responsabile dell'area = referente (EC) in carica, dalle assegnazioni area ↔ orientatore (le stesse della scheda Obiettivi)
+  const ecs=areaEcs(a.area_id);
+  const rsTitle=!a.area_id?["Responsabile area: area non indicata"]:(ecs.length?["Responsabile area"+(area?" ("+area+")":"")+":"].concat(ecs.map(e=>personName(e)+" ("+e+")")):["Responsabile area: nessun referente assegnato"+(area?" a "+area:"")]);
+  const orEm=a.orientatore_email, orTxt=personName(orEm);
   const label=fmtD(a.data)+", "+(a.school_name||"senza scuola");
-  const canEdit=canWrite();
-  return `<div class="act-row${a.stato==='annullata'?' annull':''}" data-id="${esc(a.id)}">
+  return `<div class="act-row act-grid${a.stato==='annullata'?' annull':''}" data-id="${esc(a.id)}">
     ${canEdit?`<input type="checkbox" class="sel" data-sel="1" aria-label="Seleziona l'attività: ${esc(label)}"${SEL.has(a.id)?" checked":""}>`:""}
     <div class="dt">${esc(fmtD(a.data))}</div>
-    <div class="ty"><span class="who" title="${esc(a.school_name||"Scuola non indicata")}">${esc(a.school_name||"Scuola non indicata")}</span><span class="sub" title="${esc(where||"—")}">${esc(where||"—")}</span>${isManager()&&a.orientatore_email?`<span class="sub orient" title="Orientatore: ${esc(a.orientatore_email)}"><span class="mono">${esc(a.orientatore_email)}</span></span>`:""}</div>
-    <div class="meta">${tipoTag}${ws?`<span class="tag ws" title="${esc(wsTxt)}">${esc(wsTxt)}</span>`:""}${a.campaign_id&&campaignName(a.campaign_id)?`<span class="tag" title="Campagna Salesforce">${esc(campaignName(a.campaign_id))}</span>`:""}${ws&&ws.tema?`<span class="tag ws" title="Tema del workshop">Tema: ${esc(ws.tema)}</span>`:""}${ws&&ws.docente_nome?`<span class="tag ws" title="Docente di riferimento">Docente: ${esc(ws.docente_nome)}</span>`:""}${a.virtuale?`<span class="tag">Virtuale</span>`:""}<span class="badge ${esc(a.stato)}">${esc(statoLabel(a.stato))}</span>${queued?`<span class="badge coda">Da inviare</span>`:""}</div>
+    ${mgr?`<div class="c-or" title="${orEm?ttl(["Orientatore che ha svolto l'attività:",orTxt,orEm]):"Orientatore non indicato"}"><span class="lbl">Orientatore: </span>${esc(orTxt||"—")}</div>`:""}
+    <div class="c-rs" title="${ttl(rsTitle)}"><span class="lbl">Resp. area: </span>${esc(ecs.map(personName).join(", ")||"—")}</div>
+    <div class="c-wh" title="${esc(geo?geo+" · "+school:school)}">${geo?`<span class="wh-g">${esc(geo)}</span><span class="wh-s" aria-hidden="true">·</span>`:""}<b class="wh-n">${esc(school)}</b></div>
+    <div class="c-ty"><span class="tip" tabindex="0" title="${ttl(tip)}" data-tip="${ttl(tip)}" aria-describedby="${tid}"><span class="tag${isWs?' ws':''}">${esc(tagTxt)}</span></span><span class="sr-only" id="${tid}">${esc(tip.join("; "))}</span></div>
+    <div class="c-ar">${isWs?(area?`<span class="tag ws" title="${esc("Area: "+area)}">${esc(area)}</span>`:`<span class="nil" title="Area non indicata">—</span>`):""}</div>
     <div class="stud" title="Leads dichiarati">${a.n_studenti!=null?`<b>${esc(a.n_studenti)}</b><span>Leads</span>`:""}</div>
+    <div class="c-st"><span class="badge ${esc(a.stato)}">${esc(statoLabel(a.stato))}</span>${queued?`<span class="badge coda">Da inviare</span>`:""}</div>
     ${canEdit?`<div class="act-actions">${a.stato==='fissata'?`<button type="button" class="rowbtn ico done" data-act="done" aria-label="Segna come svolta l'attività: ${esc(label)}" title="Segna come svolta">${ICO.done}</button>`:""}<button type="button" class="rowbtn ico" data-act="edit" aria-label="Modifica l'attività: ${esc(label)}" title="Modifica">${ICO.edit}</button><button type="button" class="rowbtn ico" data-act="dup" aria-label="Duplica l'attività: ${esc(label)}" title="Duplica">${ICO.dup}</button>${a.stato!=='annullata'?`<button type="button" class="rowbtn ico cancel" data-act="cancel" aria-label="Annulla l'attività: ${esc(label)}" title="Annulla">${ICO.cancel}</button>`:""}</div>`:""}
   </div>`;
 }
@@ -1435,7 +1516,9 @@ function renderList(){
     document.getElementById("btnEmptyReset").onclick=resetFilters; document.getElementById("btnEmptyAll").onclick=()=>{ STATE.filters.fy="all"; renderAll(); };
     return;
   }
-  box.innerHTML=list.slice(0,SHOWN).map(actRowHtml).join("");
+  if(box.style&&box.style.setProperty) box.style.setProperty("--acols",actCols());   // le colonne di intestazione e righe sono le stesse
+  ACT_EC=new Map();
+  try{ box.innerHTML=actHeadHtml()+list.slice(0,SHOWN).map(actRowHtml).join(""); } finally { ACT_EC=null; }
   if(list.length>SHOWN){ more.style.display=""; more.textContent="Mostra altre attività ("+(list.length-SHOWN)+")"; }
 }
 /* ---- «Segna come svolta»: singola, selezionate o tutte le fissate (con conferma); mai cancellazioni, solo lo stato ---- */
