@@ -263,22 +263,42 @@ main.wide{max-width:1560px}
   .act-row .meta{flex:0 1 auto;min-width:0;justify-content:flex-end}
   .act-row .dt,.act-row .stud{flex:0 0 auto}
 }
+/* tonalita' dei cerchietti con le iniziali (orientatore e responsabile area): 10 coppie sfondo/testo per tema, --av0-bg/--av0-fg ... --av9-bg/--av9-fg.
+   Contrasto testo/sfondo >= 4.5:1 in ogni tema (verificato con script). Stile Apple: la pagina non ha regole proprie, vale la palette base chiaro/scuro.
+   Questo blocco sta PRIMA del blocco NABA generato da scripts/build-theme-naba.py (che riscrive tutto da "inline-font-naba:begin" in poi). */
+:root{--av0-bg:#CCF0DE;--av0-fg:#125433;--av1-bg:#CCEAF0;--av1-fg:#124954;--av2-bg:#CCDBF0;--av2-fg:#122D54;--av3-bg:#D2CCF0;--av3-fg:#1D1254;--av4-bg:#E4CCF0;--av4-fg:#3E1254;--av5-bg:#F0CCE4;--av5-fg:#54123E;--av6-bg:#F0CCD2;--av6-fg:#54121D;--av7-bg:#F0D8CC;--av7-fg:#542812;--av8-bg:#F0E5CC;--av8-fg:#544012;--av9-bg:#E4F0CC;--av9-fg:#3E5412}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){--av0-bg:#2C5942;--av0-fg:#CEF8E3;--av1-bg:#2C5159;--av1-fg:#CEF1F8;--av2-bg:#2C3F59;--av2-fg:#CEDFF8;--av3-bg:#332C59;--av3-fg:#D5CEF8;--av4-bg:#4A2C59;--av4-fg:#EACEF8;--av5-bg:#592C4A;--av5-fg:#F8CEEA;--av6-bg:#592C33;--av6-fg:#F8CED5;--av7-bg:#593B2C;--av7-fg:#F8DCCE;--av8-bg:#594B2C;--av8-fg:#F8EBCE;--av9-bg:#4A592C;--av9-fg:#EAF8CE}}
+:root[data-theme="dark"]{--av0-bg:#2C5942;--av0-fg:#CEF8E3;--av1-bg:#2C5159;--av1-fg:#CEF1F8;--av2-bg:#2C3F59;--av2-fg:#CEDFF8;--av3-bg:#332C59;--av3-fg:#D5CEF8;--av4-bg:#4A2C59;--av4-fg:#EACEF8;--av5-bg:#592C4A;--av5-fg:#F8CEEA;--av6-bg:#592C33;--av6-fg:#F8CED5;--av7-bg:#593B2C;--av7-fg:#F8DCCE;--av8-bg:#594B2C;--av8-fg:#F8EBCE;--av9-bg:#4A592C;--av9-fg:#EAF8CE}
+:root[data-style="naba"][data-theme="light"]{--av0-bg:#1A7045;--av0-fg:#FFFFFF;--av1-bg:#1D6C7C;--av1-fg:#FFFFFF;--av2-bg:#275BA5;--av2-fg:#FFFFFF;--av3-bg:#3C27A5;--av3-fg:#FFFFFF;--av4-bg:#7B27A5;--av4-fg:#FFFFFF;--av5-bg:#A5277B;--av5-fg:#FFFFFF;--av6-bg:#A5273C;--av6-fg:#FFFFFF;--av7-bg:#994B24;--av7-fg:#FFFFFF;--av8-bg:#785C1C;--av8-fg:#FFFFFF;--av9-bg:#506B19;--av9-fg:#FFFFFF}
+:root[data-style="naba"][data-theme="dark"]{--av0-bg:#53EA9E;--av0-fg:#0A0203;--av1-bg:#53D0EA;--av1-fg:#0A0203;--av2-bg:#609AEB;--av2-fg:#0A0203;--av3-bg:#9A89F0;--av3-fg:#0A0203;--av4-bg:#C677EE;--av4-fg:#0A0203;--av5-bg:#EC65BF;--av5-fg:#0A0203;--av6-bg:#EE7287;--av6-fg:#0A0203;--av7-bg:#EA8553;--av7-fg:#0A0203;--av8-bg:#EABC53;--av8-fg:#0A0203;--av9-bg:#B7EA53;--av9-fg:#0A0203}
 /* elenco attivita': UNA riga per attivita' (>= 900px: griglia con le stesse colonne dell'intestazione .act-head, variabile --acols impostata da renderList;
    sotto: due righe ordinate, senza intestazione). Le righe fiera (.fair-row) non usano .act-grid e restano com'erano. Solo token di tema, nessun colore fisso. */
 .act-head{display:none}
 .act-row.act-grid{gap:4px 12px;padding:8px 12px;align-items:center;flex-wrap:wrap}
 .act-grid>*{min-width:0}
 .act-row.act-grid .dt{min-width:0;font-size:12px;white-space:nowrap}
-.act-grid .c-or,.act-grid .c-rs{font-size:12.5px;color:var(--ink-soft);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.act-grid .lbl{color:var(--ink-soft)}
+.act-grid .c-or,.act-grid .c-rs{display:flex;align-items:center;font-size:12.5px;color:var(--ink-soft)}   /* niente overflow:hidden: il cerchietto ha il suo alone di focus e il suggerimento */
+.act-grid .lbl,.act-grid .av-n{display:none}   /* etichetta e nome per esteso compaiono solo sotto i 900px (la' c'e' spazio); a schermo largo restano il cerchietto, il title e il testo per screen reader */
 .act-grid .c-wh{display:flex;align-items:center;gap:.4em;font-size:13px}
-.act-grid .wh-g{flex:0 4 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;color:var(--ink-soft)}
+.act-grid .wh-g{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:12.5px;color:var(--ink-soft)}   /* la parte geografica e' la sola che si restringe (anche fino a sparire)... */
 .act-grid .wh-s{flex:none;color:var(--ink-soft)}
-.act-grid .wh-n{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:var(--ink)}
+.act-grid .wh-n{flex:0 0 auto;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-weight:700;color:var(--ink)}   /* ...il nome della scuola non si restringe mai, salvo da solo piu' largo della cella (allora «…») */
+.act-grid .wh-s~.wh-n{max-width:calc(100% - 16px)}   /* lascia il posto al separatore quando la parte geografica e' sparita */
 .act-grid .tip{position:relative;display:inline-block;max-width:100%;vertical-align:middle;border-radius:6px;cursor:help}
 .act-grid .tip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .act-grid .tip:focus-visible::after{content:attr(data-tip);position:absolute;left:0;top:calc(100% + 6px);z-index:40;width:max-content;min-width:180px;max-width:min(360px,80vw);white-space:pre-line;background:var(--ink);color:var(--paper);padding:8px 10px;border-radius:8px;font:500 12px/1.4 'Inter',sans-serif;box-shadow:var(--shadow-md)}
 .act-grid .tip .tag,.act-grid .c-ar .tag{display:block;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+/* tipo: sigla di 2-3 lettere (WS = workshop, accento; le altre neutre); l'etichetta per esteso (.tl) compare solo sotto i 900px */
+.act-grid .c-ty{display:flex;align-items:center;gap:8px}
+.act-grid .tag.sig{min-width:32px;text-align:center;padding:3px 7px;font-size:10.5px;letter-spacing:.06em;overflow:visible}
+.act-grid .tl{display:none;min-width:0;font-size:12.5px;color:var(--ink-soft)}
+/* persone: cerchietto con le iniziali; il colore viene dalla persona (classe av0..av9 = personTone) */
+.act-grid .av{position:relative;display:inline-flex;align-items:center;justify-content:center;flex:none;width:28px;height:28px;max-width:none;border-radius:50%;font:700 11px/1 'Inter',sans-serif;letter-spacing:.02em;text-transform:uppercase;cursor:help;background:var(--av0-bg);color:var(--av0-fg)}
+.act-grid .av0{background:var(--av0-bg);color:var(--av0-fg)}.act-grid .av1{background:var(--av1-bg);color:var(--av1-fg)}.act-grid .av2{background:var(--av2-bg);color:var(--av2-fg)}.act-grid .av3{background:var(--av3-bg);color:var(--av3-fg)}.act-grid .av4{background:var(--av4-bg);color:var(--av4-fg)}
+.act-grid .av5{background:var(--av5-bg);color:var(--av5-fg)}.act-grid .av6{background:var(--av6-bg);color:var(--av6-fg)}.act-grid .av7{background:var(--av7-bg);color:var(--av7-fg)}.act-grid .av8{background:var(--av8-bg);color:var(--av8-fg)}.act-grid .av9{background:var(--av9-bg);color:var(--av9-fg)}
+.act-grid .av.nil{background:transparent;border:1.5px dashed var(--line-strong);color:var(--ink-soft)}
+.act-grid .av.more{width:24px;height:24px;margin-left:-8px;font-size:10px;background:var(--surface-mute);color:var(--ink-soft);box-shadow:0 0 0 2px var(--surface)}
+.act-grid .av-n{min-width:0;margin-left:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .act-grid .c-ar{display:flex;min-width:0}
 .act-grid .c-ar .nil{color:var(--ink-soft)}
 .act-grid .c-st{display:flex;flex-wrap:wrap;gap:2px 4px;align-items:center}
@@ -291,6 +311,9 @@ main.wide{max-width:1560px}
   .act-grid .sel{order:0}.act-grid .dt{order:1}.act-grid .c-wh{order:2;flex:1 1 180px}.act-grid .c-st{order:3;flex:0 0 auto}.act-grid .act-actions{order:4}
   .act-grid .c-or{order:6}.act-grid .c-rs{order:7}.act-grid .c-ty{order:8;flex:0 1 auto}.act-grid .c-ar{order:9}.act-grid .stud{order:10;margin-left:auto}
   .act-grid .c-ar:empty{display:none}
+  .act-grid .lbl{display:inline;margin-right:6px}.act-grid .av-n{display:block;white-space:normal;overflow:visible}.act-grid .tl{display:block}   /* sotto i 900px i nomi per esteso vanno a capo invece di finire con «…» */
+  .act-grid .a-s{display:none}   /* area abbreviata: sotto i 900px il nome per esteso */
+  .act-grid .c-or,.act-grid .c-rs{min-width:0;max-width:100%}
 }
 @media(max-width:600px){
   .act-grid::before{display:none}
@@ -304,7 +327,8 @@ main.wide{max-width:1560px}
   .act-head>span{min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
   .act-head .r{text-align:right}
   .act-row.act-grid{display:grid;grid-template-columns:var(--acols);column-gap:8px;padding:6px 12px;min-height:44px}
-  .act-grid .lbl{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+  .act-head .h-av{letter-spacing:.04em;overflow:visible}
+  .act-grid .a-f{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}   /* area abbreviata: il nome per esteso resta per gli screen reader */
   .act-grid .c-ty{min-width:0}
   .act-row.act-grid .stud{flex-direction:column;align-items:flex-end;gap:0;justify-self:stretch}
   .act-row.act-grid .stud span{margin-top:2px}
@@ -815,7 +839,7 @@ main.wide{max-width:1560px}
     <div class="mbody">
       <div id="aMsg" class="note-box err" role="alert" tabindex="-1" style="display:none"></div>
       <div class="grid4">
-        <div class="field span2" id="fl-aOrient" style="display:none"><label for="aOrient">Orientatore <span class="req">*</span></label><select id="aOrient"></select><div class="fhint">Di chi è l'attività. Solo responsabile e admin possono scegliere.</div></div>
+        <div class="field span2" id="fl-aOrient" style="display:none"><label for="aOrient">Orientatore <span class="req">*</span></label><select id="aOrient"></select><div class="fhint">Indicare chi ha svolto l'attività.</div></div>
         <div class="field" id="fl-aData"><label for="aData">Data <span class="req">*</span></label><input id="aData" type="date" required></div>
         <div class="field" id="fl-aStato"><label for="aStato">Stato <span class="req">*</span></label><select id="aStato" required></select></div>
         <div class="field" id="fl-aTipo"><label for="aTipo">Tipo di attività <span class="req">*</span></label><select id="aTipo" required></select></div>
@@ -1446,14 +1470,67 @@ function areaEcs(areaId){
   const k=String(areaId); if(ACT_EC&&ACT_EC.has(k)) return ACT_EC.get(k);
   const r=currentEc(k,todayISO()); if(ACT_EC) ACT_EC.set(k,r); return r;
 }
+/* ---- persone e tipi in forma compatta: cerchietto con le iniziali (colore fisso per persona) e sigla del tipo ---- */
+// iniziali: prima lettera del nome + prima del cognome (stessa logica di ecInitials: prima e ultima parola dell'e-mail); con una sola parola, le prime 2 lettere
+function personInitials(email){
+  const w=personName(email).split(/\s+/).filter(Boolean).map(x=>Array.from(x));
+  if(!w.length) return "";
+  return (w.length>1?w[0][0]+w[w.length-1][0]:w[0].slice(0,2).join("")).toUpperCase();
+}
+// tonalita' 0..9 stabile per persona (FNV-1a sull'e-mail minuscola): la stessa persona ha sempre lo stesso colore; i colori sono i token --av0..--av9 di ogni tema
+const AV_TONES=10;
+function personTone(email){
+  const s=String(email==null?"":email).trim().toLowerCase(); let h=2166136261;
+  for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619)>>>0; }
+  return h%AV_TONES;
+}
+// cerchietto focusabile con lo stesso suggerimento del tag del tipo (.tip: title + data-tip mostrato anche col focus da tastiera); il testo per screen reader sta in un sr-only collegato con aria-describedby
+function avHtml(cls,initials,name,tid,tipLines,srText){
+  const t=ttl(tipLines);
+  return `<span class="tip av ${cls}" tabindex="0" role="img" aria-label="${esc(name)}" aria-describedby="${tid}" title="${t}" data-tip="${t}">${esc(initials)}</span><span class="sr-only" id="${tid}">${esc(srText)}</span>`;
+}
+// sigla del tipo: mappa esplicita per i tipi della tassonomia; per gli altri le iniziali dell'etichetta (max 3 lettere), estese se coincidono con un'altra sigla
+const TIPO_SIGLE={ORIENTAMENTI:"OR",ORIENTAMENTO_DOCENTE:"OD",SCUOLA_FIERA:"SF",WORKSHOP:"WS",ITALIA_ORIENTA:"IO"};
+function sigleCandidates(label){
+  const w=String(label==null?"":label).toUpperCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean).map(x=>Array.from(x));
+  if(!w.length) return ["?"];
+  const ini=w.map(x=>x[0]), c=[];
+  c.push(w.length>1?ini.slice(0,3).join(""):w[0].slice(0,2).join(""));
+  c.push(w[0].slice(0,2).concat(ini.slice(1)).slice(0,3).join(""));
+  c.push(w[0].slice(0,3).join(""));
+  if(w.length>1) c.push(w[0][0]+w[1].slice(0,2).join(""));
+  return c;
+}
+function tipoSigla(code){
+  if(code==null||code==="") return "—";
+  const known=new Map(taxList('tipo')), c0=String(code), codes=[...known.keys()];
+  if(!known.has(c0)) codes.push(c0);
+  const used=new Set(Object.values(TIPO_SIGLE)), out=new Map();
+  codes.forEach(c=>{ if(TIPO_SIGLE[c]) out.set(c,TIPO_SIGLE[c]); });
+  // le etichette piu' corte scelgono per prime: a parita' di sigla si estende quella piu' lunga
+  codes.filter(c=>!out.has(c)).sort((x,y)=>String(known.get(x)||x).length-String(known.get(y)||y).length).forEach(c=>{
+    const cands=sigleCandidates(known.get(c)||c); let s=cands.find(x=>!used.has(x));
+    for(let n=2;!s;n++){ const t=cands[0].slice(0,2)+n; if(!used.has(t)) s=t; }
+    used.add(s); out.set(c,s);
+  });
+  return out.get(c0);
+}
+// area lunga: sigla (iniziali delle parole, max 4 lettere) a schermo largo; il nome pieno resta nel suggerimento e per gli screen reader
+function areaShort(name){
+  const s=String(name==null?"":name).trim();
+  if(Array.from(s).length<=6) return s;
+  const w0=s.split(/[\s\-\/'’.,]+/).filter(Boolean).map(x=>Array.from(x)), w1=w0.filter(x=>x.length>1), w=w1.length>1?w1:w0;   // niente articoli e preposizioni di una lettera («e», «d'»)
+  return (w.length>1?w.map(x=>x[0]).join(""):w[0].slice(0,3).join("")).toUpperCase().split("").slice(0,4).join("");
+}
 // colonne: [selezione] Data [Orientatore, solo per chi vede tutti] Resp. area, Dove, Tipo, Area, Leads, Stato [pulsanti]; le stesse in actHeadHtml e actRowHtml
+// orientatore e resp. area sono cerchietti stretti; tutto lo spazio che avanza va a «Dove»
 function actCols(){
   const w=canWrite();
-  return [w?"20px":"","78px",isManager()?"minmax(60px,1.2fr)":"","minmax(60px,1.2fr)","minmax(104px,3fr)","minmax(84px,2fr)","minmax(50px,.8fr)","46px","80px",w?"146px":""].filter(Boolean).join(" ");
+  return [w?"20px":"","78px",isManager()?"44px":"","48px","minmax(150px,1fr)","56px","64px","46px","80px",w?"146px":""].filter(Boolean).join(" ");
 }
 function actHeadHtml(){
   const w=canWrite();
-  return `<div class="act-head" aria-hidden="true">${w?`<span></span>`:""}<span>Data</span>${isManager()?`<span>Orientatore</span>`:""}<span>Resp. area</span><span>Dove</span><span>Tipo</span><span>Area</span><span class="r">Leads</span><span>Stato</span>${w?`<span></span>`:""}</div>`;
+  return `<div class="act-head" aria-hidden="true">${w?`<span></span>`:""}<span>Data</span>${isManager()?`<span class="h-av" title="Orientatore">Orient.</span>`:""}<span class="h-av" title="Responsabile area">Resp.</span><span>Dove</span><span title="Tipo di attività">Tipo</span><span>Area</span><span class="r">Leads</span><span>Stato</span>${w?`<span></span>`:""}</div>`;
 }
 function actRowHtml(a){
   const ws=STATE.workshops[a.id];
@@ -1461,26 +1538,40 @@ function actRowHtml(a){
   // dove: Regione · Provincia · Citta' · Scuola (la scuola in grassetto, con «…» se manca spazio; il testo intero e' nel suggerimento)
   const geo=[a.regione,a.provincia?String(a.provincia).toUpperCase():"",a.citta].filter(Boolean).join(" · ");
   const school=a.school_name||"Scuola non indicata";
-  // tipo: un solo tag. Per il workshop e' «Workshop a Scuola · Design · 20 h» (modalità, corso, ore) al posto del tipo; il resto delle informazioni sta nel suggerimento del tag
+  // tipo: un chip con la SIGLA (WS = workshop, in accento; le altre neutre). Il nome esteso, «Workshop a Scuola · Design · 20 h» (modalità, corso, ore) per il workshop e il resto stanno nel suggerimento; sotto i 900px la sigla e' seguita dall'etichetta intera
   const wsTxt=ws?[taxLabel('workshop_modalita',ws.modalita)||"Workshop",taxLabel('corso',ws.corso),ws.ore_lezione!=null?(String(ws.ore_lezione).replace(".",",")+" h"):""].filter(Boolean).join(" · "):"";
   const tipoLab=taxLabel('tipo',a.tipo)||a.tipo||"—";
   const tagTxt=(isWs&&ws)?wsTxt:tipoLab;
   const area=areaName(a.area_id), camp=a.campaign_id?campaignName(a.campaign_id):"";
   const tip=["Tipo: "+tipoLab].concat(ws?["Workshop: "+wsTxt]:[],camp?["Campagna: "+camp]:[],ws&&ws.tema?["Tema: "+ws.tema]:[],ws&&ws.docente_nome?["Docente: "+ws.docente_nome]:[],a.virtuale?["Virtuale"]:[],area?["Area: "+area]:[]);
-  const tid="tip-"+esc(a.id);
+  const tid="tip-"+esc(a.id), sig=tipoSigla(a.tipo), tipT=ttl(tip);
   // responsabile dell'area = referente (EC) in carica, dalle assegnazioni area ↔ orientatore (le stesse della scheda Obiettivi)
   const ecs=areaEcs(a.area_id);
-  const rsTitle=!a.area_id?["Responsabile area: area non indicata"]:(ecs.length?["Responsabile area"+(area?" ("+area+")":"")+":"].concat(ecs.map(e=>personName(e)+" ("+e+")")):["Responsabile area: nessun referente assegnato"+(area?" a "+area:"")]);
+  const rsHead="Responsabile area"+(area?" ("+area+")":"")+":";
+  const rsTitle=!a.area_id?["Responsabile area: area non indicata"]:(ecs.length?[rsHead].concat(ecs.map(e=>personName(e)+" ("+e+")")):["Responsabile area: nessun referente assegnato"+(area?" a "+area:"")]);
   const orEm=a.orientatore_email, orTxt=personName(orEm);
+  // orientatore e responsabile: cerchietti con le iniziali; nome per esteso e e-mail nel suggerimento, in aria-label e nel testo per screen reader (il nome accanto compare solo sotto i 900px)
+  const idE=esc(a.id);
+  const orAv=orTxt?avHtml("av"+personTone(orEm),personInitials(orEm),orTxt,"or-"+idE,["Orientatore che ha svolto l'attività:",orTxt,orEm],"Orientatore: "+orTxt+" ("+orEm+")")
+    :avHtml("nil","—","Orientatore non indicato","or-"+idE,["Orientatore non indicato"],"Orientatore non indicato");
+  const ecNames=ecs.map(personName);
+  const rsAv=!ecs.length?avHtml("nil","—",!a.area_id?"Area non indicata":"Nessun referente assegnato","rs-"+idE,rsTitle,rsTitle.join(" "))
+    :ecs.length===1?avHtml("av"+personTone(ecs[0]),personInitials(ecs[0]),ecNames[0],"rs-"+idE,rsTitle,rsTitle.join(" "))
+    :avHtml("av"+personTone(ecs[0]),personInitials(ecs[0]),ecNames[0],"rs-"+idE,[rsHead,ecNames[0]+" ("+ecs[0]+")"],"Responsabile area: "+ecNames[0]+" ("+ecs[0]+")")
+      +avHtml("more","+"+(ecs.length-1),"Altri "+(ecs.length-1)+" responsabili: "+ecNames.slice(1).join(", "),"rm-"+idE,rsTitle,rsTitle.join(" "));
+  const arSh=areaShort(area), arT=esc("Area: "+area);
+  const arHtml=!isWs?"":!area?`<span class="nil" title="Area non indicata">—</span>`
+    :arSh===area?`<span class="tag ws" title="${arT}">${esc(area)}</span>`
+    :`<span class="tip" tabindex="0" title="${arT}" data-tip="${arT}"><span class="tag ws"><span class="a-s" aria-hidden="true">${esc(arSh)}</span><span class="a-f">${esc(area)}</span></span></span>`;
   const label=fmtD(a.data)+", "+(a.school_name||"senza scuola");
   return `<div class="act-row act-grid${a.stato==='annullata'?' annull':''}" data-id="${esc(a.id)}">
     ${canEdit?`<input type="checkbox" class="sel" data-sel="1" aria-label="Seleziona l'attività: ${esc(label)}"${SEL.has(a.id)?" checked":""}>`:""}
     <div class="dt">${esc(fmtD(a.data))}</div>
-    ${mgr?`<div class="c-or" title="${orEm?ttl(["Orientatore che ha svolto l'attività:",orTxt,orEm]):"Orientatore non indicato"}"><span class="lbl">Orientatore: </span>${esc(orTxt||"—")}</div>`:""}
-    <div class="c-rs" title="${ttl(rsTitle)}"><span class="lbl">Resp. area: </span>${esc(ecs.map(personName).join(", ")||"—")}</div>
+    ${mgr?`<div class="c-or"><span class="lbl" aria-hidden="true">Orientatore: </span>${orAv}<span class="av-n" aria-hidden="true">${esc(orTxt||"Non indicato")}</span></div>`:""}
+    <div class="c-rs"><span class="lbl" aria-hidden="true">Resp. area: </span>${rsAv}<span class="av-n" aria-hidden="true">${esc(ecNames.join(", ")||(a.area_id?"Nessun referente":"Area non indicata"))}</span></div>
     <div class="c-wh" title="${esc(geo?geo+" · "+school:school)}">${geo?`<span class="wh-g">${esc(geo)}</span><span class="wh-s" aria-hidden="true">·</span>`:""}<b class="wh-n">${esc(school)}</b></div>
-    <div class="c-ty"><span class="tip" tabindex="0" title="${ttl(tip)}" data-tip="${ttl(tip)}" aria-describedby="${tid}"><span class="tag${isWs?' ws':''}">${esc(tagTxt)}</span></span><span class="sr-only" id="${tid}">${esc(tip.join("; "))}</span></div>
-    <div class="c-ar">${isWs?(area?`<span class="tag ws" title="${esc("Area: "+area)}">${esc(area)}</span>`:`<span class="nil" title="Area non indicata">—</span>`):""}</div>
+    <div class="c-ty"><span class="tip" tabindex="0" role="img" aria-label="${esc(tipoLab)}" title="${tipT}" data-tip="${tipT}" aria-describedby="${tid}"><span class="tag sig${isWs?' ws':''}">${esc(sig)}</span></span><span class="tl" aria-hidden="true">${esc(tagTxt)}</span><span class="sr-only" id="${tid}">${esc(tip.join("; "))}</span></div>
+    <div class="c-ar">${arHtml}</div>
     <div class="stud" title="Leads dichiarati">${a.n_studenti!=null?`<b>${esc(a.n_studenti)}</b><span>Leads</span>`:""}</div>
     <div class="c-st"><span class="badge ${esc(a.stato)}">${esc(statoLabel(a.stato))}</span>${queued?`<span class="badge coda">Da inviare</span>`:""}</div>
     ${canEdit?`<div class="act-actions">${a.stato==='fissata'?`<button type="button" class="rowbtn ico done" data-act="done" aria-label="Segna come svolta l'attività: ${esc(label)}" title="Segna come svolta">${ICO.done}</button>`:""}<button type="button" class="rowbtn ico" data-act="edit" aria-label="Modifica l'attività: ${esc(label)}" title="Modifica">${ICO.edit}</button><button type="button" class="rowbtn ico" data-act="dup" aria-label="Duplica l'attività: ${esc(label)}" title="Duplica">${ICO.dup}</button>${a.stato!=='annullata'?`<button type="button" class="rowbtn ico cancel" data-act="cancel" aria-label="Annulla l'attività: ${esc(label)}" title="Annulla">${ICO.cancel}</button>`:""}</div>`:""}
