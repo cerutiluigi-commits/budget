@@ -1658,7 +1658,8 @@ const PM_RANGO=Object.assign(Object.create(null),{none:0,proprie:1,centri:1,all:
 const PM_CENTRO_STD="righe il cui centro di costo è tra quelli assegnati alla persona (Utenti → Centri di costo)";
 const PM_CENTRO_TIPO="il centro di costo si ricava dalla tipologia dell'attività: «Test» ed «Eventi PG» = 6400, tutte le altre = 6000";
 const PM_CENTRO_VISTA="righe della vista il cui centro di costo è tra quelli assegnati alla persona";
-// t = nome tecnico, solo = solo lettura (nonApp = perché le altre operazioni non si scelgono), own/centro = significato
+// t = nome tecnico, solo = solo lettura, soloOp = oggetto logico con una sola operazione (es. «scrittura»; dipende = oggetto
+// che serve leggere per vedere il risultato), nonApp = perché le altre operazioni non si scelgono, own/centro = significato
 // dei livelli «proprie»/«centri» (un livello compare nei menu solo se l'oggetto ha la relativa regola)
 const PM_OGGETTI=[
   {t:"bdg_expenses",tipo:"tabella",d:"Movimenti del Budget",centro:PM_CENTRO_STD,nota:"Spese e ordini registrati nel Budget. Il collegamento Docenti → Budget scrive qui con la sessione di chi chiude il mese."},
@@ -1676,16 +1677,20 @@ const PM_OGGETTI=[
   {t:"bdg_travelers",tipo:"tabella",d:"Viaggiatori di Spese EC (persone, email, gruppo)",own:"il proprio viaggiatore (stessa email) e i colleghi dello stesso gruppo",nota:"Email e gruppo di un viaggiatore le cambia solo chi ha «Tutte le righe» in Scrittura (di norma l'admin): lo impone il database."},
   {t:"bdg_travel_trips",tipo:"tabella",d:"Trasferte di Spese EC",own:"le trasferte del proprio viaggiatore e dei colleghi dello stesso gruppo"},
   {t:"bdg_travel_items",tipo:"tabella",d:"Voci delle trasferte di Spese EC",own:"le voci delle trasferte proprie o dei colleghi di gruppo",nota:"Il tasto «Elimina» richiede la Cancellazione; con meno di quella si può solo annullare."},
-  {t:"bdg_field_activities",tipo:"tabella",d:"Field Activities: attività sul territorio (scuole, orientamenti, workshop)",own:"le attività in cui l'orientatore è la propria email di login",nota:"Niente costi, importi o RDA. Chi ha «Solo le proprie righe» vede e modifica solo le sue attività; l'orientatore non le cancella: le annulla (è una modifica, quindi Scrittura)."},
-  {t:"bdg_field_workshops",tipo:"tabella",d:"Field Activities: dati del workshop (sede, corso, docente, ore lezione)",own:"i workshop collegati alle proprie attività",nota:"Il workshop è una parte facoltativa dell'attività: segue sempre i permessi dell'attività a cui appartiene. Non contiene compensi."},
+  {t:"bdg_field_activities",tipo:"tabella",d:"Field Activities: attività sul territorio (scuole, orientamenti, workshop)",own:"le attività di cui l'orientatore è titolare (la propria email di login) e quelle delle aree in cui ha un'assegnazione in corso (è il referente, EC)",nota:"Niente costi, importi o RDA. Chi ha «Solo le proprie righe» vede e modifica le attività di cui è titolare e quelle delle sue aree; in sola lettura vede anche quelle che ha svolto lui (esecutore, con la sua e-mail) fuori dalla sua area. Il titolare di una riga lo cambia solo l'EC fra righe della sua area. L'orientatore non cancella: annulla (è una modifica, quindi Scrittura)."},
+  {t:"bdg_field_workshops",tipo:"tabella",d:"Field Activities: dati del workshop (sede, corso, docente, ore lezione)",own:"i workshop delle attività che l'orientatore può modificare (proprie e delle sue aree); in sola lettura anche quelli svolti fuori area",nota:"Il workshop è una parte facoltativa dell'attività: segue sempre i permessi dell'attività a cui appartiene. Non contiene compensi."},
   {t:"bdg_field_taxonomies",tipo:"tabella",d:"Field Activities: elenchi dei valori (tipi di attività, classi, sedi, corsi)",nota:"Le voci proposte nei menu a tendina del modulo Field Activities."},
   {t:"bdg_field_areas",tipo:"tabella",d:"Field Activities: aree commerciali",nota:"Le aree in cui è divisa l'attività sul territorio."},
   {t:"bdg_field_area_provinces",tipo:"tabella",d:"Field Activities: province di ogni area (con regione)",nota:"Serve a proporre regione e area quando si sceglie la provincia."},
-  {t:"bdg_field_area_assignments",tipo:"tabella",d:"Field Activities: assegnazione delle aree agli orientatori",nota:"Quale orientatore segue quale area, in quale periodo."},
+  {t:"bdg_field_area_cities",tipo:"tabella",d:"Field Activities: città con un'area propria (es. Napoli città)",nota:"Quando una città appartiene a un'area diversa da quella della sua provincia, vince la città: oggi è il caso di Napoli città. Serve a proporre area e regione quando si scelgono provincia e città. La gestiscono admin e responsabile; la leggono anche gli orientatori."},
+  {t:"bdg_field_area_assignments",tipo:"tabella",d:"Field Activities: assegnazione delle aree agli orientatori",nota:"Quale orientatore è il referente (EC) di quale area, in quale periodo. Un'assegnazione in corso fa vedere e modificare all'orientatore tutte le attività di quell'area: chi può scriverla decide quindi chi vede cosa."},
   {t:"bdg_field_campaigns",tipo:"tabella",d:"Field Activities: campagne (visite e workshop)",nota:"Le campagne dell'anno, eventualmente legate a un'area."},
   {t:"bdg_field_fairs",tipo:"tabella",d:"Field Activities: calendario delle fiere",nota:"Fiere con date di inizio e fine. Tutti gli orientatori le leggono; le gestiscono admin e responsabile."},
   {t:"bdg_field_fair_areas",tipo:"tabella",d:"Field Activities: aree interessate da ogni fiera"},
   {t:"bdg_field_fair_attendance",tipo:"tabella",d:"Field Activities: partecipazione degli orientatori alle fiere",own:"la partecipazione registrata con la propria email",nota:"Previsto, presente o assente, per ogni orientatore e fiera."},
+  {t:"bdg_field_fair_staff",tipo:"tabella",d:"Field Activities: chi ha coperto ogni fiera (staff delle fiere)",nota:"Per ogni fiera, quali persone (orientatori, tutor, docenti, collaboratori) l'hanno coperta e con quale ruolo: serve al riepilogo delle fiere. Come il calendario fiere: la scrivono admin e responsabile, la leggono anche gli orientatori (il docente di norma no)."},
+  {t:"bdg_field_people",tipo:"tabella",d:"Field Activities: anagrafica delle persone (chi svolge le attività)",nota:"Un'unica anagrafica di orientatori, tutor, alumni, collaboratori e docenti: serve a indicare chi ha svolto un'attività («Chi ha svolto») e chi ha coperto una fiera. La leggono admin, responsabile e orientatore; la modificano e la cancellano admin e responsabile. L'e-mail, che collega la persona al suo accesso, la imposta solo chi ha «Tutte le righe» in Scrittura. Chi può aggiungere una persona nuova si decide nella riga successiva."},
+  {t:"bdg_field_people_insert",tipo:"tabella",d:"Field Activities: aggiungere una persona nuova all'anagrafica",soloOp:"scrittura",nonApp:"Non si sceglie: conta solo la Scrittura",dipende:"bdg_field_people",nota:"Voce speciale: decide solo chi può AGGIUNGERE una persona nuova dal modulo (ad esempio un tutor che non ha un accesso). Conta solo la Scrittura: Lettura e Cancellazione non hanno effetto. Un orientatore può aggiungere persone ma sempre senza e-mail; modificare o cancellare quelle già presenti resta deciso dalla riga «anagrafica delle persone». Senza Scrittura qui, il ruolo può solo scegliere persone già in elenco; per vedere la persona appena aggiunta serve anche la Lettura sull'anagrafica."},
   {t:"bdg_v_budget_allocations",tipo:"vista",d:"Stime del Budget da Spese EC",solo:true,nonApp:"Vista di sola lettura",centro:PM_CENTRO_VISTA,nota:"Le trasferte previste che il Budget mostra come stime. Segue il livello di Lettura."},
   {t:"bdg_v_budget_docenti_allocations",tipo:"vista",d:"Stime del Budget da Docenti",solo:true,nonApp:"Vista di sola lettura",centro:PM_CENTRO_VISTA,nota:"Le attività dei docenti non ancora a RDA che il Budget mostra come stime. Segue il livello di Lettura."}
 ];
@@ -1706,7 +1711,7 @@ const PM_STRUMENTI={
     serveScheda:{scuole:[["bdg_schools","lettura","l'elenco delle scuole risulterebbe vuoto"]],chiusura:[["bdg_teacher_rda","lettura","le RDA risulterebbero vuote"],["bdg_expenses","scrittura","la chiusura non potrebbe scrivere i movimenti nel Budget"]],log:[["bdg_audit_log","lettura","il registro delle modifiche risulterebbe vuoto"]]}},
   field:{nome:"Field Activities",
     schede:{attivita:"Le mie attività"},
-    serve:[["bdg_field_activities","lettura","le attività risulterebbero vuote"],["bdg_field_workshops","lettura","i dati dei workshop non comparirebbero"],["bdg_field_taxonomies","lettura","i menu di tipo, classe, sede e corso risulterebbero vuoti"],["bdg_field_area_provinces","lettura","regione e area non verrebbero proposte dalla provincia"],["bdg_schools","lettura","la ricerca delle scuole non troverebbe nulla (resterebbe solo il testo libero)"]],
+    serve:[["bdg_field_activities","lettura","le attività risulterebbero vuote"],["bdg_field_workshops","lettura","i dati dei workshop non comparirebbero"],["bdg_field_taxonomies","lettura","i menu di tipo, classe, sede e corso risulterebbero vuoti"],["bdg_field_area_provinces","lettura","regione e area non verrebbero proposte dalla provincia"],["bdg_schools","lettura","la ricerca delle scuole non troverebbe nulla (resterebbe solo il testo libero)"],["bdg_field_people","lettura","l'elenco «Chi ha svolto» risulterebbe vuoto e l'anagrafica delle persone non sarebbe consultabile"],["bdg_field_area_cities","lettura","le città con un'area propria (es. Napoli città) non verrebbero riconosciute: l'area si proporrebbe solo dalla provincia"],["bdg_field_areas","lettura","le aree non comparirebbero nei menu"],["bdg_field_area_assignments","lettura","non si vedrebbe chi è il referente di ogni area"],["bdg_field_campaigns","lettura","le campagne non comparirebbero"],["bdg_field_fairs","lettura","il calendario delle fiere risulterebbe vuoto"],["bdg_field_fair_staff","lettura","non si vedrebbe chi ha coperto le fiere"]],
     serveScheda:{}}
 };
 
@@ -1715,7 +1720,8 @@ function pmNew(){ return {base:{},tabVis:null,tabVisErr:"",extra:[],open:new Set
 function pmReset(){ PM=null; PM_TOK++; }
 function pmDirty(){ return !!(PM && Object.keys(PM.draft).length) || !!(PV && Object.keys(PV.draft).length); }
 function pmOgg(t){ return PM_OGGETTI.find(o=>o.t===t)||null; }
-function pmOpsDi(o){ return o.solo ? PM_OPS.filter(x=>x.id==="lettura") : PM_OPS; }
+// operazioni che si scelgono davvero: solo la lettura per le viste (solo), una sola operazione per gli oggetti logici (soloOp)
+function pmOpsDi(o){ return o.soloOp ? PM_OPS.filter(x=>x.id===o.soloOp) : o.solo ? PM_OPS.filter(x=>x.id==="lettura") : PM_OPS; }
 // livelli che hanno senso per l'oggetto: «proprie» solo con own_rule, «centri» solo con centro_rule
 function pmLivelliOk(o){ return PM_ORDINE.filter(l=>l==="none"||l==="all"||(l==="proprie"&&!!o.own)||(l==="centri"&&!!o.centro)); }
 function pmBase(t,r){ return PM.base[t+"|"+r] || {lettura:"none",scrittura:"none",cancellazione:"none",updated_at:null,updated_by:null,exists:false}; }
@@ -1816,13 +1822,26 @@ function pmAvvisi(){
   };
   const prima=calcola(false), dopo=calcola(true);
   dopo.forEach((v,id)=>out.push({nuovo:!prima.has(id),html:pmAvvisoHtml(v)}));
-  pmCambi().forEach(c=>{
+  const cambi=pmCambi();
+  cambi.forEach(c=>{
+    if(c.o.soloOp) return; // oggetto logico (es. aggiungere una persona): vedi il controllo sulla dipendenza più sotto
     const lett=pmLvEff(c.o,c.r.id,"lettura",true), scri=pmLvEff(c.o,c.r.id,"scrittura",true), canc=pmLvEff(c.o,c.r.id,"cancellazione",true);
     const senzaLettura=lett==="none";
     const scrive=scri!=="none" || canc!=="none";
     if(senzaLettura && scrive) out.push({nuovo:true,html:`<b>${esc(c.r.nome)}</b> · su «${esc(c.o.d)}» può scrivere o cancellare ma non leggere: le app rileggono i dati dopo ogni salvataggio, quindi non funzionerebbe come atteso.`});
     // scrive o cancella su più righe di quante ne legge (es. legge i propri centri e scrive su tutti): le righe fuori dalla lettura non le rivedrebbe
     else if(!senzaLettura && (PM_RANGO[scri]>PM_RANGO[lett] || PM_RANGO[canc]>PM_RANGO[lett])) out.push({nuovo:true,html:`<b>${esc(c.r.nome)}</b> · su «${esc(c.o.d)}» può scrivere o cancellare su più righe di quante ne legge (lettura: ${esc(PM_LIVELLI[lett])}): le righe scritte fuori dalla lettura non comparirebbero più.`});
+  });
+  // oggetto logico con dipendenza (aggiungere una persona → leggere l'anagrafica): se la bozza tocca l'uno o l'altro e il ruolo
+  // può aggiungere ma non leggere, la persona appena aggiunta non tornerebbe dal database e non comparirebbe in elenco
+  PM_OGGETTI.filter(o=>o.soloOp&&o.dipende).forEach(o=>{
+    const dip=pmOgg(o.dipende); if(!dip) return;
+    PM_RUOLI.forEach(r=>{
+      if(r.id==="admin") return;
+      if(!cambi.some(c=>c.r.id===r.id && (c.o.t===o.t||c.o.t===dip.t))) return;
+      if(pmLvEff(o,r.id,o.soloOp,true)!=="none" && pmLvEff(dip,r.id,"lettura",true)==="none")
+        out.push({nuovo:true,html:`<b>${esc(r.nome)}</b> · può aggiungere persone («${esc(o.d)}») ma non leggere «${esc(dip.d)}»: dopo il salvataggio la persona nuova non tornerebbe dal database e non comparirebbe in «Chi ha svolto».`});
+    });
   });
   out.sort((a,b)=>(b.nuovo?1:0)-(a.nuovo?1:0));
   return out;
@@ -1867,11 +1886,12 @@ function pmDettaglioHtml(o){
 // riepilogo della riga (chi legge) e marcatori di bozza, senza ridisegnare la tabella (così il focus resta dov'è)
 function pmAggiornaRiga(o){
   const riga=document.getElementById("pm-r-"+o.t); if(!riga) return;
+  const opChi=o.soloOp||"lettura"; // per gli oggetti logici (es. aggiungere una persona) conta l'unica operazione che si sceglie
   const chi=PM_RUOLI.map(r=>{
-    const lv=pmLvEff(o,r.id,"lettura",true);
+    const lv=pmLvEff(o,r.id,opChi,true);
     return lv==="none" ? null : r.nome+(lv==="proprie"?" (proprie)":lv==="centri"?" (centri)":"");
   }).filter(Boolean);
-  riga.querySelector('[data-pm="chi"]').textContent = chi.length ? chi.join(" · ") : "Nessuno";
+  riga.querySelector('[data-pm="chi"]').textContent = (o.soloOp?"Possono aggiungere: ":"")+(chi.length ? chi.join(" · ") : "Nessuno");
   let n=0;
   PM_RUOLI.forEach(r=>{
     if(r.id==="admin") return;
