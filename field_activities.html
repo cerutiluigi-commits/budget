@@ -468,7 +468,14 @@ main.wide{max-width:1560px}
 .mchips{display:flex;gap:6px;flex-wrap:wrap;align-items:center}
 .mchip{border:1px solid var(--line-strong);border-radius:999px;padding:4px 11px;font-size:12px;background:var(--surface);color:var(--ink);cursor:pointer}
 .mchip.on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent-ink);font-weight:600;box-shadow:inset 0 0 0 1px var(--accent)}
-.mbody.mbody-map{display:grid;grid-template-columns:minmax(240px,1fr) minmax(360px,560px);gap:16px;align-items:start}
+.subtabs{display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid var(--line);margin:4px 0 14px}
+.subtabs button{border:0;border-bottom:3px solid transparent;background:none;padding:9px 14px;font:inherit;font-size:13.5px;font-weight:600;color:var(--ink-soft);cursor:pointer;margin-bottom:-1px}
+.subtabs button:hover{color:var(--ink)}
+.subtabs button.on{color:var(--accent-ink);border-bottom-color:var(--accent)}
+.rsub{display:none}
+.rsub.on{display:block}
+.mbody.mbody-map{display:grid;grid-template-columns:minmax(220px,1fr) minmax(0,1.3fr);gap:16px;align-items:start}
+.mbody.mbody-map>*{min-width:0}
 @media(max-width:820px){.mbody.mbody-map{grid-template-columns:1fr}}
 .mmap svg{width:100%;height:auto;max-height:620px;display:block}
 .mmap path{stroke:var(--surface);stroke-width:.6;cursor:pointer}
@@ -477,7 +484,8 @@ main.wide{max-width:1560px}
 .mmap text{font:700 11px 'JetBrains Mono',monospace;pointer-events:none;fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
 .mtab-w{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:6px}
 .mtab{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
-.mtab th,.mtab td{padding:6px 8px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+.mtab th,.mtab td{padding:6px 6px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
+.mtab thead th{white-space:normal;line-height:1.2;vertical-align:bottom}
 .mtab .l{text-align:left}
 .mtab thead th{position:sticky;top:0;background:var(--surface-mute);z-index:1;font-size:10.5px;text-transform:uppercase;letter-spacing:.04em;color:var(--ink-soft);font-weight:600}
 .mtab thead th button{border:0;background:none;font:inherit;color:inherit;text-transform:inherit;letter-spacing:inherit;cursor:pointer;padding:0;display:inline-flex;gap:3px;align-items:center}
@@ -493,9 +501,9 @@ main.wide{max-width:1560px}
 .mtab .num{font-variant-numeric:tabular-nums}
 .mtab .obj{color:var(--accent-ink)}
 .mtab tfoot th,.mtab tfoot td{position:sticky;bottom:0;background:var(--surface-mute);font-weight:700;border-bottom:0;border-top:2px solid var(--line-strong)}
-.mn2{min-width:84px}
-.mp{min-width:130px}
-.mn2 .bar,.mp .pbar{display:inline-block;vertical-align:middle;width:44px;height:7px;background:var(--surface-mute);border-radius:4px;margin-right:6px;overflow:hidden}
+.mn2{min-width:64px}
+.mp{min-width:96px}
+.mn2 .bar,.mp .pbar{display:inline-block;vertical-align:middle;width:30px;height:7px;background:var(--surface-mute);border-radius:4px;margin-right:6px;overflow:hidden}
 .mtab tfoot .bar{display:none}
 .mn2 .bar i,.mp .pbar i{display:block;height:100%;background:var(--accent);border-radius:4px}
 .mp.mid .pbar i{background:var(--warn)}
@@ -823,6 +831,7 @@ main.wide{max-width:1560px}
         <div class="fld"><label for="fRegione">Regione</label><select id="fRegione"></select></div>
         <div class="fld"><label for="fProvincia">Provincia</label><select id="fProvincia"></select></div>
         <div class="fld"><label for="fScuola">Scuola</label><input id="fScuola" type="search" placeholder="Nome della scuola" autocomplete="off"></div>
+        <div class="fld fwide" id="fGrpBox" style="display:none"><label for="fGrp">Gruppo / Orientatore</label><select id="fGrp"></select></div>
         <div class="fld fwide" id="fOrientBox" style="display:none"><label for="fOrient">Orientatore</label><select id="fOrient"></select></div>
         <div class="fld fspan2" id="sortBox"><label for="sKey1">Ordina per</label>
           <div class="sorts" role="group" aria-label="Criteri di ordinamento: fino a tre, in ordine di importanza">
@@ -877,15 +886,18 @@ main.wide{max-width:1560px}
         <div class="fld"><label for="rTipo">Tipo</label><select id="rTipo"></select></div>
         <div class="fld"><label for="rRegione">Regione</label><select id="rRegione"></select></div>
         <div class="fld"><label for="rArea">Area</label><select id="rArea"></select></div>
+        <div class="fld" id="rGrpBox" style="display:none"><label for="rGrp">Gruppo / Orientatore</label><select id="rGrp"></select></div>
         <div class="fld" id="rOrientBox" style="display:none"><label for="rOrient">Orientatore</label><select id="rOrient"></select></div>
         <div class="fld" style="align-self:end"><button class="btn ghost" id="rReset" type="button" style="width:100%">Azzera filtri</button></div>
       </div>
     </div>
     <div class="summary" id="repSummary" aria-live="polite"></div>
-    <div id="repProg"></div>
-    <div class="kpis" id="repKpi" aria-live="polite"></div>
-    <div id="repMap"></div>
-    <div id="repTables"></div>
+    <div class="subtabs" id="repSubtabs" role="tablist" aria-label="Analisi del reporting"></div>
+    <div class="rsub" id="rs-map" role="tabpanel"><div id="repMap"></div></div>
+    <div class="rsub" id="rs-camp" role="tabpanel"><div id="repCamp"></div></div>
+    <div class="rsub" id="rs-prog" role="tabpanel"><div id="repProg"></div></div>
+    <div class="rsub" id="rs-fiere" role="tabpanel"><div id="repFiere"></div></div>
+    <div class="rsub" id="rs-att" role="tabpanel"><div class="kpis" id="repKpi" aria-live="polite"></div><div id="repTables"></div></div>
   </section>
 
   <!-- CALENDARIO FIERE: sola lettura per tutti i ruoli abilitati -->
@@ -1319,8 +1331,8 @@ function errText(error){
 
 /* ---- stato (cache locale: solo dell'utente collegato) ---- */
 // people, areaCities, fairStaff e v4 sono le tabelle/colonne della versione 4 del database (migrazioni 026-030): vuote e "non disponibili" finche' il database non e' aggiornato
-function seed(){ return {user:null,appUsers:{},tabVisibility:{},activities:[],workshops:{},taxonomies:[],areas:[],provinces:[],fairs:[],fairAreas:[],assignments:[],campaigns:[],people:[],areaCities:[],fairStaff:[],v4:{},filters:defaultFilters(),at:null}; }
-function defaultFilters(){ return {q:"",fy:String(fyOfISO(todayISO())),from:"",to:"",stato:"",tipo:"",regione:"",provincia:"",scuola:"",orient:"",sort:"desc"}; }
+function seed(){ return {user:null,appUsers:{},tabVisibility:{},activities:[],workshops:{},taxonomies:[],areas:[],provinces:[],fairs:[],fairAreas:[],assignments:[],campaigns:[],people:[],areaCities:[],fairStaff:[],travelers:[],v4:{},filters:defaultFilters(),at:null}; }
+function defaultFilters(){ return {q:"",fy:String(fyOfISO(todayISO())),from:"",to:"",stato:"",tipo:"",regione:"",provincia:"",scuola:"",grp:"",orient:"",sort:"desc"}; }
 function load(){
   try{ const s=JSON.parse(localStorage.getItem(LS_KEY)||"null"); if(s&&typeof s==="object"&&!Array.isArray(s)){ const b=seed(); for(const k of Object.keys(b)) if(s[k]!==undefined) b[k]=s[k]; b.filters=Object.assign(defaultFilters(),b.filters||{}); return b; } }catch(e){}
   return seed();
@@ -1422,6 +1434,29 @@ function isMissingErr(e){
 function v4(k){ return !!(STATE.v4&&STATE.v4[k]==="ok"); }          // k: people | cities | staff | esec
 function isAdminRole(){ return effectiveRoles().includes('admin'); }
 function normalizePerson(x){ return {id:x.id,tipo:x.tipo||"",nome:String(x.nome||"").trim(),cognome:String(x.cognome||"").trim(),email:x.email?String(x.email).toLowerCase():null,attivo:x.attivo!==false,updated_at:x.updated_at||null}; }
+function normalizeTraveler(x){ return {id:x.id,nome:String(x.nome||"").trim(),email:x.email?String(x.email).trim().toLowerCase():null,gruppo:String(x.gruppo||"").trim(),attivo:x.attivo!==false}; }
+// riga di bdg_travelers (nome, gruppo) di un'e-mail
+function travelerOf(email){ const e=String(email==null?"":email).trim().toLowerCase(); if(!e) return null; return (STATE.travelers||[]).find(t=>t.email===e)||null; }
+// nome e cognome di una persona: dall'anagrafica dei viaggiatori, poi dalle persone di Field, altrimenti ricavato dall'e-mail (mai l'e-mail intera)
+function nameOfEmail(email){
+  const e=String(email==null?"":email).trim().toLowerCase(); if(!e) return "";
+  const t=travelerOf(e); if(t&&t.nome) return t.nome;
+  return ecLabelRaw(e);
+}
+/* ---- livello Gruppo/Orientatore: chi ha un gruppo (bdg_travelers.gruppo) conta come il gruppo, gli altri come la singola persona ----
+   Chiave: "g:<gruppo>" oppure "o:<e-mail>". Etichetta: nome del gruppo, oppure nome e cognome (senza e-mail). */
+function goOf(email){
+  const e=String(email==null?"":email).trim().toLowerCase(), t=travelerOf(e), g=t&&t.gruppo?t.gruppo:"";
+  return g?{key:"g:"+norm(g),label:g,group:g,email:e}:{key:"o:"+e,label:e?nameOfEmail(e):"—",group:"",email:e};
+}
+function goKey(email){ return goOf(email).key; }
+function goLabel(email){ return goOf(email).label; }
+function goInitials(email){ return badgeInitials(goLabel(email)); }
+// un solo elemento per Gruppo/Orientatore (il primo in ordine di e-mail), con le persone dello stesso gruppo riunite
+function goUnique(emails){ const seen=new Map(); [...new Set((emails||[]).map(e=>String(e||"").toLowerCase()).filter(Boolean))].sort().forEach(e=>{ const k=goKey(e); if(!seen.has(k)) seen.set(k,e); }); return [...seen.values()]; }
+// elenco per i menu Gruppo/Orientatore: [{key,label,group,email}] ordinato per etichetta
+function goKeyLabel(key){ const k=String(key||""); if(k.startsWith("g:")){ const t=(STATE.travelers||[]).find(x=>x.gruppo&&"g:"+norm(x.gruppo)===k); return t?t.gruppo:k.slice(2); } return k.startsWith("o:")?nameOfEmail(k.slice(2)):k; }
+function goList(emails){ return goUnique(emails).map(goOf).sort((a,b)=>a.label.localeCompare(b.label,'it')); }
 function personById(id){ if(id==null||id==="") return null; return (STATE.people||[]).find(p=>String(p.id)===String(id))||null; }
 function personFull(p){ return p?(String(p.nome||"")+" "+String(p.cognome||"")).trim():""; }
 function myEmail(){ return String(CURRENT.email||"").toLowerCase(); }
@@ -1433,6 +1468,10 @@ function actDoer(a){
   const em=String(a&&a.orientatore_email||"").toLowerCase();
   return {name:em?personName(em):"",email:em,key:em?"e:"+em:"",person:null,isEsec:false,tipo:""};
 }
+// Gruppo/Orientatore di chi ha svolto l'attivita' (un esecutore senza e-mail resta la persona)
+function actGoOf(a){ const d=actDoer(a), em=d.email||String(a&&a.orientatore_email||"").toLowerCase(); if(d.isEsec&&!d.email) return {key:d.key,label:d.name}; return em?goOf(em):{key:"—",label:"—"}; }
+function actGoKey(a){ return actGoOf(a).key; }
+function actGoLabel(a){ return actGoOf(a).label; }
 function doerName(a){ return actDoer(a).name; }
 function doerEmail(a){ return actDoer(a).email; }
 // citta' -> area (bdg_field_area_cities): stessa normalizzazione del database (minuscolo, senza accenti, spazi doppi ridotti); la citta' vince sulla provincia
@@ -1501,6 +1540,7 @@ function filterActivities(list,F){
     if(F.regione&&a.regione!==F.regione) return false;
     if(F.area&&String(a.area_id)!==String(F.area)) return false;
     if(F.provincia&&String(a.provincia||"").toUpperCase()!==String(F.provincia).toUpperCase()) return false;
+    if(F.grp&&goKey(a.orientatore_email)!==F.grp&&!(doerEmail(a)&&goKey(doerEmail(a))===F.grp)) return false;   // Gruppo/Orientatore: del titolare o di chi ha svolto
     if(F.orient){ const o=String(F.orient).toLowerCase(); if(String(a.orientatore_email||'').toLowerCase()!==o&&doerEmail(a)!==o) return false; }   // il titolare o chi ha svolto (esecutore con e-mail)
     if(sc&&!norm(a.school_name).includes(sc)) return false;
     if(q){ const w=(STATE.workshops&&STATE.workshops[a.id])||{}; if(!norm([a.school_name,a.citta,a.provincia,a.regione,a.note,a.calendario,w.tema,w.docente_nome,a.esecutore_id!=null?doerName(a):""].join(" ")).includes(q)) return false; }
@@ -1809,6 +1849,10 @@ async function fetchV4(acts){
       else if(!isNetworkError(e)) console.error(table,e);   // altro errore: si tiene la copia che c'e'
     }
   }
+  // nome e gruppo di chi fa gli orientamenti (bdg_travelers, e' la tabella di Spese EC): servono solo ai nomi e al livello Gruppo/Orientatore, in sola lettura;
+  // se manca o non si puo' leggere si resta ai nomi ricavati dalle e-mail (ogni persona e' il suo gruppo)
+  try{ STATE.travelers=(await fetchAll("bdg_travelers","nome")).map(normalizeTraveler); }
+  catch(e){ if(isMissingErr(e)||isDenied(e)) STATE.travelers=[]; else if(!isNetworkError(e)) console.error("bdg_travelers",e); }
   // la colonna esecutore_id si usa solo se esiste: la mostrano le righe lette (select *) oppure una prova a parte quando non ci sono righe
   if(V.people!=="ok"){ V.esec="missing"; return; }
   let ok=null;
@@ -1873,7 +1917,7 @@ function applyRole(){
   else banner.style.display='none';
   const chip=document.getElementById("whoChip"); if(chip){ chip.style.display=CURRENT.email?'':'none'; chip.textContent=(CURRENT.email||'')+(CURRENT.role&&CURRENT.role!=='guest'?' · '+CURRENT.role:''); }
   document.getElementById("btnNewAct").style.display=(vis&&canWrite()&&!CURRENT.unverified)?'':'none';
-  document.getElementById("fOrientBox").style.display=(vis&&isManager())?'':'none';
+  document.getElementById("fOrientBox").style.display=document.getElementById("fGrpBox").style.display=(vis&&isManager())?'':'none';
   const mine=!isManager();
   document.getElementById("actHeadingT").textContent=mine?"Le mie attività":"Attività di tutti gli orientatori";
   calMineSync();   // il tasto «Solo la mia area» e il suo ultimo stato dipendono da chi e' collegato
@@ -1903,7 +1947,13 @@ function fillFilterOptions(){
   if(isManager()){
     const em=new Set(); rows.forEach(a=>{ if(a.orientatore_email) em.add(a.orientatore_email); if(a.esecutore_id!=null){ const d=doerEmail(a); if(d) em.add(d); } });
     Object.entries(STATE.appUsers||{}).forEach(([e,u])=>{ if(u&&u.attivo!==false&&u.role==='orientatore') em.add(e); });
-    document.getElementById("fOrient").innerHTML=`<option value="">Tutti</option>`+[...em].sort().map(e=>`<option value="${esc(e)}" data-kw="${esc(ecLabel(e))}">${esc(e)}</option>`).join(""); document.getElementById("fOrient").value=F.orient;
+    // Gruppo/Orientatore: il nome del gruppo (se c'e'), altrimenti nome e cognome; l'Orientatore serve a scegliere la singola persona dentro il gruppo
+    const gl=goList([...em]);
+    if(F.grp&&!gl.some(g=>g.key===F.grp)) F.grp="";
+    document.getElementById("fGrp").innerHTML=`<option value="">Tutti</option>`+gl.map(g=>`<option value="${esc(g.key)}" data-kw="${esc([...em].filter(e=>goKey(e)===g.key).map(e=>ecLabel(e)+" "+e).join(" "))}">${esc(g.label)}</option>`).join(""); document.getElementById("fGrp").value=F.grp;
+    const oe=[...em].filter(e=>!F.grp||goKey(e)===F.grp).sort((a,b)=>ecLabel(a).localeCompare(ecLabel(b),'it'));
+    if(F.orient&&!oe.includes(F.orient)) F.orient="";
+    document.getElementById("fOrient").innerHTML=`<option value="">Tutti</option>`+oe.map(e=>`<option value="${esc(e)}" data-kw="${esc(e)}">${esc(ecLabel(e))}</option>`).join(""); document.getElementById("fOrient").value=F.orient;
   }
   document.getElementById("fQ").value=F.q; document.getElementById("fFrom").value=F.from; document.getElementById("fTo").value=F.to; document.getElementById("fScuola").value=F.scuola; fillSortControls(F);
 }
@@ -1928,7 +1978,7 @@ function renderAll(){ fillFilterOptions(); renderList(); renderFairs(); }
 // a capo dentro un attributo title: un elemento per riga, ognuno escapato, uniti con &#10;
 function ttl(lines){ return lines.map(esc).join("&#10;"); }
 // nome leggibile ricavato dall'e-mail (nei dati non c'e' un nome migliore): "davide.gallina@partners.naba.it" -> "Davide Gallina"
-function personName(email){ const e=String(email==null?"":email).trim(); return e?ecLabel(e):""; }
+function personName(email){ const e=String(email==null?"":email).trim(); return e?nameOfEmail(e):""; }
 // referenti (EC) in carica oggi per un'area; con una memoria valida solo durante il disegno dell'elenco (renderList la crea e la toglie)
 let ACT_EC=null;
 function areaEcs(areaId){
@@ -2014,9 +2064,9 @@ function actRowHtml(a){
   const tip=["Tipo: "+tipoLab].concat(ws?["Workshop: "+wsTxt]:[],camp?["Campagna: "+camp]:[],ws&&ws.tema?["Tema: "+ws.tema]:[],ws&&ws.docente_nome?["Docente: "+ws.docente_nome]:[],a.virtuale?["Virtuale"]:[],area?["Area: "+area]:[]);
   const tid="tip-"+esc(a.id), sig=tipoSigla(a.tipo), tipT=ttl(tip);
   // responsabile dell'area = referente (EC) in carica, dalle assegnazioni area ↔ orientatore (le stesse della scheda Obiettivi)
-  const ecs=areaEcs(a.area_id);
+  const ecs=goUnique(areaEcs(a.area_id));   // il referente e' un Gruppo/Orientatore: i membri dello stesso gruppo contano una volta, col nome del gruppo
   const rsHead="Responsabile area"+(area?" ("+area+")":"")+":";
-  const rsTitle=!a.area_id?["Responsabile area: area non indicata"]:(ecs.length?[rsHead].concat(ecs.map(e=>personName(e)+" ("+e+")")):["Responsabile area: nessun referente assegnato"+(area?" a "+area:"")]);
+  const rsTitle=!a.area_id?["Responsabile area: area non indicata"]:(ecs.length?[rsHead].concat(ecs.map(e=>goLabel(e))):["Responsabile area: nessun referente assegnato"+(area?" a "+area:"")]);
   // orientatore = chi ha svolto l'attivita': l'esecutore (nome e cognome dall'anagrafica) se c'e', altrimenti il titolare della riga
   const dr=actDoer(a), orEm=dr.email, orTxt=dr.name;
   const orSub=dr.isEsec?(personTipoLabel(dr.tipo)+" · "+(dr.email||"senza e-mail")):dr.email, titTxt=dr.isEsec&&a.orientatore_email?personName(a.orientatore_email):"";
@@ -2025,10 +2075,10 @@ function actRowHtml(a){
   const idE=esc(a.id);
   const orAv=orTxt?avHtml("av"+personTone(dr.isEsec?"p:"+dr.person.id:orEm),initialsOfName(orTxt),orTxt,"or-"+idE,orTip,"Orientatore: "+orTxt+(orSub?" ("+orSub+")":"")+(titTxt?"; titolare della riga: "+titTxt:""))
     :avHtml("nil","—","Orientatore non indicato","or-"+idE,["Orientatore non indicato"],"Orientatore non indicato");
-  const ecNames=ecs.map(personName);
+  const ecNames=ecs.map(goLabel), ecTone=e=>{ const g=goOf(e); return personTone(g.group?g.key:e); };   // una persona senza gruppo mantiene il suo colore di sempre
   const rsAv=!ecs.length?avHtml("nil","—",!a.area_id?"Area non indicata":"Nessun referente assegnato","rs-"+idE,rsTitle,rsTitle.join(" "))
-    :ecs.length===1?avHtml("av"+personTone(ecs[0]),personInitials(ecs[0]),ecNames[0],"rs-"+idE,rsTitle,rsTitle.join(" "))
-    :avHtml("av"+personTone(ecs[0]),personInitials(ecs[0]),ecNames[0],"rs-"+idE,[rsHead,ecNames[0]+" ("+ecs[0]+")"],"Responsabile area: "+ecNames[0]+" ("+ecs[0]+")")
+    :ecs.length===1?avHtml("av"+ecTone(ecs[0]),initialsOfName(ecNames[0]),ecNames[0],"rs-"+idE,rsTitle,rsTitle.join(" "))
+    :avHtml("av"+ecTone(ecs[0]),initialsOfName(ecNames[0]),ecNames[0],"rs-"+idE,[rsHead,ecNames[0]],"Responsabile area: "+ecNames[0])
       +avHtml("more","+"+(ecs.length-1),"Altri "+(ecs.length-1)+" responsabili: "+ecNames.slice(1).join(", "),"rm-"+idE,rsTitle,rsTitle.join(" "));
   // area: pastiglia col colore stabile dell'area (areaTone); il nome scritto c'e' sempre, il colore non e' l'unica informazione
   const arSh=areaShort(area), arT=esc("Area: "+area), arC="apill ar"+areaTone(a.area_id);
@@ -2154,7 +2204,7 @@ async function bulkSvolte(items,quale){
 function resetFilters(){ STATE.filters=defaultFilters(); SHOWN=PAGE_SIZE; save(); renderAll(); }
 function readFilters(){
   const F=STATE.filters;
-  F.q=document.getElementById("fQ").value; F.fy=document.getElementById("fFy").value; F.from=document.getElementById("fFrom").value; F.to=document.getElementById("fTo").value; F.stato=document.getElementById("fStato").value; F.tipo=document.getElementById("fTipo").value; F.regione=document.getElementById("fRegione").value; F.provincia=document.getElementById("fProvincia").value; F.scuola=document.getElementById("fScuola").value; F.sorts=readSorts(); if(isManager()) F.orient=document.getElementById("fOrient").value; else F.orient="";
+  F.q=document.getElementById("fQ").value; F.fy=document.getElementById("fFy").value; F.from=document.getElementById("fFrom").value; F.to=document.getElementById("fTo").value; F.stato=document.getElementById("fStato").value; F.tipo=document.getElementById("fTipo").value; F.regione=document.getElementById("fRegione").value; F.provincia=document.getElementById("fProvincia").value; F.scuola=document.getElementById("fScuola").value; F.sorts=readSorts(); if(isManager()){ F.grp=document.getElementById("fGrp").value; F.orient=document.getElementById("fOrient").value; } else { F.grp=""; F.orient=""; }
 }
 let _fT=null;
 function onFilterChange(e){
@@ -3698,8 +3748,8 @@ function calMove(n){ let m=CAL.m+n, y=CAL.y; while(m<0){ m+=12; y--; } while(m>1
 /* ---- Field Reporting: riepilogo delle attività (solo conteggi, ore e leads dichiarati; nessun costo) ----
    Le cifre sono calcolate sulle attività che la persona può vedere (l'orientatore le sue, il responsabile tutte).
    Le attività annullate non contano nei totali: sono mostrate a parte. "Svolte" e "fissate" sono gli stati dell'attività. */
-let REP={fy:String(fyOfISO(todayISO())),from:"",to:"",orient:"",regione:"",area:"",tipo:""};
-function repFilters(){ return Object.assign(defaultFilters(),{fy:REP.fy,from:REP.from,to:REP.to,orient:REP.orient,regione:REP.regione,area:REP.area,tipo:REP.tipo,sort:"asc"}); }
+let REP={fy:String(fyOfISO(todayISO())),from:"",to:"",grp:"",orient:"",regione:"",area:"",tipo:"",sub:"map"};
+function repFilters(){ return Object.assign(defaultFilters(),{fy:REP.fy,from:REP.from,to:REP.to,grp:REP.grp,orient:REP.orient,regione:REP.regione,area:REP.area,tipo:REP.tipo,sort:"asc"}); }
 // Chiave di una scuola: l'id dell'anagrafica se c'e'; altrimenti nome + citta' + provincia, senza maiuscole, accenti, punteggiatura e spazi doppi
 // (cosi' «Liceo Da Vinci», «LICEO  da vinci» e «Liceo "Da Vinci"» sono la stessa scuola). Senza id e senza nome la riga non si somma a nessun'altra.
 function nameKey(a){
@@ -3772,7 +3822,7 @@ function computeReport(list){
     perArea:repGroup(act,a=>a.area_id==null?"—":String(a.area_id),a=>areaName(a.area_id)||"Senza area").sort((x,y)=>y.n-x.n),
     perRegione:repGroup(act,a=>a.regione||"—",a=>a.regione||"Senza regione").sort((x,y)=>y.n-x.n),
     perMese:repGroup(act.filter(a=>a.data),a=>String(a.data).slice(0,7),(a,k)=>k).sort((x,y)=>x.key.localeCompare(y.key)),
-    perOrient:repGroup(act,a=>a.esecutore_id!=null&&actDoer(a).isEsec?actDoer(a).key:(a.orientatore_email||"—"),a=>a.esecutore_id!=null&&actDoer(a).isEsec?actDoer(a).name:(a.orientatore_email||"—"))   // chi ha svolto: l'esecutore se c'e', altrimenti il titolare.sort((x,y)=>y.n-x.n)
+    perOrient:repGroup(act,actGoKey,actGoLabel).sort((x,y)=>y.n-x.n)   // per Gruppo/Orientatore di chi ha svolto (l'esecutore se c'e', altrimenti il titolare); senza e-mail resta la persona
   };
 }
 function fmtNum(n){ return (n==null||!isFinite(n))?"—":String(Math.round(n*10)/10).replace(".",","); }
@@ -3789,10 +3839,15 @@ function fillReportFilters(){
   document.getElementById("rArea").innerHTML=`<option value="">Tutte</option>`+ars.map(([id,n])=>`<option value="${esc(id)}" data-kw="${esc(areaKw(id))}">${esc(n)}</option>`).join(""); document.getElementById("rArea").value=REP.area;
   const tipi=new Map(taxList('tipo')); rows.forEach(a=>{ if(a.tipo&&!tipi.has(a.tipo)) tipi.set(a.tipo,a.tipo); });
   document.getElementById("rTipo").innerHTML=`<option value="">Tutti</option>`+[...tipi].map(([c,l])=>`<option value="${esc(c)}">${esc(l)}</option>`).join(""); document.getElementById("rTipo").value=REP.tipo;
-  document.getElementById("rOrientBox").style.display=isManager()?"":"none";
+  document.getElementById("rOrientBox").style.display=document.getElementById("rGrpBox").style.display=isManager()?"":"none";
   if(isManager()){
     const em=new Set(); rows.forEach(a=>{ if(a.orientatore_email) em.add(a.orientatore_email); if(a.esecutore_id!=null){ const d=doerEmail(a); if(d) em.add(d); } });
-    document.getElementById("rOrient").innerHTML=`<option value="">Tutti</option>`+[...em].sort().map(e=>`<option value="${esc(e)}" data-kw="${esc(ecLabel(e))}">${esc(e)}</option>`).join(""); document.getElementById("rOrient").value=REP.orient;
+    const gl=goList([...em]);
+    if(REP.grp&&!gl.some(g=>g.key===REP.grp)) REP.grp="";
+    document.getElementById("rGrp").innerHTML=`<option value="">Tutti</option>`+gl.map(g=>`<option value="${esc(g.key)}" data-kw="${esc([...em].filter(e=>goKey(e)===g.key).map(e=>ecLabel(e)+" "+e).join(" "))}">${esc(g.label)}</option>`).join(""); document.getElementById("rGrp").value=REP.grp;
+    const oe=[...em].filter(e=>!REP.grp||goKey(e)===REP.grp).sort((a,b)=>ecLabel(a).localeCompare(ecLabel(b),'it'));
+    if(REP.orient&&!oe.includes(REP.orient)) REP.orient="";
+    document.getElementById("rOrient").innerHTML=`<option value="">Tutti</option>`+oe.map(e=>`<option value="${esc(e)}" data-kw="${esc(e)}">${esc(ecLabel(e))}</option>`).join(""); document.getElementById("rOrient").value=REP.orient;
   }
 }
 function repTable(title,rows,first,monthly,icon){
@@ -3800,22 +3855,36 @@ function repTable(title,rows,first,monthly,icon){
   const tr=rows.map(g=>`<tr><th scope="row">${esc(monthly?monthLabel(g.label):g.label)}</th><td>${g.n}</td><td>${g.fissate}</td><td>${g.svolte}</td><td>${g.workshop}</td><td>${g.scuole}</td><td>${g.studenti}</td><td>${fmtNum(g.ore)}</td></tr>`).join("");
   return `<div class="card rep-card"><h3 class="rep-h">${icon?ic(icon):""}${esc(title)}</h3><div class="rep-scroll"><table class="rep-t"><thead><tr><th scope="col">${esc(first)}</th><th scope="col">Attività</th><th scope="col">Fissate</th><th scope="col">Svolte</th><th scope="col">Con workshop</th><th scope="col">Scuole</th><th scope="col">Leads</th><th scope="col">Ore workshop</th></tr></thead><tbody>${tr}</tbody></table></div></div>`;
 }
+/* ---- sotto-schede del reporting: una analisi alla volta invece di una pagina lunghissima ---- */
+function repSubList(){
+  return [["map","Mappa dei target"]].concat(isManager()?[["camp","Riepilogo campagna "+fyLabel(campaignFy())]]:[],[["prog","Avanzamento"]],repFiereHas()?[["fiere","Recap fiere"]]:[],[["att","Analisi delle attività"]]);
+}
+function repFiereHas(){ try{ return !!recapFiereHtml(); }catch(e){ return false; } }
+function renderRepSubtabs(){
+  const list=repSubList(); if(!list.some(x=>x[0]===REP.sub)) REP.sub=list[0][0];
+  document.getElementById("repSubtabs").innerHTML=list.map(([k,l])=>`<button type="button" role="tab" class="${REP.sub===k?"on":""}" data-rsub="${k}" aria-selected="${REP.sub===k}">${esc(l)}</button>`).join("");
+  ["map","camp","prog","fiere","att"].forEach(k=>{ const p=document.getElementById("rs-"+k); if(p) p.classList.toggle("on",REP.sub===k); });
+}
+function repSetSub(k){ REP.sub=k; renderRepSubtabs(); }
 function renderReport(){
-  const kpi=document.getElementById("repKpi"), box=document.getElementById("repTables"), sum=document.getElementById("repSummary"), prog=document.getElementById("repProg");
+  const kpi=document.getElementById("repKpi"), box=document.getElementById("repTables"), sum=document.getElementById("repSummary"), prog=document.getElementById("repProg"), camp=document.getElementById("repCamp"), fie=document.getElementById("repFiere");
   fillReportFilters();
-  if(LOAD.state==='loading'&&!STATE.activities.length){ kpi.innerHTML=`<div class="skel"></div>`; box.innerHTML=""; sum.textContent=""; prog.innerHTML=""; return; }
+  if(LOAD.state==='loading'&&!STATE.activities.length){ kpi.innerHTML=`<div class="skel"></div>`; box.innerHTML=""; sum.textContent=""; prog.innerHTML=""; camp.innerHTML=""; fie.innerHTML=""; renderRepSubtabs(); return; }
   renderMap(); prog.innerHTML=progressHtml();
   const rows=repRows(), R=computeReport(rows), T=R.totale;
-  const campHtml=(isManager()?campaignTableHtml(sortCampaign(buildCampaign(campRows(),campaignFy(),todayISO()),CAMP_SORT),campaignFy()):"")+recapFiereHtml();   // + «Recap fiere» (chi ha coperto, solo con il database aggiornato)
+  camp.innerHTML=isManager()?campaignTableHtml(sortCampaign(buildCampaign(campRows(),campaignFy(),todayISO()),CAMP_SORT),campaignFy()):"";
+  fie.innerHTML=recapFiereHtml();   // «Recap fiere» (chi ha coperto, solo con il database aggiornato)
+  renderRepSubtabs();
+  const campHtml="";
   sum.textContent=rows.length?(rows.length+(rows.length===1?" attività nel periodo scelto":" attività nel periodo scelto")+(R.annullate?" ("+R.annullate+" annullate, non contate nei totali)":"")+"."):"";
   if(!rows.length){ kpi.innerHTML=""; box.innerHTML=campHtml+`<div class="card empty"><b>Nessuna attività con questi filtri</b>Prova ad allargare il periodo o ad azzerare i filtri.</div>`; return; }
   const k=(v,l,sub,tip,icon)=>`<div class="kpi"${tip?` title="${esc(tip)}"`:""}>${icon?`<span class="ki" aria-hidden="true">${ic(icon)}</span>`:""}<div class="kv">${esc(v)}</div><div class="kl">${esc(l)}</div>${sub?`<div class="ks">${esc(sub)}</div>`:""}</div>`;
   kpi.innerHTML=k(T.n,"Attività",T.fissate+" fissate · "+T.svolte+" svolte","","list")+k(R.completamento==null?"—":fmtNum(R.completamento)+"%","Completamento","svolte su fissate + svolte","","checkc")+k(T.wsSvolti,"Workshop svolti",T.workshop+" attività con workshop","","tWs")+k(T.scuole,"Scuole diverse","","Per scuola in anagrafica o per nome","tSf")+k(T.studenti,"Leads","","Somma dei leads indicati, non persone uniche","users")+k(fmtNum(T.ore),"Ore di workshop","","Ore di lezione indicate","clock");
-  box.innerHTML=campHtml+repTable("Per tipo (attività)",R.perTipo,"Tipo",false,"tag")+repTable("Per area (attività)",R.perArea,"Area",false,"pin")+repTable("Per regione (attività)",R.perRegione,"Regione",false,"map")+repTable("Per mese (attività)",R.perMese,"Mese",true,"calendar")+(isManager()?repTable("Per orientatore (attività)",R.perOrient,"Orientatore",false,"users"):"");
+  box.innerHTML=campHtml+repTable("Per tipo (attività)",R.perTipo,"Tipo",false,"tag")+repTable("Per area (attività)",R.perArea,"Area",false,"pin")+repTable("Per regione (attività)",R.perRegione,"Regione",false,"map")+repTable("Per mese (attività)",R.perMese,"Mese",true,"calendar")+(isManager()?repTable("Per gruppo / orientatore (attività)",R.perOrient,"Gruppo / Orientatore",false,"users"):"");
 }
 function readRepFilters(){
   REP.fy=document.getElementById("rFy").value; REP.from=document.getElementById("rFrom").value; REP.to=document.getElementById("rTo").value; REP.regione=document.getElementById("rRegione").value; REP.area=document.getElementById("rArea").value; REP.tipo=document.getElementById("rTipo").value;
-  if(isManager()) REP.orient=document.getElementById("rOrient").value;
+  if(isManager()){ REP.grp=document.getElementById("rGrp").value; REP.orient=document.getElementById("rOrient").value; }
 }
 /* ---- esportazione CSV (senza librerie): separatore ";" e BOM per Excel; le celle che inizierebbero come formula sono neutralizzate ---- */
 function csvCell(v){
@@ -3837,7 +3906,7 @@ function summaryCsvRows(R){
   const out=[]; const head=["Gruppo","Attività","Fissate","Svolte","Con workshop","Scuole","Leads","Ore workshop"];
   const add=(t,rows,month)=>{ if(!rows.length) return; out.push([t]); out.push(head); rows.forEach(g=>out.push([month?monthLabel(g.label):g.label,g.n,g.fissate,g.svolte,g.workshop,g.scuole,g.studenti,fmtNum(g.ore)])); out.push([]); };
   out.push(["Totale",R.totale.n,R.totale.fissate,R.totale.svolte,R.totale.workshop,R.totale.scuole,R.totale.studenti,fmtNum(R.totale.ore)]); out.push(["Annullate (non contate)",R.annullate]); out.push([]);
-  add("Per tipo",R.perTipo); add("Per area",R.perArea); add("Per regione",R.perRegione); add("Per mese",R.perMese,true); if(isManager()) add("Per orientatore",R.perOrient);
+  add("Per tipo",R.perTipo); add("Per area",R.perArea); add("Per regione",R.perRegione); add("Per mese",R.perMese,true); if(isManager()) add("Per gruppo / orientatore",R.perOrient);
   return out;
 }
 
@@ -4055,12 +4124,16 @@ function assignmentActive(x,today){ return (!x.valid_from||String(x.valid_from).
 function currentEc(areaId,today){
   return [...new Set((STATE.assignments||[]).filter(x=>String(x.area_id)===String(areaId)&&assignmentActive(x,today)).map(x=>String(x.orientatore_email||"").toLowerCase()).filter(Boolean))].sort();
 }
-function ecLabel(email){ return String(email).split("@")[0].replace(/[._-]+/g," ").trim().replace(/(^|\s)(\p{L})/gu,(m,s,c)=>s+c.toUpperCase()); }
-function ecInitials(email){ const w=ecLabel(email).split(/\s+/).filter(Boolean); return ((w[0]||"?").charAt(0)+(w.length>1?w[w.length-1].charAt(0):"")).toUpperCase(); }
-function ecHue(email){ let h=0; String(email).split("").forEach(c=>{ h=(h*31+c.charCodeAt(0))%360; }); return h; }
+function ecLabelRaw(email){ return String(email).split("@")[0].replace(/[._-]+/g," ").trim().replace(/(^|\s)(\p{L})/gu,(m,s,c)=>s+c.toUpperCase()); }
+function ecLabel(email){ return nameOfEmail(email); }   // nome e cognome della persona (non l'e-mail)
+// iniziali del badge: prima lettera del nome + prima dell'ultima parola; una sola lettera con una sola parola
+function badgeInitials(name){ const w=String(name==null?"":name).trim().split(/\s+/).filter(Boolean); return ((w[0]||"?").charAt(0)+(w.length>1?w[w.length-1].charAt(0):"")).toUpperCase(); }
+function ecInitials(email){ return badgeInitials(ecLabel(email)); }
+function ecHue(key){ let h=0; String(key).split("").forEach(c=>{ h=(h*31+c.charCodeAt(0))%360; }); return h; }
+// il referente (EC) e' un Gruppo/Orientatore: il badge porta il nome del gruppo, o nome e cognome di chi non ha un gruppo
 function ecBadge(email){
-  const nm=ecLabel(email), hue=ecHue(email);
-  return `<span class="ecb" tabindex="0" role="img" aria-label="${esc(nm)}" title="${esc(nm)} (${esc(email)})" style="--h:${hue}">${esc(ecInitials(email))}</span>`;
+  const g=goOf(email), nm=g.label;
+  return `<span class="ecb" tabindex="0" role="img" aria-label="${esc(nm)}" title="${esc(nm)}" style="--h:${ecHue(g.group?g.key:email)}">${esc(badgeInitials(nm))}</span>`;
 }
 // fiere svolte, ricavate dalle attività (non c'è un collegamento diretto attività→fiera): le attività «Scuola Fiera» svolte nella stessa città
 // (o, senza città, nella stessa provincia/regione) in giorni consecutivi contano come una fiera; due città o due periodi distanti sono due fiere
@@ -4105,10 +4178,10 @@ function buildCampaign(list,fy,today){
   S.regions.forEach(r=>{
     const ids=r.areas.map(a=>String(a.id)), single=r.areas.length===1;
     const fr=fairs.filter(f=>norm(f.regione||"")===norm(r.name)||fairAreaIds(f.id).some(x=>ids.includes(x)));
-    const reg={kind:'region',label:r.name,ec:single?currentEc(r.areas[0].id,today):[],m:M(E,r.name,'reg'),obj:sumObj(r.areas.map(a=>areaObj(a,fy))),fiere:fr.length,fiereSv:fieresSvolte(regList.get(r.name))};
+    const reg={kind:'region',label:r.name,ec:single?goUnique(currentEc(r.areas[0].id,today)):[],m:M(E,r.name,'reg'),obj:sumObj(r.areas.map(a=>areaObj(a,fy))),fiere:fr.length,fiereSv:fieresSvolte(regList.get(r.name))};
     rows.push(reg); regRows.push(reg);
     if(!single){
-      r.areas.forEach(a=>rows.push({kind:'area',label:a.nome,ec:currentEc(a.id,today),m:M(E,String(a.id),'area'),obj:areaObj(a,fy),fiere:fairsOfArea(a.id).length,fiereSv:fieresSvolte(areaList.get(String(a.id)))}));
+      r.areas.forEach(a=>rows.push({kind:'area',label:a.nome,ec:goUnique(currentEc(a.id,today)),m:M(E,String(a.id),'area'),obj:areaObj(a,fy),fiere:fairsOfArea(a.id).length,fiereSv:fieresSvolte(areaList.get(String(a.id)))}));
       const mna=M(E,r.name,'noarea'); if(has(mna)) rows.push({kind:'noarea',label:"Senza area",ec:[],m:mna,obj:null,fiere:0,fiereSv:fieresSvolte(noArea.get(r.name)||[])});
     }
   });
@@ -4142,7 +4215,7 @@ function campaignTableHtml(rows,fy){
   }).join("")}</tr></thead><tbody>${body}</tbody></table></div><div class="fhint" style="padding:8px 14px">Le regioni e le aree vengono dall'elenco delle aree, anche se non hanno attività. «Fiere programmate» = fiere del calendario nell'anno di campagna; «Fiere svolte» = fiere ricavate dalle attività «Scuola Fiera» svolte (giorni consecutivi nella stessa città = una fiera). «Workshop vs OBJ» conta fissati e svolti. Gli orientamenti sono contati per SCUOLA: ogni scuola vale 1 in tutta la campagna (tipo di priorità: Orientamento, poi Scuola Fiera, poi Orientamento con docente; «svolta» se almeno una sua attività lo è) e «Italia orienta» è un conteggio di attività fuori dai target. Un workshop su più appuntamenti vale 1 ed è «svolto» solo quando lo sono tutte le sue date. Gli obiettivi si impostano nella scheda Obiettivi.</div></div>`;
 }
 function campRows(){ return filterActivities(visibleActivities(),Object.assign(repFilters(),{fy:String(campaignFy())})); }
-function campaignCsvRows(){ const fy=campaignFy(), rows=sortCampaign(buildCampaign(campRows(),fy,todayISO()),CAMP_SORT); return [["Riepilogo campagna "+fyLabel(fy)],CAMP_HEAD].concat(rows.map(r=>[r.label,r.ec.map(ecLabel).join(", ")].concat(campCells(r)))).concat([[]]); }
+function campaignCsvRows(){ const fy=campaignFy(), rows=sortCampaign(buildCampaign(campRows(),fy,todayISO()),CAMP_SORT); return [["Riepilogo campagna "+fyLabel(fy)],CAMP_HEAD].concat(rows.map(r=>[r.label,r.ec.map(goLabel).join(", ")].concat(campCells(r)))).concat([[]]); }
 
 /* ---- Percentuali rispetto ai target: barra DOPPIA (svolte = pieno; svolte+fissate = piu' chiaro e tratteggiato) ----
    I numeri sono SEMPRE scritti a testo (la barra e' un aiuto, role="img" con aria-label che dice i valori). Oltre il 100% la barra si ferma al 100%
@@ -4156,13 +4229,15 @@ function dbarHtml(label,sv,fs,obj,opt){
   return `<div class="dbar-w${opt.big?" big":""}"><div class="dbar" role="img" aria-label="${esc(aria)}"><i class="f2" style="width:${dbarW(p2)}%"></i><i class="f1" style="width:${dbarW(p1)}%"></i></div><div class="dbar-t"><b>svolte ${p1}%</b> · <span>svolte+fissate ${p2}%</span> <small>(di ${obj})</small></div><div class="dbar-a">${sv} svolte · ${fs} svolte+fissate${opt.suffix?" · "+esc(opt.suffix):""}</div></div>`;
 }
 // target di un orientatore = somma dei target delle aree in cui e' referente (EC) oggi; shared = almeno una di quelle aree ha piu' EC (ognuno vede l'intero target)
+// Con i gruppi il referente e' il Gruppo/Orientatore: le aree di un gruppo sono quelle in cui e' referente almeno uno dei suoi membri, contate una volta;
+// shared = nell'area c'e' anche un altro Gruppo/Orientatore
 function orientTarget(email,fy,today){
-  const me=String(email||"").toLowerCase(); let orient=null, ws=null, shared=false; const areas=[];
+  const key=goKey(email); let orient=null, ws=null, shared=false; const areas=[];
   (STATE.areas||[]).filter(a=>a.attiva!==false).forEach(a=>{
-    const ecs=currentEc(a.id,today); if(!ecs.includes(me)) return;
+    const ecs=currentEc(a.id,today), keys=new Set(ecs.map(goKey)); if(!keys.has(key)) return;
     areas.push(a.nome); const o=areaObj(a,fy);
     if(o){ if(o.orient!=null) orient=(orient||0)+o.orient; if(o.ws!=null) ws=(ws||0)+o.ws; }
-    if(ecs.length>1) shared=true;
+    if(keys.size>1) shared=true;
   });
   return {orient,ws,areas,shared};
 }
@@ -4186,18 +4261,18 @@ function progressHtml(){
   const areaRows=(STATE.areas||[]).filter(a=>a.attiva!==false).map(a=>({a,m:targetMetrics(ents.filter(e=>e.area_id!=null&&String(e.area_id)===String(a.id))),obj:areaObj(a,fy)})).filter(x=>x.obj||x.m.totOr+x.m.fissOr+x.m.ws+x.m.wsFiss>0);
   const area=areaRows.map(x=>progRow(esc(x.a.nome),x.m,x.obj,{plain:"area "+x.a.nome})).join("");
   const emails=new Set(ents.map(e=>e.orientatore).filter(Boolean)); (STATE.areas||[]).forEach(a=>{ if(a.attiva!==false) currentEc(a.id,today).forEach(e=>emails.add(e)); });
-  const ori=[...emails].sort().map(e=>{
-    const t=orientTarget(e,fy,today), m=targetMetrics(ents.filter(x=>x.orientatore===e)), obj=(t.orient!=null||t.ws!=null)?{orient:t.orient,ws:t.ws}:null;
+  const ori=goList([...emails]).map(g=>{
+    const e=g.email, t=orientTarget(e,fy,today), m=targetMetrics(ents.filter(x=>goKey(x.orientatore)===g.key)), obj=(t.orient!=null||t.ws!=null)?{orient:t.orient,ws:t.ws}:null;
     if(!obj&&m.totOr+m.fissOr+m.ws+m.wsFiss===0) return "";
-    return progRow(`${ecBadge(e)} ${esc(ecLabel(e))}`,m,obj,{plain:ecLabel(e),note:t.shared?"target condiviso con altri EC dell'area":(t.areas.length?"":"nessuna area come EC")});
+    return progRow(`${ecBadge(e)} ${esc(g.label)}`,m,obj,{plain:g.label,note:t.shared?"target condiviso con altri EC dell'area":(t.areas.length?"":"nessuna area come EC")});
   }).join("");
-  return `<div class="card rep-card prog"><h3 class="rep-h">${ic("target")}Avanzamento rispetto ai target · campagna ${esc(fyLabel(fy))}</h3><div class="pnat">${nat}</div>${hint}${sect("Per regione","map",reg)}${sect("Per area","pin",area)}${sect("Per orientatore (target = aree di cui è referente EC)","users",ori)}</div>`;
+  return `<div class="card rep-card prog"><h3 class="rep-h">${ic("target")}Avanzamento rispetto ai target · campagna ${esc(fyLabel(fy))}</h3><div class="pnat">${nat}</div>${hint}${sect("Per regione","map",reg)}${sect("Per area","pin",area)}${sect("Per gruppo / orientatore (target = aree di cui è referente EC)","users",ori)}</div>`;
 }
 
 /* ---- Obiettivi: impostazione degli obiettivi per area e campagna, EC e ordine (solo admin e responsabili) ---- */
 let OBJ={fy:fyOfISO(todayISO()),vals:{},busy:false};
 function objKey(){ return String(OBJ.fy); }
-function objStored(a){ const o=areaObj(a,OBJ.fy), ec=currentEc(a.id,todayISO()); return {orient:o&&o.orient!=null?String(o.orient):"",ws:o&&o.ws!=null?String(o.ws):"",ordine:a.ordine==null?"":String(a.ordine),ec:ec[0]||""}; }
+function objStored(a){ const o=areaObj(a,OBJ.fy), ec=currentEc(a.id,todayISO()); return {orient:o&&o.orient!=null?String(o.orient):"",ws:o&&o.ws!=null?String(o.ws):"",ordine:a.ordine==null?"":String(a.ordine),ec:ec.length?goKey(ec[0]):""}; }   // il referente e' un Gruppo/Orientatore: il valore e' la sua chiave (vedi goOf)
 function objVal(a){ return Object.assign(objStored(a),OBJ.vals[String(a.id)]||{}); }
 function fillObjFy(){
   const ys=new Set([fyOfISO(todayISO()),OBJ.fy,fyOfISO(todayISO())+1]); (STATE.areas||[]).forEach(a=>Object.keys(a.obiettivi||{}).forEach(k=>{ if(/^\d{4}$/.test(k)) ys.add(+k); }));
@@ -4210,6 +4285,7 @@ function renderObiettiviInner(){
   const box=document.getElementById("objBox"), sum=document.getElementById("objSummary"); fillObjFy();
   if(!(STATE.areas||[]).length){ box.innerHTML=`<div class="card empty"><b>Nessuna area caricata</b>Le aree vanno caricate prima (script delle aree e delle province).</div>`; sum.textContent=""; document.getElementById("objSave").style.display="none"; return; }
   const users=Object.keys(STATE.appUsers||{}).filter(e=>{ const u=STATE.appUsers[e]; return u&&u.attivo!==false&&(u.role==='orientatore'||u.role==='responsabile'||u.role==='admin'); }).sort();
+  const goOpts=goList(users);   // un'opzione per Gruppo/Orientatore (il nome del gruppo, o nome e cognome senza e-mail)
   const S=campaignStructure(objOvr()); let rows="", tO=0, tW=0;
   const num=v=>(v!==""&&!isNaN(+v))?+v:0;
   S.regions.forEach((r,ri)=>{
@@ -4217,7 +4293,7 @@ function renderObiettiviInner(){
     if(r.areas.length>1) rows+=`<tr class="reg"><th scope="row">${esc(r.name)}</th><td></td><td class="mvc">${mvButtons("region",r.name,ri,S.regions.length,r.name)}</td><td class="n">${so}</td><td class="n">${sw}</td></tr>`;
     r.areas.forEach((a,ai)=>{
       const v=objVal(a), id=esc(a.id), single=r.areas.length===1;
-      const opts=`<option value="">— nessun EC —</option>`+users.map(e=>`<option value="${esc(e)}"${v.ec===e?" selected":""}>${esc(ecLabel(e))} (${esc(e)})</option>`).join("")+(v.ec&&!users.includes(v.ec)?`<option value="${esc(v.ec)}" selected>${esc(v.ec)}</option>`:"");
+      const opts=`<option value="">— nessun EC —</option>`+goOpts.map(g=>`<option value="${esc(g.key)}"${v.ec===g.key?" selected":""}>${esc(g.label)}</option>`).join("")+(v.ec&&!goOpts.some(g=>g.key===v.ec)?`<option value="${esc(v.ec)}" selected>${esc(goKeyLabel(v.ec))}</option>`:"");
       rows+=`<tr class="${single?'reg':'area'}"><th scope="row">${esc(single?r.name:a.nome)}${single&&a.nome!==r.name?` <span class="hint">(${esc(a.nome)})</span>`:""}</th><td><label class="sr-only" for="oEc-${id}">EC di ${esc(a.nome)}</label><select id="oEc-${id}" data-area="${id}" data-f="ec">${opts}</select></td><td class="mvc">${single?mvButtons("region",r.name,ri,S.regions.length,r.name):mvButtons("area",a.id,ai,r.areas.length,a.nome)}</td><td><label class="sr-only" for="oOb-${id}">Obiettivo orientamenti di ${esc(a.nome)}</label><input id="oOb-${id}" data-area="${id}" data-f="orient" inputmode="numeric" value="${esc(v.orient)}" class="o-in"></td><td><label class="sr-only" for="oWs-${id}">Obiettivo workshop di ${esc(a.nome)}</label><input id="oWs-${id}" data-area="${id}" data-f="ws" inputmode="numeric" value="${esc(v.ws)}" class="o-in"></td></tr>`;
     });
   });
@@ -4270,7 +4346,7 @@ async function saveObiettivi(){
       const r=await sb.from('bdg_field_areas').update(patch).eq('id',a.id).select('id');
       if(r.error||!(r.data&&r.data.length)){ res.fail.push(a.nome+": "+(r.error?(isDenied(r.error)?DENY_MSG:errText(r.error)):DENY_MSG)); continue; }
       const st=objStored(a);
-      if(full.ec!==st.ec){ const e=await writeAssignment(a.id,full.ec,today); if(e){ res.fail.push(a.nome+" (EC): "+e); continue; } }
+      if(full.ec!==st.ec){ const ems=emailsOfGo(full.ec); if(full.ec&&!ems.length){ res.fail.push(a.nome+" (EC): nessun utente attivo collegato a «"+goKeyLabel(full.ec)+"»"); continue; } const e=await writeAssignment(a.id,ems,today); if(e){ res.fail.push(a.nome+" (EC): "+e); continue; } }
       res.ok++;
     }catch(e){ console.error(e); res.fail.push(a.nome+": "+((e&&e.message)||"errore")); }
   }
@@ -4279,16 +4355,27 @@ async function saveObiettivi(){
   toast(res.fail.length?("Salvate "+res.ok+" aree, "+res.fail.length+" NON salvate: "+res.fail.join("; ")):("Obiettivi salvati ("+res.ok+(res.ok===1?" area":" aree")+")"),res.fail.length?'err':'ok'); if(!res.fail.length) sfx('ok');
 }
 // cambia il referente (EC) di un'area: chiude l'assegnazione in corso e ne apre una nuova; se è di oggi la corregge sul posto
-async function writeAssignment(areaId,email,today){
+// e-mail degli utenti attivi che fanno parte di un Gruppo/Orientatore (chiave di goOf): un gruppo ha un'assegnazione per ogni suo membro, cosi' l'area e' del gruppo intero
+function emailsOfGo(key){
+  if(!key) return [];
+  const act=Object.keys(STATE.appUsers||{}).filter(e=>{ const u=STATE.appUsers[e]; return u&&u.attivo!==false&&(u.role==='orientatore'||u.role==='responsabile'||u.role==='admin'); });
+  return act.filter(e=>goKey(e)===key).map(e=>String(e).toLowerCase()).sort();
+}
+// emails: elenco di e-mail (una sola per una persona senza gruppo, tutte quelle del gruppo altrimenti); vuoto = nessun referente
+async function writeAssignment(areaId,emails,today){
+  emails=[...new Set((Array.isArray(emails)?emails:(emails?[emails]:[])).map(e=>String(e).toLowerCase()).filter(Boolean))]; const email=emails.length===1?emails[0]:"";
   const yest=addDaysISO(today,-1), cur=(STATE.assignments||[]).filter(x=>String(x.area_id)===String(areaId)&&(!x.valid_to||String(x.valid_to).slice(0,10)>=today)&&(!x.valid_from||String(x.valid_from).slice(0,10)<=today));
   const ed=x=>sb.from('bdg_field_area_assignments').update(x.p).eq('id',x.id).select('id');
-  if(cur.length===1&&cur[0].valid_from&&String(cur[0].valid_from).slice(0,10)>=today){
+  if(emails.length<=1&&cur.length===1&&cur[0].valid_from&&String(cur[0].valid_from).slice(0,10)>=today){
     if(!email){ const r=await ed({id:cur[0].id,p:{valid_to:today}}); return r.error?errText(r.error):(r.data&&r.data.length?null:DENY_MSG); }
     const r=await ed({id:cur[0].id,p:{orientatore_email:email.toLowerCase()}}); return r.error?errText(r.error):(r.data&&r.data.length?null:DENY_MSG);
   }
-  for(const c of cur){ const from=String(c.valid_from||"").slice(0,10); const r=await ed({id:c.id,p:{valid_to:from&&from>yest?from:yest}}); if(r.error) return errText(r.error); if(!(r.data&&r.data.length)) return DENY_MSG; }
-  if(!email) return null;
-  const ins=await sb.from('bdg_field_area_assignments').insert({area_id:areaId,orientatore_email:email.toLowerCase(),valid_from:today,valid_to:null}).select('id');
+  for(const c of cur){
+    const from=String(c.valid_from||"").slice(0,10);
+    if(from&&from>=today){ const d=await sb.from('bdg_field_area_assignments').delete().eq('id',c.id).select('id'); if(!d.error&&d.data&&d.data.length) continue; }   // iniziata oggi: si toglie (cosi' non resta valida accanto alla nuova)
+    const r=await ed({id:c.id,p:{valid_to:from&&from>yest?from:yest}}); if(r.error) return errText(r.error); if(!(r.data&&r.data.length)) return DENY_MSG; }
+  if(!emails.length) return null;
+  const ins=await sb.from('bdg_field_area_assignments').insert(emails.map(e=>({area_id:areaId,orientatore_email:e,valid_from:today,valid_to:null}))).select('id');
   return ins.error?errText(ins.error):(ins.data&&ins.data.length?null:DENY_MSG);
 }
 function objCopyPrev(){
@@ -4418,7 +4505,7 @@ const CAMP_SORT_MAX=3;
 function campColLabel(c){ return c==='label'?CAMP_HEAD[0]:(c==='ec'?CAMP_HEAD[1]:CAMP_HEAD[2+Number(c)]); }
 function campSortValue(r,c){
   if(c==='label') return r.label;
-  if(c==='ec') return r.ec.length?ecLabel(r.ec[0]):"";
+  if(c==='ec') return r.ec.length?goLabel(r.ec[0]):"";
   const v=campCells(r)[Number(c)];
   if(typeof v==="number") return v;
   const m=/^(-?\d+(?:[.,]\d+)?)%$/.exec(String(v)); return m?parseFloat(m[1].replace(",",".")):null;   // «—» e vuoti = nessun valore (in fondo)
@@ -4450,7 +4537,7 @@ function campSortText(){ return CAMP_SORT.length?CAMP_SORT.map((s,i)=>(i+1)+"° 
 function campFiltersText(){
   const F=REP, p=[]; p.push("campagna "+fyLabel(campaignFy()));
   if(F.from||F.to) p.push("periodo "+(F.from?fmtD(F.from):"…")+" – "+(F.to?fmtD(F.to):"…"));
-  if(F.orient) p.push("orientatore "+F.orient); if(F.regione) p.push("regione "+F.regione); if(F.area) p.push("area "+(areaName(F.area)||F.area)); if(F.tipo) p.push("tipo "+(taxLabel('tipo',F.tipo)||F.tipo));
+  if(F.grp) p.push("gruppo/orientatore "+goKeyLabel(F.grp)); if(F.orient) p.push("orientatore "+ecLabel(F.orient)); if(F.regione) p.push("regione "+F.regione); if(F.area) p.push("area "+(areaName(F.area)||F.area)); if(F.tipo) p.push("tipo "+(taxLabel('tipo',F.tipo)||F.tipo));
   return p.join(" · ");
 }
 
@@ -4481,7 +4568,7 @@ function xmlEsc(x){ return String(x==null?"":x).replace(/&/g,"&amp;").replace(/<
 function campaignExportModel(){
   const fy=campaignFy(), rows=sortCampaign(buildCampaign(campRows(),fy,todayISO()),CAMP_SORT);
   return {fy,title:"Riepilogo campagna "+fyLabel(fy),head:CAMP_HEAD.slice(),stamp:fmtD(todayISO()),sortText:campSortText(),filters:campFiltersText(),
-    rows:rows.map(r=>({kind:r.kind,label:r.label,ec:r.ec.map(ecLabel),ecInit:r.ec.map(ecInitials),cells:campCells(r)}))};
+    rows:rows.map(r=>({kind:r.kind,label:r.label,ec:r.ec.map(goLabel),ecInit:r.ec.map(goInitials),cells:campCells(r)}))};
 }
 function colName(n){ let s=""; n++; while(n>0){ const m=(n-1)%26; s=String.fromCharCode(65+m)+s; n=Math.floor((n-1)/26); } return s; }
 function makeXlsx(model){
@@ -4863,7 +4950,7 @@ function mapClick(e){
 /* ---- collegamenti ---- */
 function wire(){
   ["fQ","fFrom","fTo","fScuola"].forEach(id=>$(id).addEventListener("input",onFilterChange));
-  ["fFy","fStato","fTipo","fRegione","fProvincia","fOrient","fFrom","fTo"].forEach(id=>$(id).addEventListener("change",onFilterChange));
+  ["fFy","fStato","fTipo","fRegione","fProvincia","fGrp","fOrient","fFrom","fTo"].forEach(id=>$(id).addEventListener("change",onFilterChange));
   [1,2,3].forEach(i=>{
     $("sKey"+i).addEventListener("change",()=>{ const b=$("sDir"+i), k=$("sKey"+i).value; b.dataset.d=k?(ACT_SORT_DESC_FIRST[k]?'desc':'asc'):''; onFilterChange({target:$("sKey"+i)}); });
     $("sDir"+i).addEventListener("click",()=>{ const b=$("sDir"+i); if(b.disabled) return; b.dataset.d=b.dataset.d==='asc'?'desc':'asc'; onFilterChange({target:b}); });
@@ -4891,7 +4978,7 @@ function wire(){
     else { const w={mArea:"area",mReg:"reg",mProv:"prov",mCity:"city"}[id]; if(w) mapSetF(w,e.target.value); }
   });
   // riepilogo campagna: ordinamento e esportazione
-  document.getElementById("repTables").addEventListener("click",e=>{
+  document.getElementById("repCamp").addEventListener("click",e=>{
     const t=e.target&&e.target.closest?e.target:null; if(!t) return;
     const sb=t.closest("[data-sort]"); if(sb){ campSortClick(sb.dataset.sort,sb.dataset.dir); return; }
     if(t.closest("[data-sort-reset]")){ CAMP_SORT=[]; renderReport(); return; }
@@ -4918,8 +5005,9 @@ function wire(){
   document.getElementById("iMap").addEventListener("change",e=>{ const t=e.target; if(!t||!t.dataset||t.dataset.name===undefined) return; IMP.map[t.dataset.name]=t.value; IMP.plan=buildImportPlan(IMP.raw,IMP.map); renderImport(true); });
   document.getElementById("iGo").onclick=runImport;
   // reporting
-  ["rFy","rRegione","rArea","rTipo","rOrient","rFrom","rTo"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ readRepFilters(); renderReport(); }));
-  document.getElementById("rReset").onclick=()=>{ REP={fy:String(fyOfISO(todayISO())),from:"",to:"",orient:"",regione:"",area:"",tipo:""}; renderReport(); };
+  ["rFy","rRegione","rArea","rTipo","rGrp","rOrient","rFrom","rTo"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ readRepFilters(); renderReport(); }));
+  document.getElementById("repSubtabs").addEventListener("click",e=>{ const b=e.target.closest&&e.target.closest("[data-rsub]"); if(b) repSetSub(b.dataset.rsub); });
+  document.getElementById("rReset").onclick=()=>{ REP={fy:String(fyOfISO(todayISO())),from:"",to:"",grp:"",orient:"",regione:"",area:"",tipo:"",sub:REP.sub}; renderReport(); };
   document.getElementById("rCsvAct").onclick=()=>{ const l=repRows(); if(!l.length){ toast("Nessuna attività da scaricare con questi filtri."); return; } downloadText("field-attivita-"+todayISO()+".csv",toCsv(activitiesCsvRows(l))); };
   document.getElementById("rCsvSum").onclick=()=>{ const l=repRows(); if(!l.length&&!isManager()){ toast("Nessun dato da scaricare con questi filtri."); return; } downloadText("field-riepilogo-"+todayISO()+".csv",toCsv((isManager()?campaignCsvRows():[]).concat(l.length?summaryCsvRows(computeReport(l)):[],recapCsvRows()))); };
   // schede
