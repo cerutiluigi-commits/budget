@@ -207,7 +207,8 @@ main.wide{max-width:1560px}
 
 /* barra azioni e filtri */
 .bar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
-.bar .grow{flex:1}
+.bar .grow{flex:1 1 280px}   /* il titolo non si riduce a una colonna stretta quando ci sono tanti pulsanti: questi vanno a capo */
+#panel-obiettivi .bar .grow{flex-basis:100%}
 .filters{padding:14px 16px;margin-bottom:12px}
 .fgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px 12px}
 .fld label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:4px}
@@ -568,6 +569,21 @@ main.wide{max-width:1560px}
 .prog .psec>summary:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
 .prog .prow:last-child{border-bottom:0}
 .prog .prow:not(.big) .plab{display:none}
+/* blocco compatto in verticale: righe basse, barra e testo sulla stessa riga, nota accanto al nome, conteggi assoluti nel suggerimento (title) */
+.prog .prow:not(.big):not(.phead){padding:3px 14px;gap:2px 14px;align-items:center}
+.prog .prow.big{padding:8px 14px}
+.prog .prow:not(.big) .dbar-w{display:flex;align-items:center;gap:8px}
+.prog .prow:not(.big) .dbar{flex:0 0 96px;height:8px;border-radius:5px}
+.prog .prow:not(.big) .dbar-t{margin:0;font-size:12px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.prog .prow:not(.big) .dbar-a{display:none}
+.prog .prow .pnote{display:inline;margin:0 0 0 8px;font-size:11px}
+.prog .prow.phead{padding:3px 14px}
+.prog .psec>summary{padding:5px 14px}
+.prog .prow.big .dbar-w{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.prog .prow.big .dbar{flex:1 1 160px}
+.prog .prow.big .dbar-t,.prog .prow.big .dbar-a{margin:0}
+.prog .prow:not(.big) .ecb{margin-left:6px}
+.prog .fhint{padding:3px 14px}
 @media(max-width:700px){.prog .prow{grid-template-columns:minmax(0,1fr)}.prog .prow.phead{display:none}.prog .prow:not(.big) .plab{display:block}}
 .mfilt{display:flex;gap:10px 14px;flex-wrap:wrap;align-items:center}
 .mfilt .mst select{max-width:200px}
@@ -4300,7 +4316,7 @@ function dbarHtml(label,sv,fs,obj,opt){
   if(obj==null) return `<div class="dbar-w${opt.big?" big":""}"><div class="dbar-t"><b>${sv} svolte</b> · ${fs} svolte+fissate<small class="dno"> (nessun obiettivo impostato${opt.suffix?" · "+esc(opt.suffix):""})</small></div></div>`;
   const p1=pctOf(sv,obj), p2=pctOf(fs,obj);
   const aria=`${label}: svolte ${p1}% (${sv} di ${obj}), svolte più fissate ${p2}% (${fs} di ${obj})${opt.suffix?", "+opt.suffix:""}`;
-  return `<div class="dbar-w${opt.big?" big":""}"><div class="dbar" role="img" aria-label="${esc(aria)}"><i class="f2" style="width:${dbarW(p2)}%"></i><i class="f1" style="width:${dbarW(p1)}%"></i></div><div class="dbar-t"><b>svolte ${p1}%</b> · <span>svolte+fissate ${p2}%</span> <small>(di ${obj})</small></div><div class="dbar-a">${sv} svolte · ${fs} svolte+fissate${opt.suffix?" · "+esc(opt.suffix):""}</div></div>`;
+  return `<div class="dbar-w${opt.big?" big":""}" title="${sv} svolte · ${fs} svolte+fissate (su ${obj})"><div class="dbar" role="img" aria-label="${esc(aria)}"><i class="f2" style="width:${dbarW(p2)}%"></i><i class="f1" style="width:${dbarW(p1)}%"></i></div><div class="dbar-t"><b>svolte ${p1}%</b> · <span>svolte+fissate ${p2}%</span> <small>(di ${obj})</small></div><div class="dbar-a">${sv} svolte · ${fs} svolte+fissate${opt.suffix?" · "+esc(opt.suffix):""}</div></div>`;
 }
 // target di un orientatore = somma dei target delle aree in cui e' referente (EC) oggi; shared = almeno una di quelle aree ha piu' EC (ognuno vede l'intero target)
 // Con i gruppi il referente e' il Gruppo/Orientatore: le aree di un gruppo sono quelle in cui e' referente almeno uno dei suoi membri, contate una volta;
@@ -4370,7 +4386,9 @@ function renderObiettiviInner(){
     if(r.areas.length>1) rows+=`<tr class="reg"><th scope="row">${esc(r.name)}</th><td></td><td class="mvc">${mvButtons("region",r.name,ri,S.regions.length,r.name)}</td><td class="n">${so}</td><td class="n">${sw}</td></tr>`;
     r.areas.forEach((a,ai)=>{
       const v=objVal(a), id=esc(a.id), single=r.areas.length===1;
-      const opts=`<option value="">— nessun EC —</option>`+goOpts.map(g=>`<option value="${esc(g.key)}"${v.ec===g.key?" selected":""}>${esc(g.label)}</option>`).join("")+(v.ec&&!goOpts.some(g=>g.key===v.ec)?`<option value="${esc(v.ec)}" selected>${esc(goKeyLabel(v.ec))}</option>`:"");
+      // un gruppo mostra anche i suoi membri (si trova cercando il nome di uno di loro); la ricerca guarda anche le e-mail
+      const optTxt=g=>g.group?g.label+" ("+users.filter(e=>goKey(e)===g.key).map(ecLabel).join(", ")+")":g.label, optKw=g=>users.filter(e=>goKey(e)===g.key).map(e=>ecLabel(e)+" "+e).join(" ");
+      const opts=`<option value="">— nessun EC —</option>`+goOpts.map(g=>`<option value="${esc(g.key)}" data-kw="${esc(optKw(g))}"${v.ec===g.key?" selected":""}>${esc(optTxt(g))}</option>`).join("")+(v.ec&&!goOpts.some(g=>g.key===v.ec)?`<option value="${esc(v.ec)}" selected>${esc(goKeyLabel(v.ec))}</option>`:"");
       rows+=`<tr class="${single?'reg':'area'}"><th scope="row">${esc(single?r.name:a.nome)}${single&&a.nome!==r.name?` <span class="hint">(${esc(a.nome)})</span>`:""}</th><td><label class="sr-only" for="oEc-${id}">EC di ${esc(a.nome)}</label><select id="oEc-${id}" data-area="${id}" data-f="ec">${opts}</select></td><td class="mvc">${single?mvButtons("region",r.name,ri,S.regions.length,r.name):mvButtons("area",a.id,ai,r.areas.length,a.nome)}</td><td><label class="sr-only" for="oOb-${id}">Obiettivo orientamenti di ${esc(a.nome)}</label><input id="oOb-${id}" data-area="${id}" data-f="orient" inputmode="numeric" value="${esc(v.orient)}" class="o-in"></td><td><label class="sr-only" for="oWs-${id}">Obiettivo workshop di ${esc(a.nome)}</label><input id="oWs-${id}" data-area="${id}" data-f="ws" inputmode="numeric" value="${esc(v.ws)}" class="o-in"></td></tr>`;
     });
   });
@@ -5040,8 +5058,10 @@ function mapAreaTableHtml(aggProv,camp){
 function mapCampData(){
   if(!isManager()) return null;
   const fy=campaignFy(), camp=campRows(), reg=new Map(), areas=new Map(), ents=countTargets(camp);
-  buildCampaign(camp,fy,todayISO()).forEach(r=>{ if(r.kind!=='region'&&r.kind!=='tot') return; const d={label:r.label,obj:r.obj&&r.obj.orient!=null?r.obj.orient:null,sv:r.m.totOr,fs:r.m.totOr+r.m.fissOr}; reg.set(r.kind==='tot'?"__tot":geoKey(r.label),d); });
-  (STATE.areas||[]).forEach(a=>{ const o=areaObj(a,fy), m=targetMetrics(ents.filter(x=>x.area_id!=null&&String(x.area_id)===String(a.id))); areas.set(String(a.id),{nome:a.nome,obj:o&&o.orient!=null?o.orient:null,sv:m.totOr,fs:m.totOr+m.fissOr}); });
+  // il target e' di due tipi, sommati: orientamenti + workshop. Obiettivo = obiettivo orientamenti + obiettivo workshop; svolte e fissate contano scuole e workshop insieme
+  const tgt=o=>(o&&(o.orient!=null||o.ws!=null))?(o.orient||0)+(o.ws||0):null;
+  buildCampaign(camp,fy,todayISO()).forEach(r=>{ if(r.kind!=='region'&&r.kind!=='tot') return; const d={label:r.label,obj:tgt(r.obj),sv:r.m.totOr+r.m.ws,fs:r.m.totOr+r.m.fissOr+r.m.ws+r.m.wsFiss}; reg.set(r.kind==='tot'?"__tot":geoKey(r.label),d); });
+  (STATE.areas||[]).forEach(a=>{ const o=areaObj(a,fy), m=targetMetrics(ents.filter(x=>x.area_id!=null&&String(x.area_id)===String(a.id))); areas.set(String(a.id),{nome:a.nome,obj:tgt(o),sv:m.totOr+m.ws,fs:m.totOr+m.fissOr+m.ws+m.wsFiss}); });
   return {fy,reg,areas};
 }
 function mapTableRows(agg,lv,camp){
@@ -5091,7 +5111,7 @@ function mapTableHtml(agg,lv,camp){
   const foot=lv==="school"?`<tr class="tot"><th scope="row" class="l" colspan="5">Totale: ${agg.tot} (${agg.sv} svolte, ${agg.fi} fissate)</th></tr>`
     :`<tr class="tot"><th scope="row" class="l" colspan="${span}">Totale</th>${tgtObj?`<td class="mn2 obj"><b>${tot&&tot.obj!=null?tot.obj:"—"}</b></td>`:`<td class="mn2"><b>${agg.tot}</b></td>`}<td class="num">${agg.sv}</td><td class="num">${agg.fi}</td>${mgr?(lv==="reg"?mapPctCell(tot?pctOf(tot.sv,tot.obj):null,tot?pctOf(tot.fs,tot.obj):null):`<td></td>`):""}</tr>`;
   return `<div class="mtab-w"><table class="mtab" aria-label="${esc(MAP_LEVEL_NOUN[lv])}: conteggi dei target"><thead><tr>${head}</tr></thead><tbody>${body||`<tr><td colspan="${cols.length}" class="hint">Nessun elemento con questa selezione.</td></tr>`}</tbody><tfoot>${foot}</tfoot></table></div>`
-    +(mgr?`<div class="hint">«Obiettivo» e «Raggiunto» sono quelli della campagna ${esc(fyLabel(camp.fy))}: scuole degli orientamenti svolte (workshop esclusi) sull'obiettivo, con tra parentesi anche le fissate; indipendenti dai filtri tipo e stato della mappa.${lv==="prov"?" Per le province l'obiettivo è quello dell'area a cui appartengono.":""}</div>`:"");
+    +(mgr?`<div class="hint">«Obiettivo» e «Raggiunto» sono quelli della campagna ${esc(fyLabel(camp.fy))}: scuole degli orientamenti e workshop svolti sul target (obiettivo orientamenti + obiettivo workshop), con tra parentesi anche i fissati; indipendenti dai filtri tipo e stato della mappa.${lv==="prov"?" Per le province l'obiettivo è quello dell'area a cui appartengono.":""}</div>`:"");
 }
 function mapDetailHtml(e,label,canDrill){
   if(!e) return `<div class="mdet"><div class="mdh"><b>${esc(label)}</b></div><div class="hint" style="text-align:center">Nessun elemento con questa selezione.</div></div>`;
