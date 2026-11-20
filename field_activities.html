@@ -4901,19 +4901,21 @@ const MAP_LEVEL_NOUN={reg:"Regione",prov:"Provincia",city:"Città",school:"Scuol
 function mapTableHtml(agg,lv,camp){
   let rows=mapTableRows(agg,lv,camp); if(lv==="prov") rows=rows.filter(r=>r.n>0||r.k===MAP.sel);
   rows=mapSortRows(rows); const mx=Math.max(1,...rows.map(r=>r.n)), mgr=!!camp&&(lv==="reg"||lv==="prov");
+  // per admin e responsabili la colonna «Target» di una regione e' il target indicato (obiettivo della campagna); quello che c'e' (svolte + fissate) e' nelle colonne accanto
+  const tgtObj=mgr&&lv==="reg";
   const cols=lv==="school"?[["label",MAP_LEVEL_NOUN.school],["tipo","Tipo"],["stato","Stato"],["orient","Orientatore"],["data","Data"]]
-    :((lv==="reg"?[["label","Regione"]]:(lv==="prov"?[["label","Provincia"],["area","Area"]]:[["label","Città"]])).concat([["n","Target"],["sv","Svolte"],["fi","Fissate"]])
-      .concat(mgr?(lv==="reg"?[["obj","Obiettivo"],["pct","Raggiunto"]]:[["pct","Area: raggiunto"]]):[]));
+    :((lv==="reg"?[["label","Regione"]]:(lv==="prov"?[["label","Provincia"],["area","Area"]]:[["label","Città"]])).concat([[tgtObj?"obj":"n",tgtObj?"Target":"Svolte + fissate"],["sv","Svolte"],["fi","Fissate"]])
+      .concat(mgr?(lv==="reg"?[["pct","Raggiunto"]]:[["pct","Area: raggiunto"]]):[]));
   const head=cols.map(([k,l])=>{ const on=MAP.sort.k===k; return `<th scope="col" class="${k==="label"||k==="area"||lv==="school"?"l":""}${on?" on":""}" aria-sort="${on?(MAP.sort.d==="asc"?"ascending":"descending"):"none"}"><button type="button" data-msort="${k}" title="Ordina per ${esc(l)}">${esc(l)}<i>${on?(MAP.sort.d==="asc"?"▲":"▼"):""}</i></button></th>`; }).join("");
   const drill=r=>`<button type="button" class="mdrill" data-mdrill="${esc(r.k)}" title="Apri il dettaglio: ${esc(r.label)}">${esc(r.label)}</button>`;
   const body=rows.map(r=>{
     if(lv==="school") return `<tr><th scope="row" class="l">${esc(r.label)}${r.na>1?` <small>${r.na} attività</small>`:""}</th><td class="l">${esc(r.tipo)}</td><td class="l">${esc(r.stato)}</td><td class="l">${esc(r.orient)}</td><td class="l">${r.data?esc(fmtD(r.data)):"—"}</td></tr>`;
     const first=lv==="reg"?`<th scope="row" class="l">${drill(r)}</th>`:(lv==="prov"?`<th scope="row" class="l">${drill(r)} <small>${esc(r.k)}</small></th><td class="l ar">${esc(r.area||"—")}</td>`:`<th scope="row" class="l">${drill(r)}</th>`);
-    return `<tr class="${MAP.sel===r.k?"sel":""}${r.n?"":" zero"}" data-mk="${esc(r.k)}">${first}<td class="mn2"><span class="bar"><i style="width:${r.n?Math.max(4,Math.round(r.n/mx*100)):0}%"></i></span><b>${r.n}</b></td><td class="num">${r.sv}</td><td class="num">${r.fi}</td>${mgr?(lv==="reg"?`<td class="num obj">${r.obj==null?"—":r.obj}</td>`:"")+mapPctCell(r.pct,r.pct2):""}</tr>`;
+    return `<tr class="${MAP.sel===r.k?"sel":""}${r.n?"":" zero"}" data-mk="${esc(r.k)}">${first}${tgtObj?`<td class="mn2 obj"><b>${r.obj==null?"—":r.obj}</b></td>`:`<td class="mn2"><span class="bar"><i style="width:${r.n?Math.max(4,Math.round(r.n/mx*100)):0}%"></i></span><b>${r.n}</b></td>`}<td class="num">${r.sv}</td><td class="num">${r.fi}</td>${mgr?mapPctCell(r.pct,r.pct2):""}</tr>`;
   }).join("");
   const tot=camp&&lv==="reg"?camp.reg.get("__tot"):null, span=lv==="reg"||lv==="city"?1:2;
   const foot=lv==="school"?`<tr class="tot"><th scope="row" class="l" colspan="5">Totale: ${agg.tot} (${agg.sv} svolte, ${agg.fi} fissate)</th></tr>`
-    :`<tr class="tot"><th scope="row" class="l" colspan="${span}">Totale</th><td class="mn2"><b>${agg.tot}</b></td><td class="num">${agg.sv}</td><td class="num">${agg.fi}</td>${mgr?(lv==="reg"?`<td class="num obj">${tot&&tot.obj!=null?tot.obj:"—"}</td>`+mapPctCell(tot?pctOf(tot.sv,tot.obj):null,tot?pctOf(tot.fs,tot.obj):null):`<td></td>`):""}</tr>`;
+    :`<tr class="tot"><th scope="row" class="l" colspan="${span}">Totale</th>${tgtObj?`<td class="mn2 obj"><b>${tot&&tot.obj!=null?tot.obj:"—"}</b></td>`:`<td class="mn2"><b>${agg.tot}</b></td>`}<td class="num">${agg.sv}</td><td class="num">${agg.fi}</td>${mgr?(lv==="reg"?mapPctCell(tot?pctOf(tot.sv,tot.obj):null,tot?pctOf(tot.fs,tot.obj):null):`<td></td>`):""}</tr>`;
   return `<div class="mtab-w"><table class="mtab" aria-label="${esc(MAP_LEVEL_NOUN[lv])}: conteggi dei target"><thead><tr>${head}</tr></thead><tbody>${body||`<tr><td colspan="${cols.length}" class="hint">Nessun elemento con questa selezione.</td></tr>`}</tbody><tfoot>${foot}</tfoot></table></div>`
     +(mgr?`<div class="hint">«Obiettivo» e «Raggiunto» sono quelli della campagna ${esc(fyLabel(camp.fy))}: scuole degli orientamenti svolte (workshop esclusi) sull'obiettivo, con tra parentesi anche le fissate; indipendenti dai filtri tipo e stato della mappa.${lv==="prov"?" Per le province l'obiettivo è quello dell'area a cui appartengono.":""}</div>`:"");
 }
