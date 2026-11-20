@@ -334,6 +334,7 @@ main.wide{max-width:1560px}
 .act-grid .c-ar{display:flex;min-width:0}
 .act-grid .c-ar .nil{color:var(--ink-soft)}
 .act-grid .c-st{display:flex;flex-wrap:wrap;gap:2px 4px;align-items:center}
+.act-row.act-grid .c-cl{font:600 12px/1 'JetBrains Mono',monospace;color:var(--ink-soft);min-width:0;white-space:nowrap}
 .act-row.act-grid .stud{flex-direction:row;align-items:baseline;gap:4px;min-width:0}
 .act-row.act-grid .stud span{margin-top:0}
 .act-row.act-grid.annull .dt,.act-row.act-grid.annull .c-or,.act-row.act-grid.annull .c-rs,.act-row.act-grid.annull .wh-g,.act-row.act-grid.annull .wh-n{text-decoration:line-through}
@@ -341,8 +342,9 @@ main.wide{max-width:1560px}
 @media(max-width:959px){
   .act-grid::before{content:"";order:5;flex:0 0 100%;height:0}
   .act-grid .sel{order:0}.act-grid .dt{order:1}.act-grid .c-wh{order:2;flex:1 1 180px}.act-grid .c-st{order:3;flex:0 0 auto}.act-grid .act-actions{order:4}
-  .act-grid .c-or{order:6}.act-grid .c-rs{order:7}.act-grid .c-ty{order:8;flex:0 1 auto}.act-grid .c-ar{order:9}.act-grid .stud{order:10;margin-left:auto}
-  .act-grid .c-ar:empty{display:none}
+  .act-grid .c-or{order:6}.act-grid .c-rs{order:7}.act-grid .c-ty{order:8;flex:0 1 auto}.act-grid .c-ar{order:9}.act-grid .c-cl{order:9}.act-grid .stud{order:10;margin-left:auto}
+  .act-grid .c-ar:empty,.act-grid .c-cl:empty{display:none}
+  .act-grid .c-cl:not(:empty)::before{content:"Classe ";font-weight:400;color:var(--ink-mute)}
   .act-grid .lbl{display:inline;margin-right:6px}.act-grid .av-n{display:block;white-space:normal;overflow:visible}.act-grid .tl{display:block}   /* sotto i 900px i nomi per esteso vanno a capo invece di finire con «…» */
   .act-grid .a-s{display:none}   /* area abbreviata: sotto i 960px il nome per esteso */
   .act-grid .wschip{display:inline-flex}.act-grid .wc-t{display:flex;flex-direction:row;flex-wrap:wrap;gap:0 .3em;min-width:0}.act-grid .wc-k,.act-grid .wc-c{grid-column:auto}.act-grid .wc-s{position:static;width:auto;height:auto;overflow:visible;clip:auto}   /* chip del workshop su una riga: «Workshop · Design» */
@@ -829,6 +831,7 @@ main.wide{max-width:1560px}
         <p class="sec-desc" id="actDesc" style="margin:0">Scuole, orientamenti e workshop sul territorio.</p>
       </div>
       <div class="seg" id="actScopeBox" role="group" aria-label="Quali attività mostrare" style="display:none"><button type="button" id="actScopeArea" class="on" aria-pressed="true">Tutta la mia area</button><button type="button" id="actScopeMine" aria-pressed="false">Solo le mie attività</button></div>
+      <button class="btn ghost" id="xlsAtt" type="button" title="Scarica in Excel le attività mostrate (con i filtri attuali)">Scarica Excel</button>
       <button class="btn" id="btnNewAct" type="button" style="display:none">+ Nuova attività</button>
     </div>
 
@@ -875,6 +878,7 @@ main.wide{max-width:1560px}
       </div>
       <div class="fld" style="min-width:150px"><label for="outFy">Anno fiscale</label><select id="outFy"></select></div>
       <div class="fld" style="min-width:150px"><label for="outTipo">Tipo</label><select id="outTipo"></select></div>
+      <button class="btn ghost" id="xlsOut" type="button" style="align-self:flex-end" title="Scarica in Excel le attività mostrate">Scarica Excel</button>
     </div>
     <div class="summary" id="outSummary" aria-live="polite"></div>
     <div id="outBox" aria-busy="false"></div>
@@ -887,6 +891,7 @@ main.wide{max-width:1560px}
         <h2 class="sec" id="repHeading"><span class="ico" data-ico="chart" aria-hidden="true"></span>Field Reporting</h2>
         <p class="sec-desc" style="margin:0">Quante attività, quante svolte, scuole e leads dichiarati. Le attività annullate non contano nei totali.</p>
       </div>
+      <button class="btn ghost" id="xlsRep" type="button" title="Un file Excel con il riepilogo campagna, il riepilogo per tipo/area/regione/mese e l'elenco delle attività">Scarica Excel</button>
       <button class="btn ghost" id="rCsvSum" type="button">Scarica riepilogo (CSV)</button>
       <button class="btn ghost" id="rCsvAct" type="button">Scarica elenco attività (CSV)</button>
     </div>
@@ -919,6 +924,7 @@ main.wide{max-width:1560px}
         <h2 class="sec" id="calHeading"><span class="ico" data-ico="calendar" aria-hidden="true"></span>Calendario fiere</h2>
         <p class="sec-desc" style="margin:0">Le fiere in programma, anche su più giorni. Solo consultazione: il calendario lo aggiornano i responsabili.</p>
       </div>
+      <button class="btn ghost" id="xlsCal" type="button" title="Scarica in Excel le fiere con i filtri attuali">Scarica Excel</button>
       <div class="seg" role="group" aria-label="Modo di visualizzazione">
         <button type="button" class="on" id="calViewMonth" aria-pressed="true"><span data-ico="calendar" aria-hidden="true"></span>Mese</button>
         <button type="button" id="calViewList" aria-pressed="false"><span data-ico="list" aria-hidden="true"></span>Elenco</button>
@@ -954,6 +960,7 @@ main.wide{max-width:1560px}
       </div>
       <div class="fld" style="min-width:220px"><label for="oFy">Campagna</label><select id="oFy"></select></div>
       <a class="btn ghost" href="guida-backend-field.html" target="_blank" rel="noopener" style="align-self:flex-end;text-decoration:none">▶ Guida video</a>
+      <button class="btn ghost" id="xlsObj" type="button" style="align-self:flex-end" title="Scarica in Excel referenti e obiettivi per area">Scarica Excel</button>
       <button class="btn ghost" id="objAlpha" type="button">Ordine alfabetico</button>
       <button class="btn ghost" id="objCopy" type="button">Copia dalla campagna precedente</button>
       <button class="btn" id="objSave" type="button" style="display:none">Salva</button>
@@ -993,6 +1000,7 @@ main.wide{max-width:1560px}
         <h2 class="sec" id="gesHeading"><span class="ico" data-ico="fiera" aria-hidden="true"></span>Gestione fiere</h2>
         <p class="sec-desc" style="margin:0">Inserisci e modifica le fiere del calendario. Le fiere non si cancellano: si annullano, e restano nell'elenco.</p>
       </div>
+      <button class="btn ghost" id="xlsGesF" type="button" title="Scarica in Excel le fiere mostrate">Scarica Excel</button>
       <button class="btn" id="btnNewFair" type="button">+ Nuova fiera</button>
     </div>
     <div class="card filters" role="search" aria-label="Filtri della gestione fiere">
@@ -1013,6 +1021,7 @@ main.wide{max-width:1560px}
           <h2 class="sec" id="pplHeading"><span class="ico" data-ico="users" aria-hidden="true"></span>Persone</h2>
           <p class="sec-desc" style="margin:0">L'anagrafica di chi svolge le attività e copre le fiere. Una persona collegata alle fiere non si può cancellare: si disattiva, e resta nello storico.</p>
         </div>
+        <button class="btn ghost" id="xlsGesP" type="button" title="Scarica in Excel le persone mostrate">Scarica Excel</button>
         <button class="btn" id="btnNewPerson" type="button">+ Nuova persona</button>
       </div>
       <div class="card filters" role="search" aria-label="Filtri delle persone">
@@ -1034,6 +1043,7 @@ main.wide{max-width:1560px}
           <h2 class="sec" id="citHeading"><span class="ico" data-ico="map" aria-hidden="true"></span>Città e aree</h2>
           <p class="sec-desc" style="margin:0">Una città può avere un'area diversa da quella della sua provincia (es. Napoli città). Nella proposta automatica dell'area vale prima la città, poi la provincia. Le attività già inserite non cambiano area.</p>
         </div>
+        <button class="btn ghost" id="xlsGesC" type="button" title="Scarica in Excel le regole città → area">Scarica Excel</button>
       </div>
       <div id="citNote" class="note-box info" style="display:none"></div>
       <form class="card filters" id="citForm" novalidate aria-label="Aggiungi una regola città → area">
@@ -2055,17 +2065,20 @@ function areaShort(name){
   const w0=s.split(/[\s\-\/'’.,]+/).filter(Boolean).map(x=>Array.from(x)), w1=w0.filter(x=>x.length>1), w=w1.length>1?w1:w0;   // niente articoli e preposizioni di una lettera («e», «d'»)
   return (w.length>1?w.map(x=>x[0]).join(""):w[0].slice(0,3).join("")).toUpperCase().split("").slice(0,4).join("");
 }
-// colonne: [selezione] Data [Orientatore, solo per chi vede tutti] Resp. area, Dove, Tipo, Area, Leads, Stato [pulsanti]; le stesse in actHeadHtml e actRowHtml
+// classe in numero romano (poco spazio): 3 -> III, 4 -> IV, 5 -> V, «4-5» -> IV-V; un valore che non e' un numero resta com'e'
+const ROMANI={1:"I",2:"II",3:"III",4:"IV",5:"V",6:"VI",7:"VII",8:"VIII",9:"IX",10:"X"};
+function classeRoman(c){ if(c==null||c==="") return ""; return String(c).trim().replace(/\d+/g,n=>ROMANI[+n]||n); }
+// colonne: [selezione] Data [Orientatore, solo per chi vede tutti] Resp. area, Dove, Tipo, Area, Classe, Leads, Stato [pulsanti]; le stesse in actHeadHtml e actRowHtml
 // orientatore e resp. area sono cerchietti stretti; tutto lo spazio che avanza va a «Dove»
 // «Tipo» e' largo (120px: «Workshop» + corso su due righe) solo se l'elenco mostrato contiene almeno un workshop; con wide=false resta la colonna stretta di icona + sigla
 let ROW_RO=false;   // vero mentre si disegna la scheda «Fuori area»: stesse colonne dell'elenco ma sola lettura (niente casella e pulsanti) e area su ogni riga
 function actCols(wide){
   const w=canWrite()&&!ROW_RO;
-  return [w?"20px":"","78px",orColOn()?"44px":"","48px","minmax(150px,1fr)",wide?"150px":"56px","60px","46px","88px",w?(isAdminRole()?"184px":"146px"):""].filter(Boolean).join(" ");
+  return [w?"20px":"","78px",orColOn()?"44px":"","48px","minmax(150px,1fr)",wide?"150px":"56px","60px","50px","46px","88px",w?(isAdminRole()?"184px":"146px"):""].filter(Boolean).join(" ");
 }
 function actHeadHtml(){
   const w=canWrite()&&!ROW_RO;
-  return `<div class="act-head" aria-hidden="true">${w?`<span></span>`:""}<span>Data</span>${orColOn()?`<span class="h-av" title="Orientatore">Orient.</span>`:""}<span class="h-av" title="Responsabile area">Resp.</span><span>Dove</span><span title="Tipo di attività">Tipo</span><span>Area</span><span class="r">Leads</span><span>Stato</span>${w?`<span></span>`:""}</div>`;
+  return `<div class="act-head" aria-hidden="true">${w?`<span></span>`:""}<span>Data</span>${orColOn()?`<span class="h-av" title="Orientatore">Orient.</span>`:""}<span class="h-av" title="Responsabile area">Resp.</span><span>Dove</span><span title="Tipo di attività">Tipo</span><span>Area</span><span title="Classe (numero romano)">Classe</span><span class="r">Leads</span><span>Stato</span>${w?`<span></span>`:""}</div>`;
 }
 function actRowHtml(a){
   const ws=STATE.workshops[a.id];
@@ -2117,6 +2130,7 @@ function actRowHtml(a){
     <div class="c-wh" title="${esc(geo?geo+" · "+school:school)}">${geo?`<span class="wh-g">${esc(geo)}</span><span class="wh-s" aria-hidden="true">·</span>`:""}<b class="wh-n">${esc(school)}</b></div>
     <div class="c-ty">${tyHtml}</div>
     <div class="c-ar">${arHtml}</div>
+    <div class="c-cl" title="${a.classe?esc("Classe: "+a.classe):""}">${esc(classeRoman(a.classe))}</div>
     <div class="stud" title="Leads dichiarati">${a.n_studenti!=null?`<b>${esc(a.n_studenti)}</b><span>Leads</span>`:""}</div>
     <div class="c-st"><span class="badge ${esc(a.stato)}">${statoIcon(a.stato)}${esc(statoLabel(a.stato))}</span>${queued?`<span class="badge coda">Da inviare</span>`:""}</div>
     ${canEdit?`<div class="act-actions">${a.stato==='fissata'?`<button type="button" class="rowbtn ico done" data-act="done" aria-label="Segna come svolta l'attività: ${esc(label)}" title="Segna come svolta">${ICO.done}</button>`:""}<button type="button" class="rowbtn ico" data-act="edit" aria-label="Modifica l'attività: ${esc(label)}" title="Modifica">${ICO.edit}</button><button type="button" class="rowbtn ico" data-act="dup" aria-label="Duplica l'attività: ${esc(label)}" title="Duplica">${ICO.dup}</button>${a.stato!=='annullata'?`<button type="button" class="rowbtn ico cancel" data-act="cancel" aria-label="Annulla l'attività: ${esc(label)}" title="Annulla">${ICO.cancel}</button>`:""}${isAdminRole()?`<button type="button" class="rowbtn ico del" data-act="delete" aria-label="Elimina del tutto l'attività: ${esc(label)}" title="Elimina del tutto (solo admin)">${ICO.trash}</button>`:""}</div>`:""}
@@ -4740,6 +4754,117 @@ function makePptx(model){
   slides.forEach((s,i)=>{ files.push(s); files.push({name:"ppt/slides/_rels/slide"+(i+1)+".xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="${NS}/package/2006/relationships">${REL("rId1","slideLayout","../slideLayouts/slideLayout15.xml")}</Relationships>`}); });
   return zipStore(files);
 }
+/* ---- Excel (.xlsx) di ogni scheda: senza librerie, con lo stesso zip e lo stesso stile del riepilogo campagna ----
+   Un file con uno o piu' fogli: {name, title, note, mode:"table"|"blocks", rows:[[...]]}. «table» = prima riga intestazioni (filtro automatico, riga bloccata);
+   «blocks» = piu' tabelle una sotto l'altra (una riga con una sola cella e' il titolo di una tabella e la riga dopo e' la sua intestazione).
+   Celle: numero, testo, oppure {d:"AAAA-MM-GG"} (una vera data di Excel). */
+function xlsSerial(iso){ const m=/^(\d{4})-(\d{2})-(\d{2})/.exec(String(iso||"")); return m?Math.round((Date.UTC(+m[1],+m[2]-1,+m[3])-Date.UTC(1899,11,30))/86400000):null; }
+function xlsSheetName(n,used){ let s=String(n||"Foglio").replace(/[:\\\/?*\[\]]/g," ").trim().slice(0,31)||"Foglio", k=2, base=s; while(used.has(s.toLowerCase())){ s=base.slice(0,28)+" "+(k++); } used.add(s.toLowerCase()); return s; }
+function makeXlsxBook(sheets){
+  const fonts=['<font><sz val="10"/><color rgb="FF111111"/><name val="Arial"/></font>'], fills=['<fill><patternFill patternType="none"/></fill>','<fill><patternFill patternType="gray125"/></fill>'], borders=['<border><left/><right/><top/><bottom/><diagonal/></border>'], xfs=['<xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"/>'];
+  const reg=(arr,xml)=>{ let i=arr.indexOf(xml); if(i<0){ arr.push(xml); i=arr.length-1; } return i; }, cache={};
+  const st=o=>{
+    const key=JSON.stringify(o); if(key in cache) return cache[key];
+    const f=reg(fonts,`<font>${o.b?"<b/>":""}<sz val="${o.sz||10}"/><color rgb="FF${o.color||"111111"}"/><name val="Arial"/></font>`);
+    const fl=o.fill?reg(fills,`<fill><patternFill patternType="solid"><fgColor rgb="FF${o.fill}"/><bgColor indexed="64"/></patternFill></fill>`):0;
+    const bd=o.line?reg(borders,`<border><left/><right/><top/><bottom style="hair"><color rgb="FFCCCCCC"/></bottom><diagonal/></border>`):0;
+    xfs.push(`<xf numFmtId="${o.date?14:(o.int?1:0)}" fontId="${f}" fillId="${fl}" borderId="${bd}" xfId="0" applyNumberFormat="1" applyFont="1" applyFill="1" applyBorder="1" applyAlignment="1"><alignment horizontal="${o.h||"general"}" vertical="${o.wrap?"top":"center"}" wrapText="${o.wrap?1:0}"/></xf>`);
+    return cache[key]=xfs.length-1;
+  };
+  const used=new Set(), files=[], rels=[], ct=[], wbSheets=[];
+  sheets.forEach((sh,idx)=>{
+    const rows=sh.rows||[], n=idx+1, blocks=sh.mode==="blocks", cols=Math.max(1,...rows.map(r=>r.length));
+    const cell=(c,r,v,s)=>{
+      const ref=colName(c)+r;
+      if(v!=null&&typeof v==="object"&&v.d){ const sr=xlsSerial(v.d); return sr==null?`<c r="${ref}" s="${s}"/>`:`<c r="${ref}" s="${s}"><v>${sr}</v></c>`; }
+      if(typeof v==="number"&&isFinite(v)) return `<c r="${ref}" s="${s}"><v>${v}</v></c>`;
+      if(v==null||v==="") return `<c r="${ref}" s="${s}"/>`;
+      return `<c r="${ref}" s="${s}" t="inlineStr"><is><t xml:space="preserve">${xmlEsc(v)}</t></is></c>`;
+    };
+    const sBody=st({line:1}), sNum=st({line:1,int:1,h:"right"}), sDate=st({line:1,date:1,h:"left"}), sHead=st({b:1,sz:9,color:"FFFFFF",fill:"1F2937",wrap:1}), sSec=st({b:1,sz:11});
+    const pick=v=>(v!=null&&typeof v==="object"&&v.d)?sDate:(typeof v==="number"?sNum:sBody);
+    const xml=[], widths=Array(cols).fill(8);
+    xml.push(`<row r="1" ht="22" customHeight="1">${cell(0,1,sh.title||sh.name,st({b:1,sz:14}))}</row>`);
+    xml.push(`<row r="2">${cell(0,2,sh.note||"",st({color:"666666"}))}</row>`);
+    let r=4, hdr=null;
+    rows.forEach((row,i)=>{
+      const prevSingle=i>0&&rows[i-1].length===1;
+      let sty=null;
+      if(blocks){ if(!row.length){ r++; return; } sty=row.length===1?"sec":(prevSingle?"head":"body"); } else sty=i===0?"head":"body";
+      if(sty==="head"&&hdr==null) hdr=r;
+      xml.push(`<row r="${r}"${sty==="head"?` ht="30" customHeight="1"`:""}>${row.map((v,c)=>{
+        const len=(v!=null&&typeof v==="object")?10:String(v==null?"":v).length; if(sty!=="sec"&&len>widths[c]) widths[c]=Math.min(len,48);
+        return cell(c,r,v,sty==="sec"?sSec:(sty==="head"?sHead:pick(v)));
+      }).join("")}</row>`);
+      r++;
+    });
+    const last=Math.max(r-1,4), freeze=(!blocks&&rows.length>1)?`<pane ySplit="4" topLeftCell="A5" activePane="bottomLeft" state="frozen"/><selection pane="bottomLeft" activeCell="A5" sqref="A5"/>`:"";
+    const sheetXml=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><dimension ref="A1:${colName(cols-1)}${last}"/><sheetViews><sheetView workbookViewId="0" showGridLines="0"${idx===0?' tabSelected="1"':""}>${freeze}</sheetView></sheetViews><sheetFormatPr defaultRowHeight="15"/><cols>${widths.map((w,i)=>`<col min="${i+1}" max="${i+1}" width="${w+3}" customWidth="1"/>`).join("")}</cols><sheetData>${xml.join("")}</sheetData>${(!blocks&&rows.length>1)?`<autoFilter ref="A4:${colName(cols-1)}${last}"/>`:""}<pageMargins left="0.4" right="0.4" top="0.5" bottom="0.5" header="0.3" footer="0.3"/></worksheet>`;
+    files.push({name:"xl/worksheets/sheet"+n+".xml",data:sheetXml});
+    const nm=xlsSheetName(sh.name,used);
+    wbSheets.push(`<sheet name="${xmlEsc(nm)}" sheetId="${n}" r:id="rId${n}"/>`);
+    rels.push(`<Relationship Id="rId${n}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${n}.xml"/>`);
+    ct.push(`<Override PartName="/xl/worksheets/sheet${n}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`);
+  });
+  const NS="http://schemas.openxmlformats.org", k=sheets.length+1;
+  const styles=`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="${fonts.length}">${fonts.join("")}</fonts><fills count="${fills.length}">${fills.join("")}</fills><borders count="${borders.length}">${borders.join("")}</borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="${xfs.length}">${xfs.join("")}</cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>`;
+  return zipStore([
+    {name:"[Content_Types].xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Types xmlns="${NS}/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>${ct.join("")}<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>`},
+    {name:"_rels/.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="${NS}/package/2006/relationships"><Relationship Id="rId1" Type="${NS}/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>`},
+    {name:"xl/workbook.xml",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<workbook xmlns="${NS}/spreadsheetml/2006/main" xmlns:r="${NS}/officeDocument/2006/relationships"><sheets>${wbSheets.join("")}</sheets></workbook>`},
+    {name:"xl/_rels/workbook.xml.rels",data:`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n<Relationships xmlns="${NS}/package/2006/relationships">${rels.join("")}<Relationship Id="rId${k}" Type="${NS}/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`},
+    {name:"xl/styles.xml",data:styles}
+  ].concat(files));
+}
+// scarica il file (fogli senza righe di dati esclusi); null = niente da scaricare
+function xlsExport(base,sheets){
+  const ok=sheets.filter(s=>s.rows&&s.rows.length>(s.mode==="blocks"?0:1));
+  if(!ok.length){ toast("Niente da scaricare con questi filtri."); return false; }
+  const stamp="dati al "+fmtD(todayISO());
+  ok.forEach(s=>{ s.note=(s.note?s.note+" · ":"")+stamp; });
+  const done=downloadBytes(base+"-"+todayISO()+".xlsx",makeXlsxBook(ok),"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet");
+  if(done) toast("Excel scaricato");
+  return done;
+}
+// righe delle attivita' per Excel: nomi (non e-mail), classe in numero romano, data vera, leads e ore come numeri
+function xlsActRows(list){
+  const head=["Data","Orientatore (chi ha svolto)","Titolare della riga","Responsabile area","Stato","Tipo","Scuola","Città","Provincia","Regione","Area","Classe","Leads","Virtuale","Workshop modalità","Workshop sede","Workshop corso","Ore lezione","Docente","Tema","Campagna","Note"];
+  return [head].concat(list.map(a=>{
+    const w=STATE.workshops[a.id]||{}, d=actDoer(a);
+    return [a.data?{d:a.data}:"",d.name||"",a.orientatore_email?personName(a.orientatore_email):"",goUnique(areaEcs(a.area_id)).map(goLabel).join(", "),statoLabel(a.stato),taxLabel('tipo',a.tipo)||a.tipo||"",a.school_name||"",a.citta||"",a.provincia||"",a.regione||"",areaName(a.area_id),classeRoman(a.classe),a.n_studenti==null?"":Number(a.n_studenti),a.virtuale?"Sì":"No",taxLabel('workshop_modalita',w.modalita)||"",taxLabel('sede',w.sede)||"",taxLabel('corso',w.corso)||"",w.ore_lezione==null?"":Number(w.ore_lezione),w.docente_nome||"",w.tema||"",campaignName(a.campaign_id),a.note||""];
+  }));
+}
+function xlsFairRows(list){
+  return [["Fiera","Inizio","Fine","Stato","Città","Provincia","Regione","Aree","Campaign ID","Note"]].concat(list.slice().sort((a,b)=>String(a.start_date||"").localeCompare(String(b.start_date||""))||String(a.nome).localeCompare(String(b.nome),'it')).map(f=>
+    [f.nome||"",f.start_date?{d:f.start_date}:"",f.end_date?{d:f.end_date}:"",fairStatoLabel(f.stato),f.citta||"",f.provincia?String(f.provincia).toUpperCase():"",f.regione||"",fairAreaNames(f.id).join(", "),f.external_id||"",f.note||""]));
+}
+function xlsPeopleRows(list){
+  return [["Cognome","Nome","Tipo","E-mail","Stato"]].concat(list.slice().sort((a,b)=>String(a.cognome).localeCompare(String(b.cognome),'it')||String(a.nome).localeCompare(String(b.nome),'it')).map(p=>[p.cognome,p.nome,personTipoLabel(p.tipo),p.email||"",p.attivo!==false?"Attiva":"Disattivata"]));
+}
+function xlsCityRows(){
+  return [["Provincia","Città","Area","Regione"]].concat((STATE.areaCities||[]).slice().sort((a,b)=>String(a.provincia).localeCompare(String(b.provincia))||String(a.citta||a.citta_norm).localeCompare(String(b.citta||b.citta_norm),'it')).map(r=>[String(r.provincia||"").toUpperCase(),r.citta||r.citta_norm||"",areaName(r.area_id)||"",r.regione||""]));
+}
+function xlsObjRows(){
+  const S=campaignStructure(objOvr()), num=v=>(v!==""&&!isNaN(+v))?+v:"", rows=[["Regione","Area","EC referente (gruppo/orientatore)","Ordine","Obiettivo orientamenti","Obiettivo workshop"]];
+  S.regions.forEach(r=>r.areas.forEach(a=>{ const v=objVal(a); rows.push([r.name,a.nome,v.ec?goKeyLabel(v.ec):"",num(v.ordine),num(v.orient),num(v.ws)]); }));
+  return rows;
+}
+function exportAttivitaXlsx(){ return xlsExport("field-attivita",[{name:"Attività",title:"Attività"+(isManager()?" di tutti gli orientatori":""),note:"Con i filtri attuali della scheda",mode:"table",rows:xlsActRows(listRows())}]); }
+function exportFuoriXlsx(){ const l=filterActivities(outsideRows(),Object.assign(defaultFilters(),{fy:OUT.fy,tipo:OUT.tipo,sort:"desc"})); return xlsExport("field-fuori-area",[{name:"Fuori area",title:"Attività svolte fuori area",note:"Solo consultazione",mode:"table",rows:xlsActRows(l)}]); }
+function exportReportXlsx(){
+  const l=repRows(), sheets=[];
+  if(isManager()) sheets.push({name:"Riepilogo campagna",title:"Riepilogo campagna "+fyLabel(campaignFy()),note:"",mode:"blocks",rows:campaignCsvRows()});
+  if(l.length) sheets.push({name:"Riepilogo",title:"Field Reporting",note:"",mode:"blocks",rows:summaryCsvRows(computeReport(l)).concat(recapCsvRows())});
+  if(l.length) sheets.push({name:"Attività",title:"Attività del periodo scelto",note:"",mode:"table",rows:xlsActRows(l)});
+  return xlsExport("field-reporting",sheets);
+}
+function exportCalendarioXlsx(){ return xlsExport("field-calendario-fiere",[{name:"Fiere",title:"Calendario fiere",note:"",mode:"table",rows:xlsFairRows(filterFairs(STATE.fairs||[],CAL.f,todayISO()))}]); }
+function exportObiettiviXlsx(){ return xlsExport("field-obiettivi",[{name:"Obiettivi",title:"Obiettivi della campagna "+fyLabel(OBJ.fy),note:"",mode:"table",rows:xlsObjRows()}]); }
+function exportGestioneXlsx(){
+  if(GES_SUB==="persone") return xlsExport("field-persone",[{name:"Persone",title:"Persone",note:"",mode:"table",rows:xlsPeopleRows(filterPeople(STATE.people||[],PPL))}]);
+  if(GES_SUB==="citta") return xlsExport("field-citta-aree",[{name:"Città e aree",title:"Città e aree",note:"",mode:"table",rows:xlsCityRows()}]);
+  return xlsExport("field-fiere",[{name:"Fiere",title:"Gestione fiere",note:"",mode:"table",rows:xlsFairRows(filterFairs(STATE.fairs||[],{q:GES.q,stato:GES.stato,periodo:GES.periodo,regione:"",area:""},todayISO()))}]);
+}
 function exportCampaign(kind){
   if(!isManager()){ toast(DENY_MSG,'err'); return; }
   const m=campaignExportModel(), base="field-riepilogo-campagna-"+m.fy+"-"+todayISO();
@@ -5116,6 +5241,7 @@ function wire(){
   ["rFy","rRegione","rArea","rTipo","rGrp","rOrient","rFrom","rTo"].forEach(id=>document.getElementById(id).addEventListener("change",()=>{ readRepFilters(); renderReport(); }));
   document.getElementById("repSubtabs").addEventListener("click",e=>{ const b=e.target.closest&&e.target.closest("[data-rsub]"); if(b) repSetSub(b.dataset.rsub); });
   document.getElementById("rReset").onclick=()=>{ REP={fy:String(fyOfISO(todayISO())),from:"",to:"",grp:"",orient:"",regione:"",area:"",tipo:"",sub:REP.sub}; renderReport(); };
+  [["xlsAtt",exportAttivitaXlsx],["xlsOut",exportFuoriXlsx],["xlsRep",exportReportXlsx],["xlsCal",exportCalendarioXlsx],["xlsObj",exportObiettiviXlsx],["xlsGesF",exportGestioneXlsx],["xlsGesP",exportGestioneXlsx],["xlsGesC",exportGestioneXlsx]].forEach(([id,fn])=>{ document.getElementById(id).onclick=()=>{ if(CURRENT.unverified){ toast(DENY_MSG,'err'); return; } fn(); }; });   // Excel di ogni scheda
   document.getElementById("rCsvAct").onclick=()=>{ const l=repRows(); if(!l.length){ toast("Nessuna attività da scaricare con questi filtri."); return; } downloadText("field-attivita-"+todayISO()+".csv",toCsv(activitiesCsvRows(l))); };
   document.getElementById("rCsvSum").onclick=()=>{ const l=repRows(); if(!l.length&&!isManager()){ toast("Nessun dato da scaricare con questi filtri."); return; } downloadText("field-riepilogo-"+todayISO()+".csv",toCsv((isManager()?campaignCsvRows():[]).concat(l.length?summaryCsvRows(computeReport(l)):[],recapCsvRows()))); };
   // schede
