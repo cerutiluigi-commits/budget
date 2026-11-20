@@ -2279,7 +2279,8 @@ function applyFair(id){
 /* ---- campagne Salesforce (Workshop e School Visits): non sono nel calendario fiere, si collegano alle attività ----
    Workshop → campagna «Workshop» della regione; Orientamento (e con docente) → campagna «School Visits». Scegliere la campagna compila la regione
    (e l'area, se la regione ne ha una sola); scrivendo la regione si propone la campagna. Si salva solo il collegamento (campaign_id). */
-const CAMP_KIND_OF_TIPO={WORKSHOP:"workshop",ORIENTAMENTI:"visite",ORIENTAMENTO_DOCENTE:"visite"};
+// Scuola Fiera non e' una fiera: e' un orientamento come gli altri due, quindi anche la sua campagna e' quella degli orientamenti (School Visits)
+const CAMP_KIND_OF_TIPO={WORKSHOP:"workshop",ORIENTAMENTI:"visite",ORIENTAMENTO_DOCENTE:"visite",SCUOLA_FIERA:"visite"};
 function campaignKind(){ return CAMP_KIND_OF_TIPO[document.getElementById("aTipo").value]||null; }
 function campaignById(id){ return id==null?null:(STATE.campaigns||[]).find(c=>String(c.id)===String(id))||null; }
 function campaignName(id){ const c=campaignById(id); return c?c.nome:""; }
@@ -4188,21 +4189,22 @@ function buildCampaign(list,fy,today){
   const M=(B,key,kind)=>targetMetrics(kind==='reg'?B.reg.get(key):(kind==='area'?B.area.get(key):B.noArea.get(key)));
   const fairs=campaignFairs(fy);
   const fairsOfArea=id=>fairs.filter(f=>fairAreaIds(f.id).includes(String(id)));
+  const fSv=fl=>fl.filter(f=>f.stato==='svolta').length;   // fiere svolte = fiere del calendario con stato «svolta» (Scuola Fiera e' un orientamento, non una fiera)
   const rows=[]; const regRows=[];
   const has=m=>m.totOr+m.fissOr+m.ws+m.wsFiss>0;
   S.regions.forEach(r=>{
     const ids=r.areas.map(a=>String(a.id)), single=r.areas.length===1;
     const fr=fairs.filter(f=>norm(f.regione||"")===norm(r.name)||fairAreaIds(f.id).some(x=>ids.includes(x)));
-    const reg={kind:'region',label:r.name,ec:single?goUnique(currentEc(r.areas[0].id,today)):[],m:M(E,r.name,'reg'),obj:sumObj(r.areas.map(a=>areaObj(a,fy))),fiere:fr.length,fiereSv:fieresSvolte(regList.get(r.name))};
+    const reg={kind:'region',label:r.name,ec:single?goUnique(currentEc(r.areas[0].id,today)):[],m:M(E,r.name,'reg'),obj:sumObj(r.areas.map(a=>areaObj(a,fy))),fiere:fr.length,fiereSv:fSv(fr)};
     rows.push(reg); regRows.push(reg);
     if(!single){
-      r.areas.forEach(a=>rows.push({kind:'area',label:a.nome,ec:goUnique(currentEc(a.id,today)),m:M(E,String(a.id),'area'),obj:areaObj(a,fy),fiere:fairsOfArea(a.id).length,fiereSv:fieresSvolte(areaList.get(String(a.id)))}));
-      const mna=M(E,r.name,'noarea'); if(has(mna)) rows.push({kind:'noarea',label:"Senza area",ec:[],m:mna,obj:null,fiere:0,fiereSv:fieresSvolte(noArea.get(r.name)||[])});
+      r.areas.forEach(a=>rows.push({kind:'area',label:a.nome,ec:goUnique(currentEc(a.id,today)),m:M(E,String(a.id),'area'),obj:areaObj(a,fy),fiere:fairsOfArea(a.id).length,fiereSv:fSv(fairsOfArea(a.id))}));
+      const mna=M(E,r.name,'noarea'); if(has(mna)) rows.push({kind:'noarea',label:"Senza area",ec:[],m:mna,obj:null,fiere:0,fiereSv:0});
     }
   });
-  const mo=targetMetrics(E.out); if(has(mo)) rows.push({kind:'out',label:"Fuori elenco (senza area né regione)",ec:[],m:mo,obj:null,fiere:0,fiereSv:fieresSvolte(out)});
+  const mo=targetMetrics(E.out); if(has(mo)) rows.push({kind:'out',label:"Fuori elenco (senza area né regione)",ec:[],m:mo,obj:null,fiere:0,fiereSv:0});
   // il totale e' il conteggio diretto di TUTTE le voci: coincide con quello della mappa e delle percentuali nazionali
-  rows.push({kind:'tot',label:"Totale",ec:[],m:targetMetrics(ents),obj:sumObj(regRows.map(r=>r.obj)),fiere:fairs.length,fiereSv:fieresSvolte(list)});
+  rows.push({kind:'tot',label:"Totale",ec:[],m:targetMetrics(ents),obj:sumObj(regRows.map(r=>r.obj)),fiere:fairs.length,fiereSv:fSv(fairs)});
   return rows;
 }
 // fiere della campagna (non annullate, con inizio nell'anno fiscale): lo stesso elenco serve alla colonna «Fiere programmate» e alla mappa
@@ -4227,7 +4229,7 @@ function campaignTableHtml(rows,fy){
     const key=i===0?'label':(i===1?'ec':i-2), pos=CAMP_SORT.findIndex(x=>x.c===key), dir=pos>=0?CAMP_SORT[pos].d:"";
     const b=(d,sym,txt)=>`<button type="button" class="sb${dir===d?' on':''}" data-sort="${key}" data-dir="${d}" aria-pressed="${dir===d}" aria-label="Ordina per ${esc(h)}: ${txt}" title="${txt}">${sym}</button>`;
     return `<th scope="col"${i<1?' class="l"':''} aria-sort="${dir==='asc'?'ascending':(dir==='desc'?'descending':'none')}"><span class="hl">${esc(h)}</span><span class="srt">${b("asc","▲","crescente")}${b("desc","▼","decrescente")}${pos>=0?`<i class="rk" title="Criterio ${pos+1}">${pos+1}</i>`:""}</span></th>`;
-  }).join("")}</tr></thead><tbody>${body}</tbody></table></div><div class="fhint" style="padding:8px 14px">Le regioni e le aree vengono dall'elenco delle aree, anche se non hanno attività. «Fiere programmate» = fiere del calendario nell'anno di campagna; «Fiere svolte» = fiere ricavate dalle attività «Scuola Fiera» svolte (giorni consecutivi nella stessa città = una fiera). «Workshop vs OBJ» conta fissati e svolti. Gli orientamenti sono contati per SCUOLA: ogni scuola vale 1 in tutta la campagna (tipo di priorità: Orientamento, poi Scuola Fiera, poi Orientamento con docente; «svolta» se almeno una sua attività lo è) e «Italia orienta» è un conteggio di attività fuori dai target. Un workshop su più appuntamenti vale 1 ed è «svolto» solo quando lo sono tutte le sue date. Gli obiettivi si impostano nella scheda Obiettivi.</div></div>`;
+  }).join("")}</tr></thead><tbody>${body}</tbody></table></div><div class="fhint" style="padding:8px 14px">Le regioni e le aree vengono dall'elenco delle aree, anche se non hanno attività. «Fiere programmate» = fiere del calendario nell'anno di campagna; «Fiere svolte» = fiere del calendario con stato «svolta» (le fiere non hanno un target: sono solo monitoraggio; «Scuola Fiera» è un orientamento, non una fiera). «Workshop vs OBJ» conta fissati e svolti. Gli orientamenti sono contati per SCUOLA: ogni scuola vale 1 in tutta la campagna (tipo di priorità: Orientamento, poi Scuola Fiera, poi Orientamento con docente; «svolta» se almeno una sua attività lo è) e «Italia orienta» è un conteggio di attività fuori dai target. Un workshop su più appuntamenti vale 1 ed è «svolto» solo quando lo sono tutte le sue date. Gli obiettivi si impostano nella scheda Obiettivi.</div></div>`;
 }
 function campRows(){ return filterActivities(visibleActivities(),Object.assign(repFilters(),{fy:String(campaignFy())})); }
 function campaignCsvRows(){ const fy=campaignFy(), rows=sortCampaign(buildCampaign(campRows(),fy,todayISO()),CAMP_SORT); return [["Riepilogo campagna "+fyLabel(fy)],CAMP_HEAD].concat(rows.map(r=>[r.label,r.ec.map(goLabel).join(", ")].concat(campCells(r)))).concat([[]]); }
