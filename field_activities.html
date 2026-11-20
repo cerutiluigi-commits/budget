@@ -3061,7 +3061,9 @@ async function deleteActivity(id){
    Le fiere NON generano costi, RDA o movimenti: sono solo un calendario. Si scrive solo su bdg_field_fairs e
    bdg_field_fair_areas, sempre con la connessione (niente coda offline: un calendario condiviso non deve divergere).
    Le fiere non si cancellano: si annullano (stato «annullata»). La sicurezza è nella RLS: qui i controlli sono di cortesia. */
-let TAB_ACTIVE="attivita";
+// la scheda aperta si ricorda per questa finestra (sessionStorage): un refresh della pagina torna dove eri (showTab corregge una scheda non permessa)
+const TAB_KEY="naba_field_tab", TAB_NOMI=["attivita","fuori","report","calendario","gestione","obiettivi","import"];
+let TAB_ACTIVE=(function(){ try{ const t=sessionStorage.getItem(TAB_KEY); return TAB_NOMI.includes(t)?t:"attivita"; }catch(e){ return "attivita"; } })();
 // mie = «Solo la mia area» (tasto a due stati): per l'orientatore tiene solo le fiere delle aree in cui e' assegnato adesso; ricordato sul dispositivo, per persona
 function calDefaults(){ return {q:"",regione:"",area:"",stato:"",periodo:"prossime",mie:false}; }
 let CAL={y:0,m:0,view:"month",f:calDefaults()};
@@ -3125,7 +3127,7 @@ function filterFairs(list,F,today){
 function showTab(name){
   if((name==="gestione"||name==="import"||name==="obiettivi")&&!(isManager()&&!CURRENT.unverified)) name="attivita";
   if(name==="fuori"&&!fuoriTabOn()) name="attivita";
-  TAB_ACTIVE=name;
+  TAB_ACTIVE=name; try{ sessionStorage.setItem(TAB_KEY,name); }catch(e){}
   document.querySelectorAll('nav.tabs button[data-tab]').forEach(b=>{ const on=b.dataset.tab===name; b.classList.toggle('on',on); if(on) b.setAttribute('aria-current','page'); else b.removeAttribute('aria-current'); });
   document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('on',p.id==="panel-"+name));
   const mn=document.querySelector('main'); if(mn&&mn.classList) mn.classList.toggle('wide',name==="report");   // il riepilogo di campagna ha 17 colonne: piu' spazio

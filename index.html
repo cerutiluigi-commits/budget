@@ -857,7 +857,7 @@ async function cloudLogin(email,pw){
 async function cloudLogout(){
   if(sb) await sb.auth.signOut();
   cloudSession=null; toast("Disconnesso");
-  currentApp=null;
+  currentApp=null; VIEW_clear(); _viewRestored=false;   // dopo «Esci» non si riporta in nessuna app
   pmReset(); // niente bozza dei permessi che sopravvive al logout
   meReset(); pfReset(); // né la riga dell'utente, né password digitate nel Profilo
   renderLoginState(); reloadFrames(); routeAfterAuth();
@@ -1289,6 +1289,20 @@ function showScreen(name){
   const SEZ_NOMI={backend:'Backend',utenti:'Utenti',permessi:'Permessi',profilo:'Profilo'};
   const sec=name==='app' ? APP_NOMI[currentApp] : SEZ_NOMI[name];
   const bs=document.getElementById('brandSec'); bs.textContent=sec||''; bs.hidden=!sec;
+  // dove sei si ricorda per questa finestra: un refresh (o il rientro) riporta nella stessa app invece che alla Home
+  if(name==='landing'||name==='app'||name==='backend') VIEW_save(name==='app'?{s:'app',app:currentApp}:{s:name});
+}
+var VIEW_KEY="naba_portal_view", _viewRestored=false;
+var VIEW_BOOT=(function(){ try{ return JSON.parse(sessionStorage.getItem(VIEW_KEY)||"null"); }catch(e){ return null; } })();   // letto SUBITO, prima che la Home lo sovrascriva
+function VIEW_save(v){ try{ sessionStorage.setItem(VIEW_KEY,JSON.stringify(v)); }catch(e){} }
+function VIEW_clear(){ VIEW_BOOT=null; try{ sessionStorage.removeItem(VIEW_KEY); }catch(e){} }
+// dopo l'accesso, alla prima Home gia' risolta: se prima del refresh eri dentro un'app che hai ancora il permesso di aprire, ci torni
+function VIEW_restore(ok){
+  if(_viewRestored) return; _viewRestored=true;
+  const v=VIEW_BOOT;
+  if(!v||screen!=='landing') return;
+  if(v.s==='app'&&v.app&&ok[v.app]) showApp(v.app);
+  else if(v.s==='backend'&&ok.backend) showScreen('backend');
 }
 function showApp(app){
   // a ogni (ri)ingresso nella scheda il centro di costo torna al predefinito dell'utente
@@ -1363,6 +1377,7 @@ function updateLanding(){
   document.getElementById('landingEmptyRole').textContent = role||'';
   document.getElementById('landingEmpty').style.display = none ? 'block' : 'none';
   document.getElementById('landingGrid').style.display = none ? 'none' : 'grid';
+  if(!none) VIEW_restore({budget:hasBudget,spese:hasSpese,docenti:hasDocenti,field:hasField,backend:isAdmin});
 }
 function recheck(){ if(cloudReady() && screen==='landing') updateLanding(); }
 function recheckSoon(){
