@@ -2350,9 +2350,9 @@ function fillModalOptions(a,w){
   document.getElementById("regList").innerHTML=[...new Set((STATE.provinces||[]).map(p=>p.regione).filter(Boolean))].sort().map(r=>`<option value="${esc(r)}"></option>`).join("");
   // elenco orientatori (solo responsabile/admin)
   if(isManager()){
-    const em=new Set(); Object.entries(STATE.appUsers||{}).forEach(([e,u])=>{ if(u&&u.attivo!==false&&(u.role==='orientatore'||(u.extra_roles||[]).includes('orientatore'))) em.add(e); });
+    const em=new Set(); Object.entries(STATE.appUsers||{}).forEach(([e,u])=>{ if(u&&u.attivo!==false&&(u.role==='orientatore'||u.role==='responsabile'||u.role==='admin'||(u.extra_roles||[]).includes('orientatore'))) em.add(e); });   // anche admin e responsabili: fanno attivita' e possono essere titolari
     if(cur.orientatore_email) em.add(cur.orientatore_email); if(CURRENT.email) em.add(CURRENT.email);
-    document.getElementById("aOrient").innerHTML=[...em].sort().map(e=>`<option value="${esc(e)}" data-kw="${esc(ecLabel(e))}">${esc(e)}</option>`).join("");
+    document.getElementById("aOrient").innerHTML=[...em].sort((x,y)=>ecLabel(x).localeCompare(ecLabel(y),'it')).map(e=>`<option value="${esc(e)}" data-kw="${esc(e)}">${esc(ecLabel(e))}</option>`).join("");   // il nome (cercabile anche per e-mail), non l'e-mail
   }
 }
 function openActModal(id,dupId,opts){
