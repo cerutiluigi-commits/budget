@@ -1071,21 +1071,20 @@ main.wide{max-width:1560px}
         <div class="field" id="fl-aTipo"><label for="aTipo">Tipo di attività <span class="req">*</span></label><select id="aTipo" required></select></div>
         <div class="field"><label for="aClasse">Classe</label><select id="aClasse"></select></div>
         <div class="field full" id="fl-aCampagna" style="display:none"><label for="aCampagna" id="aCampagnaLbl">Campagna</label><select id="aCampagna"></select><div class="fhint" id="aCampagnaHint" aria-live="polite"></div></div>
-        <div class="field full" id="fl-aFiera" style="display:none"><label for="aFiera">Fiera</label><select id="aFiera"></select><div class="fhint" id="aFieraHint" aria-live="polite"></div></div>
       </div>
 
       <div class="sect-h">Dove</div>
       <div class="grid4">
-        <div class="field" id="fl-aProv"><label for="aProv">Provincia (sigla)</label><input id="aProv" list="provList" maxlength="2" autocomplete="off" placeholder="es. MI" style="text-transform:uppercase"><datalist id="provList"></datalist></div>
-        <div class="field"><label for="aRegione">Regione</label><input id="aRegione" list="regList" autocomplete="off"><datalist id="regList"></datalist></div>
-        <div class="field"><label for="aArea">Area</label><select id="aArea"></select></div>
-        <div class="field"><label for="aCitta">Città</label><input id="aCitta" autocomplete="off"></div>
-        <div id="aProvHint" class="fhint full"></div>
         <div class="field full" id="fl-aScuola"><label for="aScuola">Scuola</label>
           <input id="aScuola" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="aScuolaAc" autocomplete="off" placeholder="Cerca per nome, città o provincia">
           <div class="ac-list" id="aScuolaAc" role="listbox" aria-label="Scuole trovate"></div>
           <div class="fhint" id="aScuolaInfo" aria-live="polite"></div>
         </div>
+        <div class="field" id="fl-aProv"><label for="aProv">Provincia (sigla)</label><input id="aProv" list="provList" maxlength="2" autocomplete="off" placeholder="es. MI" style="text-transform:uppercase"><datalist id="provList"></datalist></div>
+        <div class="field"><label for="aRegione">Regione</label><input id="aRegione" list="regList" autocomplete="off"><datalist id="regList"></datalist></div>
+        <div class="field"><label for="aArea">Area</label><select id="aArea"></select></div>
+        <div class="field"><label for="aCitta">Città</label><input id="aCitta" autocomplete="off"></div>
+        <div id="aProvHint" class="fhint full"></div>
       </div>
 
       <div class="sect-h">Dettagli</div>
@@ -2257,31 +2256,6 @@ function refreshWsBlock(){
   else if(show&&MODAL&&MODAL.ws&&!MODAL.isNew&&!wsRowDataEmpty(MODAL.ws)&&MODAL.origTipo!==TIPO_WORKSHOP&&isWs){ n.style.display="block"; n.textContent="Questa attività ha già dati di workshop salvati: li ritrovi qui sotto."; }
   else n.style.display="none";
 }
-/* ---- tipo «Scuola Fiera»: menu a tendina con le fiere del calendario; sceglierne una compila luogo e area ---- */
-function fillFairSelect(){
-  const list=(STATE.fairs||[]).filter(f=>f.stato!=='annullata').slice().sort((a,b)=>String(a.start_date||"").localeCompare(String(b.start_date||""))||String(a.nome).localeCompare(String(b.nome),'it'));
-  document.getElementById("aFiera").innerHTML=`<option value="">${list.length?"— scegli una fiera —":"Nessuna fiera in calendario"}</option>`+list.map(f=>`<option value="${esc(f.id)}" data-kw="${esc(fairKw(f))}">${esc(f.nome+" · "+fairRange(f)+(f.citta?" · "+f.citta:""))}</option>`).join("");
-  document.getElementById("aFiera").value="";
-  document.getElementById("aFieraHint").textContent="";
-}
-function refreshFairBlock(){ document.getElementById("fl-aFiera").style.display=document.getElementById("aTipo").value===TIPO_FIERA?"":"none"; }
-// compila città, provincia, regione e area dai dati già in archivio della fiera; ciò che la fiera non ha resta com'è
-function applyFair(id){
-  const f=(STATE.fairs||[]).find(x=>String(x.id)===String(id)), h=document.getElementById("aFieraHint");
-  if(!f){ h.textContent=""; return; }
-  if(MODAL) MODAL.anywhere=false;   // nuova fiera: la ricerca delle scuole torna ristretta alla sua città
-  untouch('citta','prov','regione','area');   // la fiera scelta decide luogo e area, qualunque cosa ci fosse prima
-  const set=(i,v)=>{ if(v) document.getElementById(i).value=v; };
-  set("aCitta",f.citta);
-  const prov=f.provincia?String(f.provincia).toUpperCase():"";
-  if(prov){ document.getElementById("aProv").value=prov; proposeFromProvince(); }   // regione e area dalla provincia...
-  set("aRegione",f.regione);                                                           // ...poi quelle scritte sulla fiera
-  const ar=fairAreaIds(f.id);
-  if(ar.length===1) document.getElementById("aArea").value=ar[0];
-  esecRefresh(); updateProvHint();
-  const got=[f.citta?f.citta+(prov?" ("+prov+")":""):(prov||""),f.regione||"",ar.length===1?areaName(ar[0]):""].filter(Boolean);
-  h.textContent=got.length?("Compilati dalla fiera: "+got.join(", ")+". Puoi correggere."):"Questa fiera non ha ancora un luogo registrato: compilalo a mano (si può completare dalla Gestione fiere).";
-}
 /* ---- campagne Salesforce (Workshop e School Visits): non sono nel calendario fiere, si collegano alle attività ----
    Workshop → campagna «Workshop» della regione; Orientamento (e con docente) → campagna «School Visits». Scegliere la campagna compila la regione
    (e l'area, se la regione ne ha una sola); scrivendo la regione si propone la campagna. Si salva solo il collegamento (campaign_id). */
@@ -2386,7 +2360,7 @@ function openActModal(id,dupId){
   document.getElementById("aInfo").textContent=dup?"Copia di un'attività esistente: scegli la data della nuova attività e correggi ciò che cambia. L'originale non viene toccata.":(a&&a.updated_at?("Ultima modifica: "+fmtTs(a.updated_at)+(a.updated_by?" · "+a.updated_by:"")):"");
   showMsg("");
   setupPersonFields(a,w);   // selettore «Chi ha svolto» e docente del workshop (solo se l'anagrafica persone esiste: altrimenti i campi di sempre)
-  fillFairSelect(); refreshFairBlock(); initCampaignBlock(a&&a.campaign_id);
+  initCampaignBlock(a&&a.campaign_id);
   updateProvHint(); updateSchoolInfo(); refreshWsBlock();
   MODAL.snap=JSON.stringify(readForm());   // serve a sapere se ci sono modifiche non salvate alla chiusura
   openOverlay("actOverlay","aData");
@@ -4472,10 +4446,6 @@ function areaKw(id){
   const a=(STATE.areas||[]).find(x=>String(x.id)===String(id));
   return [a&&a.nome].concat((STATE.provinces||[]).filter(p=>String(p.area_id)===String(id)).map(p=>[p.provincia,p.capoluogo,p.regione].filter(Boolean).join(" ")),(STATE.areaCities||[]).filter(c=>String(c.area_id)===String(id)).map(c=>[c.citta||c.citta_norm,c.provincia,c.regione].filter(Boolean).join(" "))).filter(Boolean).join(" ");
 }
-function fairKw(f){
-  const m=[]; if(f.start_date) m.push(MESI_IT[+f.start_date.slice(5,7)-1]); if(f.end_date&&f.start_date&&f.end_date.slice(5,7)!==f.start_date.slice(5,7)) m.push(MESI_IT[+f.end_date.slice(5,7)-1]);
-  return [f.citta,f.provincia,f.regione,f.region_group].concat(m,fairAreaNames(f.id)).filter(Boolean).join(" ");
-}
 function campaignKw(c){ return campaignRegionName(c)||String(c.nome||"").replace(/\s+(Workshop|School Visits)\b.*$/i,""); }
 function provKw(sig){ const p=provinceBySigla(sig); return p?[p.capoluogo,p.regione].filter(Boolean).join(" "):""; }
 
@@ -5185,10 +5155,8 @@ function wire(){
   document.getElementById("actOverlay").addEventListener("mousedown",e=>{ if(e.target.id==="actOverlay") tryCloseActModal(); });
   document.getElementById("aCancelAct").onclick=async()=>{ if(!MODAL||MODAL.isNew||MODAL.busy) return; const id=MODAL.id; await cancelActivity(id); const a=STATE.activities.find(x=>x.id===id); if(a&&a.stato==='annullata') closeActModal(); };
   document.getElementById("aTipo").addEventListener("change",refreshWsBlock);
-  document.getElementById("aTipo").addEventListener("change",refreshFairBlock);
   document.getElementById("aTipo").addEventListener("change",refreshCampaignBlock);
   document.getElementById("aCampagna").addEventListener("change",()=>applyCampaign(document.getElementById("aCampagna").value));
-  document.getElementById("aFiera").addEventListener("change",()=>applyFair(document.getElementById("aFiera").value));
   ["wsModalita","wsSede","wsCorso","wsDocente","wsTema","wsNote","wsOre"].forEach(id=>{ $(id).addEventListener("input",refreshWsBlock); $(id).addEventListener("change",refreshWsBlock); });
   document.getElementById("aProv").addEventListener("input",()=>{ document.getElementById("aProv").value=document.getElementById("aProv").value.toUpperCase(); touch('prov'); proposeFromProvince(); updateProvHint(); });
   document.getElementById("aProv").addEventListener("change",()=>{ touch('prov'); proposeFromProvince(); updateProvHint(); });
