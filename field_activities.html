@@ -1220,7 +1220,7 @@ main.wide{max-width:1560px}
 <div class="overlay" id="confirmOverlay">
   <div class="modal" role="alertdialog" aria-modal="true" aria-labelledby="confirmTitle" aria-describedby="confirmMsg" style="max-width:440px">
     <div class="mhead"><h3 id="confirmTitle">Conferma</h3></div>
-    <div class="mbody"><p id="confirmMsg" style="margin:0"></p></div>
+    <div class="mbody"><p id="confirmMsg" style="margin:0;white-space:pre-line"></p></div>
     <div class="mfoot"><span class="sp"></span><button type="button" class="btn ghost" id="confirmCancel">Indietro</button><button type="button" class="btn" id="confirmOk">Conferma</button></div>
   </div>
 </div>
@@ -2189,21 +2189,43 @@ async function changeStato(a,stato){
     mergeLocal({id:a.id,stato},null,(res.rows[0]&&res.rows[0].updated_at)||null); return {ok:true};
   }catch(e){ console.error(e); if(isNetworkError(e)){ queueSave(row,null); return {queued:true}; } return {err:true,kind:'other',msg:(e&&e.message)||"errore imprevisto"}; }
 }
-async function markSvolta(id){
+// «Segna come svolta» sulla riga: una fissata puo' non avere ancora chi la svolgera', quindi non cambia lo stato da sola ma riapre la scheda
+// con lo stato «svolta»: si deve indicare (o confermare) chi l'ha svolta e verificare il riepilogo dei dati prima di salvare (vedi saveActivity)
+function markSvolta(id){
   const a=visibleActivities().find(x=>x.id===id); if(!a||a.stato!=='fissata') return;
   if(!canWrite()){ toast(DENY_MSG,'err'); return; }
-  const r=await changeStato(a,'svolta');
-  if(r.ok){ flashSynced(); renderAll(); toast("Attività segnata come svolta"); sfx('done'); }
-  else if(r.queued){ renderAll(); toast("Nessuna connessione: la modifica è in coda (non è ancora sul cloud).",'ok'); }
-  else { cloudSetDot('err'); toast(r.msg,'err'); if(r.kind==='conflict'||r.kind==='denied') pullSoon(); }
+  openActModal(id,null,{svolta:true});
+}
+// chi ha svolto l'attivita': se non e' ancora indicato propone il titolare della riga (se e' una persona in anagrafica con la sua e-mail): resta da confermare nel riepilogo
+function svoltaPrefill(){
+  if(!MODAL||!MODAL.ppEsec) return;
+  const S=PP.esec; if(S.person||S.isNew) return;
+  const tit=String(isManager()?document.getElementById("aOrient").value:((MODAL.orig&&MODAL.orig.orientatore_email)||CURRENT.email||"")).trim().toLowerCase(); if(!tit) return;
+  const p=(STATE.people||[]).find(x=>x.email===tit&&x.attivo!==false); if(p&&!esecWhy(p)) ppSet(S,{personId:p.id});
+}
+// una riga che diventa «svolta» (dal pulsante o dal menu Stato della scheda, anche se nuova): serve chi l'ha svolto, poi la verifica dei dati
+function svoltaFlow(v){ return v.stato==='svolta'&&!(MODAL&&MODAL.orig&&MODAL.orig.stato==='svolta'); }
+function svoltaMissing(){
+  if(MODAL&&MODAL.ppEsec){ const S=PP.esec; if(!(S.person||S.isNew)) return {field:"aEsec",msg:"Per segnare l'attività come svolta indica chi l'ha svolta (orientatore, tutor, alumni, collaboratore…): scegli una persona dall'elenco oppure «+ Nuova persona»."}; }
+  return null;
+}
+function svoltaRecap(v){
+  const S=(MODAL&&MODAL.ppEsec)?PP.esec:null; let chi="";
+  if(S&&S.isNew){ const n=ppNameVals(S); chi=(n.nome+" "+n.cognome).trim()+" (persona nuova, "+personTipoLabel(S.tipo)+")"; }
+  else if(S&&S.person) chi=personFull(S.person)+" ("+personTipoLabel(S.person.tipo)+")";
+  else chi=personName(v.orientatore_email);
+  const L=[["Data",fmtD(v.data)],["Tipo",taxLabel('tipo',v.tipo)||v.tipo||"—"],["Scuola",v.scuola||"—"],["Dove",[v.citta,v.provincia?"("+v.provincia+")":"",v.regione].filter(Boolean).join(" ")||"—"],["Area",areaName(v.area_id)||"—"],["Chi ha svolto",chi||"—"],["Titolare della riga",personName(v.orientatore_email)||"—"],["Campagna",campaignName(v.campagna)||"—"],["Leads",v.studenti||"—"]];
+  if(v.tipo===TIPO_WORKSHOP){ const w=v.ws||{}; L.push(["Workshop",[taxLabel('workshop_modalita',w.modalita),taxLabel('sede',w.sede),taxLabel('corso',w.corso),w.ore?w.ore+" h":"",w.docente?"docente "+w.docente:""].filter(Boolean).join(" · ")||"—"]); }
+  return L.map(([k,x])=>k+": "+x).join("\n");
 }
 async function bulkSvolte(items,quale){
   if(BULK.busy) return;
   if(!canWrite()||CURRENT.unverified){ toast(DENY_MSG,'err'); return; }
-  const targets=items.filter(a=>a.stato==='fissata'), skipped=items.length-targets.length;
-  if(!targets.length){ toast("Nessuna attività fissata da segnare come svolta."); return; }
+  // con la v4 una fissata senza «chi ha svolto» non si segna in blocco: serve indicarlo (e verificare i dati) aprendo la sua scheda
+  const fissate=items.filter(a=>a.stato==='fissata'), targets=fissate.filter(a=>!(v4("esec")&&(a.esecutore_id==null||a.esecutore_id===""))), senzaChi=fissate.length-targets.length, skipped=items.length-fissate.length;
+  if(!targets.length){ toast(senzaChi?("Nessuna da segnare in blocco: "+senzaChi+(senzaChi===1?" attività non ha":" attività non hanno")+" ancora chi l'ha svolta. Apri ognuna con «Segna come svolta», indica chi l'ha svolta e verifica i dati."):"Nessuna attività fissata da segnare come svolta."); return; }
   const n=targets.length;
-  const ok=await showConfirm("Segnare come svolte?","Sei sicuro di voler impostare come svolte "+n+(n===1?" attività":" attività")+(quale==="sel"?" selezionate":" fissate")+"?"+(skipped?" ("+skipped+(skipped===1?" già svolta o annullata non cambia":" già svolte o annullate non cambiano")+".)":"")+" Lo stato si può riportare a «Fissata» dalla modifica di ogni attività.","Segna "+n+" come svolte","Indietro");
+  const ok=await showConfirm("Segnare come svolte?","Sei sicuro di voler impostare come svolte "+n+(n===1?" attività":" attività")+(quale==="sel"?" selezionate":" fissate")+"?"+(skipped?" ("+skipped+(skipped===1?" già svolta o annullata non cambia":" già svolte o annullate non cambiano")+".)":"")+(senzaChi?" ("+senzaChi+(senzaChi===1?" senza chi l'ha svolta resta fissata: va aperta una per una":" senza chi le ha svolte restano fissate: vanno aperte una per una")+".)":"")+" Lo stato si può riportare a «Fissata» dalla modifica di ogni attività.","Segna "+n+" come svolte","Indietro");
   if(!ok) return;
   BULK.busy=true; updateBulkBar(listRows());
   const res={ok:0,queued:0,fail:[],failIds:[]}, CH=5;
@@ -2319,7 +2341,7 @@ function fillModalOptions(a,w){
     document.getElementById("aOrient").innerHTML=[...em].sort().map(e=>`<option value="${esc(e)}" data-kw="${esc(ecLabel(e))}">${esc(e)}</option>`).join("");
   }
 }
-function openActModal(id,dupId){
+function openActModal(id,dupId,opts){
   if(!canWrite()||CURRENT.unverified){ toast(DENY_MSG,'err'); return; }
   let a=null,w=null,dup=false;
   if(id){
@@ -2362,6 +2384,10 @@ function openActModal(id,dupId){
   setupPersonFields(a,w);   // selettore «Chi ha svolto» e docente del workshop (solo se l'anagrafica persone esiste: altrimenti i campi di sempre)
   initCampaignBlock(a&&a.campaign_id);
   updateProvHint(); updateSchoolInfo(); refreshWsBlock();
+  if(opts&&opts.svolta){   // dal pulsante «Segna come svolta» della riga: stato «svolta», chi ha svolto da indicare o confermare, poi la verifica dei dati
+    document.getElementById("aStato").value="svolta"; svoltaPrefill();
+    document.getElementById("aInfo").textContent="Per segnarla come svolta indica (o conferma) chi l'ha svolta e controlla gli altri dati: prima di salvare vedrai il riepilogo da verificare.";
+  }
   MODAL.snap=JSON.stringify(readForm());   // serve a sapere se ci sono modifiche non salvate alla chiusura
   openOverlay("actOverlay","aData");
 }
@@ -2900,6 +2926,10 @@ async function saveActivity(ev){
   if(bad){ showMsg(bad.msg,bad.field); return; }
   if(v.stato==='annullata'&&!(MODAL.orig&&MODAL.orig.stato==='annullata')){
     if(!await showConfirm("Annullare l'attività?","L'attività resta nell'elenco con stato «annullata»: non viene cancellata e puoi riportarla a «fissata» quando vuoi.","Annulla l'attività","Indietro")) return;
+  }
+  if(svoltaFlow(v)){
+    const miss=svoltaMissing(); if(miss){ showMsg(miss.msg,miss.field); return; }
+    if(!await showConfirm("Verifica i dati: l'attività è stata svolta?",svoltaRecap(v)+"\n\nControlla che sia tutto corretto: potrai correggerla anche dopo.","Confermo: segna come svolta","Torna a modificare")) return;
   }
   showMsg("");
   // persone nuove (chi ha svolto, docente del workshop): avviso di omonimia PRIMA di scrivere qualsiasi cosa; la persona si scrive prima dell'attività
@@ -5154,6 +5184,7 @@ function wire(){
   document.getElementById("aClose").onclick=tryCloseActModal; document.getElementById("aClose2").onclick=tryCloseActModal;
   document.getElementById("actOverlay").addEventListener("mousedown",e=>{ if(e.target.id==="actOverlay") tryCloseActModal(); });
   document.getElementById("aCancelAct").onclick=async()=>{ if(!MODAL||MODAL.isNew||MODAL.busy) return; const id=MODAL.id; await cancelActivity(id); const a=STATE.activities.find(x=>x.id===id); if(a&&a.stato==='annullata') closeActModal(); };
+  document.getElementById("aStato").addEventListener("change",()=>{ if(MODAL&&document.getElementById("aStato").value==='svolta'&&!(MODAL.orig&&MODAL.orig.stato==='svolta')) svoltaPrefill(); });   // «svolta» scelta nella scheda: stessa verifica del pulsante
   document.getElementById("aTipo").addEventListener("change",refreshWsBlock);
   document.getElementById("aTipo").addEventListener("change",refreshCampaignBlock);
   document.getElementById("aCampagna").addEventListener("change",()=>applyCampaign(document.getElementById("aCampagna").value));
