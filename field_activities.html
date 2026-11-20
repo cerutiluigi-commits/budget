@@ -203,7 +203,7 @@ main.wide{max-width:1560px}
 .rowbtn:hover{border-color:var(--ink-mute);color:var(--ink)}
 .rowbtn svg{width:15px;height:15px}
 .rowbtn.cancel{color:var(--over)}
-.rowbtn.cancel:hover{background:var(--over-soft);border-color:var(--over)}
+.rowbtn.cancel:hover,.rowbtn.del:hover{background:var(--over-soft);border-color:var(--over)}
 
 /* barra azioni e filtri */
 .bar{display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;margin-bottom:12px}
@@ -317,13 +317,11 @@ main.wide{max-width:1560px}
 .act-grid .wschip:hover{filter:brightness(.96);box-shadow:var(--shadow-sm)}
 .act-grid .wschip:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .act-grid .wschip .ic{color:var(--info-ink);width:13px;height:13px}
-.act-grid .wschip{position:relative;display:inline-grid;grid-template-columns:auto minmax(0,1fr);gap:1px 4px;align-items:center;padding:1px 5px}   /* schermo largo: riga 1 = icona + «Workshop», riga 2 = corso a tutta larghezza del chip */
-.act-grid .wc-t{display:contents}
-.act-grid .wc-k{grid-column:2}
-.act-grid .wc-c{grid-column:1/-1}
-.act-grid .wc-k{font-weight:700}
-.act-grid .wc-s{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap}   /* il punto di separazione c'e' per chi legge (screen reader, testo copiato); a schermo largo le due parole stanno su due righe */
-.act-grid .wc-c{font-weight:500;overflow-wrap:anywhere}
+.act-grid .wschip{position:relative;display:inline-flex;flex-wrap:nowrap;white-space:nowrap;align-items:center;gap:4px;padding:1px 6px}   /* una sola riga: icona + «Workshop · corso» (corso lungo = sigla) */
+.act-grid .wc-t{display:flex;flex-wrap:nowrap;gap:0 .3em;min-width:0;overflow:hidden}
+.act-grid .wc-k{font-weight:700;flex:none}
+.act-grid .wc-s{flex:none}
+.act-grid .wc-c{font-weight:500;min-width:0;overflow:hidden;text-overflow:ellipsis}
 .act-grid .wc-c:empty{display:none}
 .act-grid .badge .ic{width:11px;height:11px;margin-right:3px;vertical-align:-1.5px}
 /* persone: cerchietto con le iniziali; il colore viene dalla persona (classe av0..av9 = personTone) */
@@ -349,6 +347,7 @@ main.wide{max-width:1560px}
   .act-grid .a-s{display:none}   /* area abbreviata: sotto i 960px il nome per esteso */
   .act-grid .wschip{display:inline-flex}.act-grid .wc-t{display:flex;flex-direction:row;flex-wrap:wrap;gap:0 .3em;min-width:0}.act-grid .wc-k,.act-grid .wc-c{grid-column:auto}.act-grid .wc-s{position:static;width:auto;height:auto;overflow:visible;clip:auto}   /* chip del workshop su una riga: «Workshop · Design» */
   .act-grid .wschip{font-size:12px;padding:3px 8px}
+  .act-grid .wschip .wc-t{flex-wrap:nowrap}
   .act-grid .c-or,.act-grid .c-rs{min-width:0;max-width:100%}
 }
 @media(max-width:600px){
@@ -845,7 +844,7 @@ main.wide{max-width:1560px}
         <div class="fld"><label for="fProvincia">Provincia</label><select id="fProvincia"></select></div>
         <div class="fld"><label for="fScuola">Scuola</label><input id="fScuola" type="search" placeholder="Nome della scuola" autocomplete="off"></div>
         <div class="fld fwide" id="fGrpBox" style="display:none"><label for="fGrp">Gruppo / Orientatore</label><select id="fGrp"></select></div>
-        <div class="fld fwide" id="fOrientBox" style="display:none"><label for="fOrient">Orientatore</label><select id="fOrient"></select></div>
+        <div class="fld fwide" id="fRespBox" style="display:none"><label for="fResp">Area Responsabile</label><select id="fResp"></select></div>
         <div class="fld fspan2" id="sortBox"><label for="sKey1">Ordina per</label>
           <div class="sorts" role="group" aria-label="Criteri di ordinamento: fino a tre, in ordine di importanza">
             <span class="lvl"><b>1</b><select id="sKey1" data-nocb="1" aria-label="Primo criterio di ordinamento"></select><button type="button" class="sdir" id="sDir1" aria-label="Direzione del primo criterio"></button></span>
@@ -1250,6 +1249,7 @@ const ICO={
   edit:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>',
   dup:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="12" height="12" rx="2"/><path d="M5 15V5a2 2 0 0 1 2-2h10"/></svg>',
   done:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 12.5 3 3 5-6"/></svg>',
+  trash:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 7h16"/><path d="M9 7V4h6v3"/><path d="M6 7l1 13h10l1-13"/><path d="M10 11v6M14 11v6"/></svg>',
   cancel:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="m8 8 8 8"/></svg>'
 };
 /* set di icone lineari, stesso stile di ICO (24x24, tratto 2, currentColor, aria-hidden): tipi, stati, sezioni, riepilogo.
@@ -1345,7 +1345,7 @@ function errText(error){
 /* ---- stato (cache locale: solo dell'utente collegato) ---- */
 // people, areaCities, fairStaff e v4 sono le tabelle/colonne della versione 4 del database (migrazioni 026-030): vuote e "non disponibili" finche' il database non e' aggiornato
 function seed(){ return {user:null,appUsers:{},tabVisibility:{},activities:[],workshops:{},taxonomies:[],areas:[],provinces:[],fairs:[],fairAreas:[],assignments:[],campaigns:[],people:[],areaCities:[],fairStaff:[],travelers:[],v4:{},filters:defaultFilters(),at:null}; }
-function defaultFilters(){ return {q:"",fy:String(fyOfISO(todayISO())),from:"",to:"",stato:"",tipo:"",regione:"",provincia:"",scuola:"",grp:"",orient:"",sort:"desc"}; }
+function defaultFilters(){ return {q:"",fy:String(fyOfISO(todayISO())),from:"",to:"",stato:"",tipo:"",regione:"",provincia:"",scuola:"",grp:"",resp:"",orient:"",sort:"desc"}; }
 function load(){
   try{ const s=JSON.parse(localStorage.getItem(LS_KEY)||"null"); if(s&&typeof s==="object"&&!Array.isArray(s)){ const b=seed(); for(const k of Object.keys(b)) if(s[k]!==undefined) b[k]=s[k]; b.filters=Object.assign(defaultFilters(),b.filters||{}); return b; } }catch(e){}
   return seed();
@@ -1554,6 +1554,8 @@ function filterActivities(list,F){
     if(F.area&&String(a.area_id)!==String(F.area)) return false;
     if(F.provincia&&String(a.provincia||"").toUpperCase()!==String(F.provincia).toUpperCase()) return false;
     if(F.grp&&goKey(a.orientatore_email)!==F.grp&&!(doerEmail(a)&&goKey(doerEmail(a))===F.grp)) return false;   // Gruppo/Orientatore: del titolare o di chi ha svolto
+    // Area Responsabile: il responsabile (EC) dell'AREA dell'attivita', non chi l'ha inserita o svolta (a livello Gruppo/Orientatore)
+    if(F.resp&&!areaEcs(a.area_id).some(e=>goKey(e)===F.resp)) return false;
     if(F.orient){ const o=String(F.orient).toLowerCase(); if(String(a.orientatore_email||'').toLowerCase()!==o&&doerEmail(a)!==o) return false; }   // il titolare o chi ha svolto (esecutore con e-mail)
     if(sc&&!norm(a.school_name).includes(sc)) return false;
     if(q){ const w=(STATE.workshops&&STATE.workshops[a.id])||{}; if(!norm([a.school_name,a.citta,a.provincia,a.regione,a.note,a.calendario,w.tema,w.docente_nome,a.esecutore_id!=null?doerName(a):""].join(" ")).includes(q)) return false; }
@@ -1930,7 +1932,7 @@ function applyRole(){
   else banner.style.display='none';
   const chip=document.getElementById("whoChip"); if(chip){ chip.style.display=CURRENT.email?'':'none'; chip.textContent=(CURRENT.email||'')+(CURRENT.role&&CURRENT.role!=='guest'?' · '+CURRENT.role:''); }
   document.getElementById("btnNewAct").style.display=(vis&&canWrite()&&!CURRENT.unverified)?'':'none';
-  document.getElementById("fOrientBox").style.display=document.getElementById("fGrpBox").style.display=(vis&&isManager())?'':'none';
+  document.getElementById("fRespBox").style.display=document.getElementById("fGrpBox").style.display=(vis&&isManager())?'':'none';
   const mine=!isManager();
   document.getElementById("actHeadingT").textContent=mine?"Le mie attività":"Attività di tutti gli orientatori";
   calMineSync();   // il tasto «Solo la mia area» e il suo ultimo stato dipendono da chi e' collegato
@@ -1964,9 +1966,11 @@ function fillFilterOptions(){
     const gl=goList([...em]);
     if(F.grp&&!gl.some(g=>g.key===F.grp)) F.grp="";
     document.getElementById("fGrp").innerHTML=`<option value="">Tutti</option>`+gl.map(g=>`<option value="${esc(g.key)}" data-kw="${esc([...em].filter(e=>goKey(e)===g.key).map(e=>ecLabel(e)+" "+e).join(" "))}">${esc(g.label)}</option>`).join(""); document.getElementById("fGrp").value=F.grp;
-    const oe=[...em].filter(e=>!F.grp||goKey(e)===F.grp).sort((a,b)=>ecLabel(a).localeCompare(ecLabel(b),'it'));
-    if(F.orient&&!oe.includes(F.orient)) F.orient="";
-    document.getElementById("fOrient").innerHTML=`<option value="">Tutti</option>`+oe.map(e=>`<option value="${esc(e)}" data-kw="${esc(e)}">${esc(ecLabel(e))}</option>`).join(""); document.getElementById("fOrient").value=F.orient;
+    // Area Responsabile: i referenti (EC) delle aree, al livello Gruppo/Orientatore
+    const rs=[]; (STATE.areas||[]).filter(a=>a.attiva!==false).forEach(a=>currentEc(a.id,todayISO()).forEach(e=>rs.push(e)));
+    const rl=goList(rs);
+    if(F.resp&&!rl.some(g=>g.key===F.resp)) F.resp="";
+    document.getElementById("fResp").innerHTML=`<option value="">Tutti</option>`+rl.map(g=>`<option value="${esc(g.key)}" data-kw="${esc(rs.filter(e=>goKey(e)===g.key).map(e=>ecLabel(e)+" "+e).join(" "))}">${esc(g.label)}</option>`).join(""); document.getElementById("fResp").value=F.resp;
   }
   document.getElementById("fQ").value=F.q; document.getElementById("fFrom").value=F.from; document.getElementById("fTo").value=F.to; document.getElementById("fScuola").value=F.scuola; fillSortControls(F);
 }
@@ -2055,17 +2059,18 @@ function areaShort(name){
 // colonne: [selezione] Data [Orientatore, solo per chi vede tutti] Resp. area, Dove, Tipo, Area, Leads, Stato [pulsanti]; le stesse in actHeadHtml e actRowHtml
 // orientatore e resp. area sono cerchietti stretti; tutto lo spazio che avanza va a «Dove»
 // «Tipo» e' largo (120px: «Workshop» + corso su due righe) solo se l'elenco mostrato contiene almeno un workshop; con wide=false resta la colonna stretta di icona + sigla
+let ROW_RO=false;   // vero mentre si disegna la scheda «Fuori area»: stesse colonne dell'elenco ma sola lettura (niente casella e pulsanti) e area su ogni riga
 function actCols(wide){
-  const w=canWrite();
-  return [w?"20px":"","78px",orColOn()?"44px":"","48px","minmax(150px,1fr)",wide?"120px":"56px","60px","46px","88px",w?"146px":""].filter(Boolean).join(" ");
+  const w=canWrite()&&!ROW_RO;
+  return [w?"20px":"","78px",orColOn()?"44px":"","48px","minmax(150px,1fr)",wide?"150px":"56px","60px","46px","88px",w?(isAdminRole()?"184px":"146px"):""].filter(Boolean).join(" ");
 }
 function actHeadHtml(){
-  const w=canWrite();
+  const w=canWrite()&&!ROW_RO;
   return `<div class="act-head" aria-hidden="true">${w?`<span></span>`:""}<span>Data</span>${orColOn()?`<span class="h-av" title="Orientatore">Orient.</span>`:""}<span class="h-av" title="Responsabile area">Resp.</span><span>Dove</span><span title="Tipo di attività">Tipo</span><span>Area</span><span class="r">Leads</span><span>Stato</span>${w?`<span></span>`:""}</div>`;
 }
 function actRowHtml(a){
   const ws=STATE.workshops[a.id];
-  const queued=isQueued(a.id), canEdit=canWrite(), mgr=orColOn(), isWs=a.tipo===TIPO_WORKSHOP;
+  const queued=isQueued(a.id), canEdit=canWrite()&&!ROW_RO, mgr=orColOn(), isWs=a.tipo===TIPO_WORKSHOP;
   // dove: Regione · Provincia · Citta' · Scuola (la scuola in grassetto, con «…» se manca spazio; il testo intero e' nel suggerimento)
   const geo=[a.regione,a.provincia?String(a.provincia).toUpperCase():"",a.citta].filter(Boolean).join(" · ");
   const school=a.school_name||"Scuola non indicata";
@@ -2095,13 +2100,14 @@ function actRowHtml(a){
       +avHtml("more","+"+(ecs.length-1),"Altri "+(ecs.length-1)+" responsabili: "+ecNames.slice(1).join(", "),"rm-"+idE,rsTitle,rsTitle.join(" "));
   // area: pastiglia col colore stabile dell'area (areaTone); il nome scritto c'e' sempre, il colore non e' l'unica informazione
   const arSh=areaShort(area), arT=esc("Area: "+area), arC="apill ar"+areaTone(a.area_id);
-  const arHtml=!isWs?"":!area?`<span class="nil" title="Area non indicata">—</span>`
+  const arHtml=(!isWs&&!ROW_RO)?"":!area?`<span class="nil" title="Area non indicata">—</span>`
     :arSh===area?`<span class="${arC}" title="${arT}">${esc(area)}</span>`
     :`<span class="tip" tabindex="0" title="${arT}" data-tip="${arT}"><span class="${arC}"><span class="a-s" aria-hidden="true">${esc(arSh)}</span><span class="a-f">${esc(area)}</span></span></span>`;
   // tipo: icona + sigla; per il workshop un pulsante «Workshop · corso» che apre il dettaglio in sola lettura
   const corso=ws?taxLabel('corso',ws.corso):"", chipTxt=tipoLab+(corso?" · "+corso:"");
+  const corsoV=corso&&Array.from(corso).length>10?areaShort(corso):corso;   // il chip sta su UNA riga: un corso lungo diventa la sigla (il nome intero resta nel suggerimento e per gli screen reader)
   const tyHtml=isWs
-    ?`<button type="button" class="wschip" data-ws="${idE}" aria-haspopup="dialog" aria-label="${esc(chipTxt)}: apri i dettagli del workshop" title="${tipT}" data-tip="${tipT}" aria-describedby="${tid}">${tipoIcon(a.tipo)}<span class="wc-t"><span class="wc-k">${esc(tipoLab)}</span>${corso?`<span class="wc-s"> · </span><span class="wc-c">${esc(corso)}</span>`:""}</span></button><span class="sr-only" id="${tid}">${esc(tip.join("; "))}</span>`
+    ?`<button type="button" class="wschip" data-ws="${idE}" aria-haspopup="dialog" aria-label="${esc(chipTxt)}: apri i dettagli del workshop" title="${tipT}" data-tip="${tipT}" aria-describedby="${tid}">${tipoIcon(a.tipo)}<span class="wc-t"><span class="wc-k">${esc(tipoLab)}</span>${corso?`<span class="wc-s"> · </span><span class="wc-c">${esc(corsoV)}</span>`:""}</span></button><span class="sr-only" id="${tid}">${esc(tip.join("; "))}</span>`
     :`${tipoIcon(a.tipo)}<span class="tip" tabindex="0" role="img" aria-label="${esc(tipoLab)}" title="${tipT}" data-tip="${tipT}" aria-describedby="${tid}"><span class="tag sig">${esc(sig)}</span></span><span class="tl" aria-hidden="true">${esc(tagTxt)}</span><span class="sr-only" id="${tid}">${esc(tip.join("; "))}</span>`;
   const label=fmtD(a.data)+", "+(a.school_name||"senza scuola");
   return `<div class="act-row act-grid${a.stato==='annullata'?' annull':''}" data-id="${esc(a.id)}">
@@ -2114,7 +2120,7 @@ function actRowHtml(a){
     <div class="c-ar">${arHtml}</div>
     <div class="stud" title="Leads dichiarati">${a.n_studenti!=null?`<b>${esc(a.n_studenti)}</b><span>Leads</span>`:""}</div>
     <div class="c-st"><span class="badge ${esc(a.stato)}">${statoIcon(a.stato)}${esc(statoLabel(a.stato))}</span>${queued?`<span class="badge coda">Da inviare</span>`:""}</div>
-    ${canEdit?`<div class="act-actions">${a.stato==='fissata'?`<button type="button" class="rowbtn ico done" data-act="done" aria-label="Segna come svolta l'attività: ${esc(label)}" title="Segna come svolta">${ICO.done}</button>`:""}<button type="button" class="rowbtn ico" data-act="edit" aria-label="Modifica l'attività: ${esc(label)}" title="Modifica">${ICO.edit}</button><button type="button" class="rowbtn ico" data-act="dup" aria-label="Duplica l'attività: ${esc(label)}" title="Duplica">${ICO.dup}</button>${a.stato!=='annullata'?`<button type="button" class="rowbtn ico cancel" data-act="cancel" aria-label="Annulla l'attività: ${esc(label)}" title="Annulla">${ICO.cancel}</button>`:""}</div>`:""}
+    ${canEdit?`<div class="act-actions">${a.stato==='fissata'?`<button type="button" class="rowbtn ico done" data-act="done" aria-label="Segna come svolta l'attività: ${esc(label)}" title="Segna come svolta">${ICO.done}</button>`:""}<button type="button" class="rowbtn ico" data-act="edit" aria-label="Modifica l'attività: ${esc(label)}" title="Modifica">${ICO.edit}</button><button type="button" class="rowbtn ico" data-act="dup" aria-label="Duplica l'attività: ${esc(label)}" title="Duplica">${ICO.dup}</button>${a.stato!=='annullata'?`<button type="button" class="rowbtn ico cancel" data-act="cancel" aria-label="Annulla l'attività: ${esc(label)}" title="Annulla">${ICO.cancel}</button>`:""}${isAdminRole()?`<button type="button" class="rowbtn ico del" data-act="delete" aria-label="Elimina del tutto l'attività: ${esc(label)}" title="Elimina del tutto (solo admin)">${ICO.trash}</button>`:""}</div>`:""}
   </div>`;
 }
 function renderList(){
@@ -2217,7 +2223,7 @@ async function bulkSvolte(items,quale){
 function resetFilters(){ STATE.filters=defaultFilters(); SHOWN=PAGE_SIZE; save(); renderAll(); }
 function readFilters(){
   const F=STATE.filters;
-  F.q=document.getElementById("fQ").value; F.fy=document.getElementById("fFy").value; F.from=document.getElementById("fFrom").value; F.to=document.getElementById("fTo").value; F.stato=document.getElementById("fStato").value; F.tipo=document.getElementById("fTipo").value; F.regione=document.getElementById("fRegione").value; F.provincia=document.getElementById("fProvincia").value; F.scuola=document.getElementById("fScuola").value; F.sorts=readSorts(); if(isManager()){ F.grp=document.getElementById("fGrp").value; F.orient=document.getElementById("fOrient").value; } else { F.grp=""; F.orient=""; }
+  F.q=document.getElementById("fQ").value; F.fy=document.getElementById("fFy").value; F.from=document.getElementById("fFrom").value; F.to=document.getElementById("fTo").value; F.stato=document.getElementById("fStato").value; F.tipo=document.getElementById("fTipo").value; F.regione=document.getElementById("fRegione").value; F.provincia=document.getElementById("fProvincia").value; F.scuola=document.getElementById("fScuola").value; F.sorts=readSorts(); if(isManager()){ F.grp=document.getElementById("fGrp").value; F.resp=document.getElementById("fResp").value; } else { F.grp=""; F.resp=""; }
 }
 let _fT=null;
 function onFilterChange(e){
@@ -2993,6 +2999,23 @@ async function cancelActivity(id){
   }catch(e){ console.error(e); if(isNetworkError(e)){ queueSave(row,null); toast("Connessione assente: l'annullamento è in coda.",'ok'); } else { cloudSetDot('err'); toast("Non è stato possibile annullare: "+((e&&e.message)||"errore")+". L'attività NON è stata annullata.",'err'); } }
 }
 
+/* ---- Elimina del tutto (SOLO admin): cancella la riga (e il suo workshop, a cascata). Irreversibile, quindi con conferma e sempre con la connessione.
+   Gli altri ruoli possono solo annullare. La sicurezza e' nella RLS (livello «all» in cancellazione: solo l'admin): qui i controlli sono di cortesia. ---- */
+async function deleteActivity(id){
+  const a=(STATE.activities||[]).find(x=>x.id===id); if(!a) return;
+  if(!(isAdminRole()&&!CURRENT.unverified)){ toast(DENY_MSG,'err'); return; }
+  if(offlineNow()){ toast("Serve la connessione: l'attività NON è stata eliminata.",'err'); return; }
+  const label=fmtD(a.data)+(a.school_name?" · "+a.school_name:"");
+  if(!await showConfirm("Eliminare del tutto l'attività?",label+" sarà cancellata dal database"+(STATE.workshops&&STATE.workshops[id]?" insieme ai dati del suo workshop":"")+". Non si può annullare: se vuoi solo toglierla dai conteggi usa «Annulla l'attività».","Elimina del tutto","Indietro")) return;
+  try{
+    const r=await sb.from('bdg_field_activities').delete().eq('id',id).select('id');
+    if(r.error){ cloudSetDot('err'); toast(isDenied(r.error)?DENY_MSG+". L'attività NON è stata eliminata.":"Non è stato possibile eliminare: "+errText(r.error)+". L'attività NON è stata eliminata.",'err'); if(isDenied(r.error)) pullSoon(); return; }
+    if(!(r.data&&r.data.length)){ cloudSetDot('err'); toast(DENY_MSG+". L'attività NON è stata eliminata.",'err'); pullSoon(); return; }
+    STATE.activities=(STATE.activities||[]).filter(x=>x.id!==id); if(STATE.workshops) delete STATE.workshops[id]; SEL.delete(id);
+    save(); flashSynced(); renderAll(); toast("Attività eliminata"); sfx('ok');
+  }catch(e){ console.error(e); cloudSetDot('err'); toast("Non è stato possibile eliminare: "+((e&&e.message)||"errore")+". L'attività NON è stata eliminata.",'err'); }
+}
+
 /* ---- fiere: calendario (sola lettura per tutti) e gestione (solo admin e responsabili) ----
    Le fiere NON generano costi, RDA o movimenti: sono solo un calendario. Si scrive solo su bdg_field_fairs e
    bdg_field_fair_areas, sempre con la connessione (niente coda offline: un calendario condiviso non deve divergere).
@@ -3216,6 +3239,13 @@ function renderFuori(){
   list.forEach(a=>{ const k=a.area_id!=null&&a.area_id!==""?String(a.area_id):""; if(!groups.has(k)) groups.set(k,[]); groups.get(k).push(a); });
   sum.innerHTML=list.length?`<div class="stbox"><span class="st"><b>${list.length}</b><i>attività</i></span><span class="st ok"><b>${sv}</b><i>svolte</i></span><span class="st"><b>${fi}</b><i>fissate</i></span><span class="st"><b>${groups.size}</b><i>${groups.size===1?"area":"aree"}</i></span></div>`:"";
   if(!list.length){ box.innerHTML=`<div class="card empty"><b>Nessuna attività con questi filtri</b>Ce ne sono ${all.length} in totale fuori dalla tua area: prova ad allargare l'anno o il tipo.</div>`; return; }
+  // stesso formato dell'elenco «Attivita' di tutti gli orientatori» (colonne Data, Orient., Resp., Dove, Tipo, Area, Leads, Stato), ma in sola lettura
+  ROW_RO=true; ACT_OR=true; ACT_EC=new Map();
+  try{
+    if(box.style&&box.style.setProperty) box.style.setProperty("--acols",actCols(list.some(a=>a.tipo===TIPO_WORKSHOP)));
+    box.innerHTML=`<div class="card">${actHeadHtml()}${list.map(actRowHtml).join("")}</div>`;
+  } finally { ROW_RO=false; ACT_OR=null; ACT_EC=null; }
+  return;
   const keys=[...groups.keys()].sort((a,b)=>(a===""?1:0)-(b===""?1:0)||areaName(a).localeCompare(areaName(b),'it'));
   box.innerHTML=keys.map(k=>{
     const rows=groups.get(k).slice().sort((a,b)=>String(b.data||"").localeCompare(String(a.data||""))||String(a.school_name||"").localeCompare(String(b.school_name||""),'it'));
@@ -4557,7 +4587,7 @@ function campSortText(){ return CAMP_SORT.length?CAMP_SORT.map((s,i)=>(i+1)+"° 
 function campFiltersText(){
   const F=REP, p=[]; p.push("campagna "+fyLabel(campaignFy()));
   if(F.from||F.to) p.push("periodo "+(F.from?fmtD(F.from):"…")+" – "+(F.to?fmtD(F.to):"…"));
-  if(F.grp) p.push("gruppo/orientatore "+goKeyLabel(F.grp)); if(F.orient) p.push("orientatore "+ecLabel(F.orient)); if(F.regione) p.push("regione "+F.regione); if(F.area) p.push("area "+(areaName(F.area)||F.area)); if(F.tipo) p.push("tipo "+(taxLabel('tipo',F.tipo)||F.tipo));
+  if(F.grp) p.push("gruppo/orientatore "+goKeyLabel(F.grp)); if(F.resp) p.push("area responsabile "+goKeyLabel(F.resp)); if(F.orient) p.push("orientatore "+ecLabel(F.orient)); if(F.regione) p.push("regione "+F.regione); if(F.area) p.push("area "+(areaName(F.area)||F.area)); if(F.tipo) p.push("tipo "+(taxLabel('tipo',F.tipo)||F.tipo));
   return p.join(" · ");
 }
 
@@ -5021,7 +5051,7 @@ function mapClick(e){
 /* ---- collegamenti ---- */
 function wire(){
   ["fQ","fFrom","fTo","fScuola"].forEach(id=>$(id).addEventListener("input",onFilterChange));
-  ["fFy","fStato","fTipo","fRegione","fProvincia","fGrp","fOrient","fFrom","fTo"].forEach(id=>$(id).addEventListener("change",onFilterChange));
+  ["fFy","fStato","fTipo","fRegione","fProvincia","fGrp","fResp","fFrom","fTo"].forEach(id=>$(id).addEventListener("change",onFilterChange));
   [1,2,3].forEach(i=>{
     $("sKey"+i).addEventListener("change",()=>{ const b=$("sDir"+i), k=$("sKey"+i).value; b.dataset.d=k?(ACT_SORT_DESC_FIRST[k]?'desc':'asc'):''; onFilterChange({target:$("sKey"+i)}); });
     $("sDir"+i).addEventListener("click",()=>{ const b=$("sDir"+i); if(b.disabled) return; b.dataset.d=b.dataset.d==='asc'?'desc':'asc'; onFilterChange({target:b}); });
@@ -5039,7 +5069,7 @@ function wire(){
     if(!row||!canWrite()) return;
     const id=row.dataset.id;
     if(t.closest&&t.closest("[data-sel]")){ toggleSel(id,!!t.checked); return; }   // la casella non apre la modifica
-    if(btn&&btn.dataset.act==="cancel") cancelActivity(id); else if(btn&&btn.dataset.act==="dup") openActModal(null,id); else if(btn&&btn.dataset.act==="done") markSvolta(id); else openActModal(id);
+    if(btn&&btn.dataset.act==="delete") deleteActivity(id); else if(btn&&btn.dataset.act==="cancel") cancelActivity(id); else if(btn&&btn.dataset.act==="dup") openActModal(null,id); else if(btn&&btn.dataset.act==="done") markSvolta(id); else openActModal(id);
   });
   // mappa
   const mp=document.getElementById("repMap"); mp.addEventListener("click",mapClick);
