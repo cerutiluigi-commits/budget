@@ -482,6 +482,15 @@ main.wide{max-width:1560px}
 .mmap path:hover{stroke:var(--accent-ink);stroke-width:1.4}
 .mmap path.sel{stroke:var(--accent-ink);stroke-width:2.2}
 .mmap text{font:700 11px 'JetBrains Mono',monospace;pointer-events:none;fill:var(--ink);paint-order:stroke;stroke:var(--surface);stroke-width:3px;stroke-linejoin:round}
+.mmap path.aring{fill:none;stroke:var(--a-bd);stroke-width:3.4;pointer-events:none;stroke-linejoin:round}
+.mmap svg.zm path{stroke-width:calc(var(--k)*.6px)}
+.mmap svg.zm path:hover{stroke-width:calc(var(--k)*1.4px)}
+.mmap svg.zm path.sel{stroke-width:calc(var(--k)*2.2px)}
+.mmap svg.zm path.aring{stroke-width:calc(var(--k)*3.4px)}
+.mmap svg.zm text{font-size:calc(var(--k)*11px);stroke-width:calc(var(--k)*3px)}
+.mzar{background:none;border:0;padding:0;cursor:pointer;font:inherit}
+.mtab-areas{max-height:none;margin-bottom:12px}
+.mtab-areas small{display:block;margin:2px 0 0;white-space:normal}
 .mtab-w{max-height:520px;overflow:auto;border:1px solid var(--line);border-radius:10px;margin-bottom:6px}
 .mtab{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px}
 .mtab th,.mtab td{padding:6px 6px;text-align:right;white-space:nowrap;border-bottom:1px solid var(--line)}
@@ -545,6 +554,10 @@ main.wide{max-width:1560px}
 .prog .prow{display:grid;grid-template-columns:minmax(150px,1fr) minmax(0,1.6fr) minmax(0,1.6fr);gap:6px 18px;align-items:start;padding:9px 16px;border-bottom:1px solid var(--line)}
 .prog .prow.phead{padding:6px 16px;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-soft);background:var(--surface-2)}
 .prog .prow.big{padding:16px}
+.prog .prow.top{background:var(--surface-2)}
+.prog .prow.top .pn{font-weight:700}
+.prog .prow.sub .pn{padding-left:18px}
+.prog .ecs{margin-left:8px;display:inline-flex;gap:3px;vertical-align:middle}
 .prog .pnat{background:var(--surface-2)}
 .prog .pn{font-weight:600;font-size:13px;overflow-wrap:anywhere}
 .prog .prow.big .pn{font-size:18px}
@@ -4259,16 +4272,19 @@ function progressHtml(){
   }
   const nat=progRow(`<b>Italia</b>`,tot.m,tot.obj,{cls:"big nat",plain:"tutta Italia"});
   const sect=(title,icon,body)=>body?`<details class="psec" open><summary>${ic(icon)}${esc(title)}</summary>${head}${body}</details>`:"";
-  const reg=crow.filter(r=>r.kind==='region').filter(r=>r.obj||r.m.totOr+r.m.fissOr+r.m.ws+r.m.wsFiss>0).map(r=>progRow(esc(r.label),r.m,r.obj,{plain:r.label})).join("");
-  const areaRows=(STATE.areas||[]).filter(a=>a.attiva!==false).map(a=>({a,m:targetMetrics(ents.filter(e=>e.area_id!=null&&String(e.area_id)===String(a.id))),obj:areaObj(a,fy)})).filter(x=>x.obj||x.m.totOr+x.m.fissOr+x.m.ws+x.m.wsFiss>0);
-  const area=areaRows.map(x=>progRow(esc(x.a.nome),x.m,x.obj,{plain:"area "+x.a.nome})).join("");
+  // stesso schema del riepilogo campagna: le regioni con le loro aree sotto (e «Senza area», «Fuori elenco»), nello stesso ordine, col referente (EC) di ogni riga
+  const reg=crow.filter(r=>r.kind!=='tot').filter(r=>r.obj||r.m.totOr+r.m.fissOr+r.m.ws+r.m.wsFiss>0).map(r=>{
+    const sub=r.kind!=='region', ecs=r.ec.length?`<span class="ecs">${r.ec.map(ecBadge).join("")}</span>`:"";
+    return progRow(`${esc(r.label)}${ecs}`,r.m,r.obj,{cls:sub?"sub":"top",plain:(r.kind==='area'?"area ":"")+r.label});
+  }).join("");
+  const area="";
   const emails=new Set(ents.map(e=>e.orientatore).filter(Boolean)); (STATE.areas||[]).forEach(a=>{ if(a.attiva!==false) currentEc(a.id,today).forEach(e=>emails.add(e)); });
   const ori=goList([...emails]).map(g=>{
     const e=g.email, t=orientTarget(e,fy,today), m=targetMetrics(ents.filter(x=>goKey(x.orientatore)===g.key)), obj=(t.orient!=null||t.ws!=null)?{orient:t.orient,ws:t.ws}:null;
     if(!obj&&m.totOr+m.fissOr+m.ws+m.wsFiss===0) return "";
     return progRow(`${ecBadge(e)} ${esc(g.label)}`,m,obj,{plain:g.label,note:t.shared?"target condiviso con altri EC dell'area":(t.areas.length?"":"nessuna area come EC")});
   }).join("");
-  return `<div class="card rep-card prog"><h3 class="rep-h">${ic("target")}Avanzamento rispetto ai target · campagna ${esc(fyLabel(fy))}</h3><div class="pnat">${nat}</div>${hint}${sect("Per regione","map",reg)}${sect("Per area","pin",area)}${sect("Per gruppo / orientatore (target = aree di cui è referente EC)","users",ori)}</div>`;
+  return `<div class="card rep-card prog"><h3 class="rep-h">${ic("target")}Avanzamento rispetto ai target · campagna ${esc(fyLabel(fy))}</h3><div class="pnat">${nat}</div>${hint}${sect("Per regione e area","map",reg)}${sect("Per gruppo / orientatore (target = aree di cui è referente EC)","users",ori)}</div>`;
 }
 
 /* ---- Obiettivi: impostazione degli obiettivi per area e campagna, EC e ordine (solo admin e responsabili) ---- */
@@ -4721,13 +4737,13 @@ function geoProject(feats,W){
   P.forEach(f=>f.forEach(poly=>poly.forEach(r=>r.forEach(p=>{ if(p[0]<x0) x0=p[0]; if(p[0]>x1) x1=p[0]; if(p[1]<y0) y0=p[1]; if(p[1]>y1) y1=p[1]; }))));
   const s=(W-2*pad)/(x1-x0), H=Math.ceil((y1-y0)*s+2*pad), X=x=>pad+(x-x0)*s, Y=y=>pad+(y1-y)*s;
   const items=feats.map((f,i)=>{
-    let d="", best=null, bestA=-1;
+    let d="", best=null, bestA=-1, bx0=1e9, by0=1e9, bx1=-1e9, by1=-1e9;   // b = riquadro del poligono (serve a ingrandire la mappa su una regione o un'area)
     P[i].forEach(poly=>poly.forEach((r,j)=>{
-      d+="M"+r.map(p=>X(p[0]).toFixed(1)+","+Y(p[1]).toFixed(1)).join("L")+"Z";
+      d+="M"+r.map(p=>{ const x=X(p[0]), y=Y(p[1]); if(x<bx0) bx0=x; if(x>bx1) bx1=x; if(y<by0) by0=y; if(y>by1) by1=y; return x.toFixed(1)+","+y.toFixed(1); }).join("L")+"Z";
       if(j===0){ let a=0,cx=0,cy=0; for(let k=0;k<r.length-1;k++){ const u=r[k],v=r[k+1], c=u[0]*v[1]-v[0]*u[1]; a+=c; cx+=(u[0]+v[0])*c; cy+=(u[1]+v[1])*c; }
         if(Math.abs(a)>bestA&&a){ bestA=Math.abs(a); best=[X(cx/(3*a)),Y(cy/(3*a))]; } }
     }));
-    return {props:f.props,d,c:best};
+    return {props:f.props,d,c:best,b:[bx0,by0,bx1,by1]};
   });
   return {W,H,items};
 }
@@ -4814,6 +4830,38 @@ function mapUnitOf(level,props,agg){
   if(level==="reg"){ const k=geoKey(props.reg_name); return agg.has(k)?k:k; }
   const s=String(props.prov_acr||"").toUpperCase(); return agg.has(s)?s:(GEO_SIGLA_UNIT[s]&&agg.has(GEO_SIGLA_UNIT[s])?GEO_SIGLA_UNIT[s]:s);
 }
+// area di competenza di una provincia (la sigla del file dei confini, anche quelle unite come il Sud Sardegna); "" se non assegnata
+function mapProvArea(sigla){
+  const s=String(sigla||"").toUpperCase(), p=provinceBySigla(s)||provinceBySigla(GEO_SIGLA_UNIT[s]);
+  return p&&p.area_id!=null?String(p.area_id):"";
+}
+// province da mostrare ingrandite: scelta una regione e/o un'area (con la mappa a livello province) restano solo le loro; altrimenti null = tutta l'Italia
+function mapZoomItems(geo,lv){
+  const f=MAP.f; if(lv!=="prov"||!(f.reg||f.area)) return null;
+  const sub=geo.items.filter(it=>{
+    const s=String(it.props.prov_acr||"").toUpperCase();
+    if(f.reg){ const p=provinceBySigla(s)||provinceBySigla(GEO_SIGLA_UNIT[s]), rk=it.props.reg_name?geoKey(it.props.reg_name):geoKey(p&&p.regione); if(rk!==f.reg) return false; }
+    if(f.area&&mapProvArea(s)!==f.area) return false;
+    return true;
+  });
+  return sub.length?sub:null;
+}
+// le aree della zona ingrandita, ciascuna con le sue province e i suoi numeri (stessa logica del riepilogo campagna: obiettivo e raggiunto solo per admin e responsabili)
+function mapAreaTableHtml(aggProv,camp){
+  const by=new Map();
+  aggProv.map.forEach(e=>{ const ar=mapProvArea(e.k)||"~"; if(!by.has(ar)) by.set(ar,{id:ar,n:0,sv:0,fi:0,provs:[]}); const g=by.get(ar); g.n+=e.n; g.sv+=(e.s.svolta||0); g.fi+=(e.s.fissata||0); g.provs.push(e.k); });
+  const f=MAP.f, prov=(STATE.provinces||[]).filter(p=>(!f.reg||geoKey(p.regione)===f.reg)&&(!f.area||String(p.area_id)===f.area));
+  prov.forEach(p=>{ const ar=String(p.area_id), s=String(p.provincia).toUpperCase(); if(!by.has(ar)) by.set(ar,{id:ar,n:0,sv:0,fi:0,provs:[]}); const g=by.get(ar); if(!g.provs.includes(s)) g.provs.push(s); });
+  const rows=[...by.values()].filter(g=>g.id!=="~"||g.n>0).sort((a,b)=>b.n-a.n||String(areaName(a.id)).localeCompare(String(areaName(b.id)),'it'));
+  if(rows.length<1) return "";
+  const mgr=!!camp;
+  const body=rows.map(g=>{
+    const nome=g.id==="~"?"Senza area":(areaName(g.id)||g.id), c=mgr&&camp.areas.get(g.id), pct=c?pctOf(c.sv,c.obj):null, pct2=c?pctOf(c.fs,c.obj):null;
+    const lab=g.id==="~"?`<span class="apill">${esc(nome)}</span>`:`<button type="button" class="mdrill mzar" data-mzarea="${esc(g.id)}" title="Ingrandisci su ${esc(nome)}"><span class="apill ar${areaTone(g.id)}">${esc(nome)}</span></button>`;
+    return `<tr><th scope="row" class="l">${lab}<small>${esc(g.provs.sort().join(" "))}</small></th><td class="num"><b>${g.n}</b></td><td class="num">${g.sv}</td><td class="num">${g.fi}</td>${mgr?`<td class="num obj">${c&&c.obj!=null?c.obj:"—"}</td>`+mapPctCell(pct,pct2):""}</tr>`;
+  }).join("");
+  return `<div class="mtl">Aree di competenza (province che segue una persona/team)</div><div class="mtab-w mtab-areas"><table class="mtab" aria-label="Aree di competenza: conteggi dei target"><thead><tr><th scope="col" class="l">Area</th><th scope="col">Target</th><th scope="col">Svolte</th><th scope="col">Fissate</th>${mgr?`<th scope="col">Obiettivo</th><th scope="col">Raggiunto</th>`:""}</tr></thead><tbody>${body}</tbody></table></div>`;
+}
 // obiettivi della campagna (come nel riepilogo campagna, solo per admin e responsabili): per regione e per area; sv = scuole svolte, fs = svolte + fissate
 function mapCampData(){
   if(!isManager()) return null;
@@ -4893,15 +4941,28 @@ function renderMap(){
   const nFiere=(MAP.tipi&&!MAP.tipi.has(MAP_FIERA))?0:ents.filter(e=>e.tipo===MAP_FIERA&&e.stato!=='annullata'&&(!MAP.stato||e.stato===MAP.stato)).length;   // le fiere non sono target: si contano a parte
   let svg="", matched=new Set(), maxN=0; agg.map.forEach(e=>{ if(e.n>maxN) maxN=e.n; });
   const nameOf=it=>lv==="reg"?geoLabel(it.props.reg_name):(geoLabel(it.props.prov_name)+" ("+it.props.prov_acr+")");
+  const zoomIt=geo?mapZoomItems(geo,lv):null;   // regione o area scelta: la mappa si ingrandisce sulle sue province (colorate per area di competenza)
   if(geo){
-    const paths=geo.items.map(it=>{
+    const sub=zoomIt||geo.items;
+    const paths=sub.map(it=>{
       const k=mapUnitOf(lv,it.props,agg.map), e=agg.map.get(k), n=e?e.n:0; if(e) matched.add(k);
-      const f=n&&maxN?(0.18+0.82*Math.sqrt(n/maxN)):0;
-      return `<path d="${it.d}" data-mk="${esc(k)}" class="${MAP.sel===k?"sel":""}" style="${n?`fill:var(--accent);fill-opacity:${f.toFixed(2)}`:"fill:var(--surface-mute)"}"><title>${esc(nameOf(it))}: ${n} target</title></path>`;
+      const f=n&&maxN?(0.18+0.82*Math.sqrt(n/maxN)):0, ar=zoomIt?mapProvArea(it.props.prov_acr):"", tn=ar?" ar"+areaTone(ar):"";
+      const fill=ar?(n?`fill:var(--a-bd);fill-opacity:${Math.max(0.3,f).toFixed(2)}`:"fill:var(--a-bg)"):(n?`fill:var(--accent);fill-opacity:${f.toFixed(2)}`:"fill:var(--surface-mute)");
+      const sel=MAP.sel===k||(zoomIt&&MAP.f.prov===k);
+      return `<path d="${it.d}" data-mk="${esc(k)}" data-mz="${esc(k)}" data-mzl="${lv}" class="${sel?"sel":""}${tn}" style="${fill}"><title>${esc(nameOf(it))}${ar?" · area "+esc(areaName(ar)):""}: ${n} target</title></path>`;
     }).join("");
-    const labels=lv==="reg"?geo.items.map(it=>{ const e=agg.map.get(mapUnitOf(lv,it.props,agg.map)); if(!e||!it.c) return "";
-      return `<text x="${it.c[0].toFixed(1)}" y="${it.c[1].toFixed(1)}" text-anchor="middle" dominant-baseline="central">${e.n}</text>`; }).join(""):"";
-    svg=`<svg viewBox="0 0 ${geo.W} ${geo.H}" role="img" aria-label="Mappa d'Italia: target per ${lv==="reg"?"regione":"provincia"}">${paths}${labels}</svg>`;
+    // contorno spesso attorno a ogni area (sotto le province: resta visibile solo il bordo esterno del gruppo di province che segue la stessa persona/team)
+    const rings=zoomIt?zoomIt.map(it=>{ const ar=mapProvArea(it.props.prov_acr); return ar?`<path d="${it.d}" class="aring ar${areaTone(ar)}" aria-hidden="true"></path>`:""; }).join(""):"";
+    const labels=lv==="reg"?sub.map(it=>{ const e=agg.map.get(mapUnitOf(lv,it.props,agg.map)); if(!e||!it.c) return "";
+      return `<text x="${it.c[0].toFixed(1)}" y="${it.c[1].toFixed(1)}" text-anchor="middle" dominant-baseline="central">${e.n}</text>`; }).join("")
+      :(zoomIt?sub.map(it=>{ const e=agg.map.get(mapUnitOf(lv,it.props,agg.map)); if(!it.c) return ""; const s=esc(String(it.props.prov_acr||""));
+        return `<text x="${it.c[0].toFixed(1)}" y="${it.c[1].toFixed(1)}" text-anchor="middle" dominant-baseline="central">${s}${e?" · "+e.n:""}</text>`; }).join(""):"");
+    let vb="0 0 "+geo.W+" "+geo.H, kz="";
+    if(zoomIt&&zoomIt.length){
+      let x0=1e9,y0=1e9,x1=-1e9,y1=-1e9; zoomIt.forEach(it=>{ if(it.b){ x0=Math.min(x0,it.b[0]); y0=Math.min(y0,it.b[1]); x1=Math.max(x1,it.b[2]); y1=Math.max(y1,it.b[3]); } });
+      if(x1>x0&&y1>y0){ const px=(x1-x0)*0.06+4, py=(y1-y0)*0.06+4; x0-=px; x1+=px; y0-=py; y1+=py; vb=[x0,y0,x1-x0,y1-y0].map(v=>v.toFixed(1)).join(" "); kz=` class="zm" style="--k:${((x1-x0)/geo.W).toFixed(3)}"`; }
+    }
+    svg=`<svg viewBox="${vb}"${kz} role="img" aria-label="${zoomIt?"Mappa ingrandita: province per area di competenza":"Mappa d'Italia: target per "+(lv==="reg"?"regione":"provincia")}">${rings}${paths}${labels}</svg>`;
   } else if(GEO.err&&!GEO.loading) svg=`<div class="hint">Mappa non disponibile (${esc(GEO.err)}): serve la connessione a internet per scaricare i confini. La tabella a fianco è completa e scende fino alle scuole.</div>`;
   else svg=`<div class="hint">Caricamento della mappa…</div>`;
   const list=[...agg.map.values()].sort((x,y)=>y.n-x.n||x.label.localeCompare(y.label,'it')), fuori=geo?list.filter(e=>!matched.has(e.k)):[];
@@ -4914,7 +4975,7 @@ function renderMap(){
     <span class="mtot"><b>${aggT.tot-nFiere}</b> target${nFiere?` · <b>${nFiere}</b> ${nFiere===1?"fiera":"fiere"} (monitoraggio)`:""}</span></div>
     <div class="mfilt" role="group" aria-label="Territorio: filtri a cascata">${mapSelect("mArea","Area",casc.areas,MAP.f.area,"Tutte")}${mapSelect("mReg","Regione",casc.regs,MAP.f.reg,"Tutte")}${mapSelect("mProv","Provincia",casc.provs,MAP.f.prov,"Tutte")}${mapSelect("mCity","Città",casc.cities,MAP.f.city,"Tutte")}<button type="button" class="btn ghost small" data-mfreset="1">Azzera territorio</button></div>
     <div class="mchips" role="group" aria-label="Cosa contare">${chips}<button type="button" class="btn ghost small" data-mall="1">Tutti</button><button type="button" class="btn ghost small" data-mnone="1">Nessuno</button></div>
-    <div class="mbody mbody-map"><div class="mmap">${svg}</div><div class="mside">${mapCrumbHtml(casc)}<div class="mtl">${esc(titolo)}</div>${tabella}${MAP.sel&&tl!=="school"?mapDetailHtml(selE,selLabel,(tl==="reg"||tl==="prov")&&!!selE):(tl==="school"?"":`<div class="hint">Clicca su una zona o su una voce dell'elenco per vedere il dettaglio per tipo, sul nome per scendere di livello.</div>`)}
+    <div class="mbody mbody-map"><div class="mmap">${svg}</div><div class="mside">${mapCrumbHtml(casc)}${zoomIt&&!MAP.f.area&&tl==="prov"?mapAreaTableHtml(agg,mapCampData()):""}<div class="mtl">${esc(titolo)}</div>${tabella}${MAP.sel&&tl!=="school"?mapDetailHtml(selE,selLabel,(tl==="reg"||tl==="prov")&&!!selE):(tl==="school"?"":`<div class="hint">Clicca su una zona o su una voce dell'elenco per vedere il dettaglio per tipo, sul nome per scendere di livello.</div>`)}
     ${(agg.senza||fuori.length)?`<div class="hint">${agg.senza?agg.senza+" target senza "+(lv==="reg"?"regione":"provincia")+" non sono sulla mappa. ":""}${fuori.length?"Non riconosciute sulla mappa: "+esc(fuori.map(e=>e.label).join(", "))+".":""}</div>`:""}</div></div>
     <div class="hint">Conta scuole (una volta sola in tutta la campagna), workshop e fiere, con gli stessi numeri del riepilogo campagna. Segue l'anno di campagna, il periodo, l'orientatore, la regione e l'area scelti nei filtri sopra (il filtro «Tipo» del report non vale: i tipi si scelgono con i chip). Le annullate non sono contate. Più scuro = più target. «Italia orienta» non è un target e non compare.</div></div>`;
   [["mStato",MAP.stato],["mArea",MAP.f.area],["mReg",MAP.f.reg],["mProv",MAP.f.prov],["mCity",MAP.f.city]].forEach(([id,v])=>{ const el=document.getElementById(id); if(el) el.value=v; });
@@ -4923,7 +4984,7 @@ function renderMap(){
 // scelta di un menu a cascata; le scelte successive non piu' valide si azzerano nel prossimo disegno (mapCascade)
 function mapSetF(which,val){
   const f=MAP.f; val=String(val==null?"":val);
-  if(which==="area") f.area=val;
+  if(which==="area"){ f.area=val; if(val) MAP.level="prov"; else if(!f.reg) MAP.level="reg"; }   // scelta un'area la mappa si ingrandisce sulle sue province
   else if(which==="reg"){ f.reg=val; if(val&&MAP.level==="reg") MAP.level="prov"; if(!val){ f.prov=""; f.city=""; MAP.level="reg"; } }
   else if(which==="prov"){ f.prov=val; if(val&&!f.reg){ const p=provinceBySigla(val); if(p&&p.regione) f.reg=geoKey(p.regione); } if(!val) f.city=""; }
   else if(which==="city") f.city=val;
@@ -4944,6 +5005,8 @@ function mapClick(e){
   const so=t.closest("[data-msort]"); if(so){ const k=so.dataset.msort; MAP.sort=MAP.sort.k===k?{k,d:MAP.sort.d==="asc"?"desc":"asc"}:{k,d:(k==="label"||k==="area"||k==="tipo"||k==="stato"||k==="orient")?"asc":"desc"}; renderMap(); return; }
   const lvb=t.closest("[data-mlevel]"); if(lvb){ MAP.level=lvb.dataset.mlevel; MAP.sel=""; MAP.sort={k:"n",d:"desc"}; GEO.err=""; renderMap(); return; }
   const cb=t.closest("[data-mcrumb]"); if(cb){ mapCrumb(cb.dataset.mcrumb); return; }
+  const za=t.closest("[data-mzarea]"); if(za){ mapSetF("area",za.dataset.mzarea); return; }
+  const zp=t.closest("[data-mz]"); if(zp){ const v=zp.dataset.mz, lvl=zp.dataset.mzl==="reg"?"reg":"prov"; mapSetF(lvl,(lvl==="prov"&&MAP.f.prov===v)?"":v); return; }   // clic su una zona della mappa: si ingrandisce (regione -> province -> citta' e scuole)
   const dr=t.closest("[data-mdrill]"); if(dr){ mapDrill(dr.dataset.mdrill); return; }
   if(t.closest("[data-mfreset]")){ MAP.f={area:"",reg:"",prov:"",city:""}; MAP.level="reg"; MAP.sel=""; renderMap(); return; }
   const tb=t.closest("[data-mtipo]"); if(tb){ const all=mapTipi(), cur=MAP.tipi?new Set(MAP.tipi):new Set(all), c=tb.dataset.mtipo; if(cur.has(c)) cur.delete(c); else cur.add(c); MAP.tipi=cur; renderMap(); return; }
