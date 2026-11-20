@@ -3064,7 +3064,9 @@ function calMineSync(){
 // aree in cui la persona collegata e' assegnata OGGI (stessa regola di currentEc: valid_from/valid_to non scaduti)
 function myAreaIds(today){
   const me=String(CURRENT.email||"").toLowerCase(), out=new Set(); if(!me) return out;
-  (STATE.assignments||[]).forEach(x=>{ if(String(x.orientatore_email||"").toLowerCase()===me&&assignmentActive(x,today)&&x.area_id!=null&&x.area_id!=="") out.add(String(x.area_id)); });
+  // l'area e' di chi e' referente, ma anche di tutto il suo gruppo (un'area ha una sola assegnazione: per un gruppo e' di un membro, vedi saveObiettivi)
+  const mine=goOf(me), grp=mine.group?mine.key:"";
+  (STATE.assignments||[]).forEach(x=>{ const em=String(x.orientatore_email||"").toLowerCase(); if((em===me||(grp&&goKey(em)===grp))&&assignmentActive(x,today)&&x.area_id!=null&&x.area_id!=="") out.add(String(x.area_id)); });
   return out;
 }
 let GES={q:"",stato:"",periodo:"tutte"};
@@ -4421,7 +4423,8 @@ async function saveObiettivi(){
       const r=await sb.from('bdg_field_areas').update(patch).eq('id',a.id).select('id');
       if(r.error||!(r.data&&r.data.length)){ res.fail.push(a.nome+": "+(r.error?(isDenied(r.error)?DENY_MSG:errText(r.error)):DENY_MSG)); continue; }
       const st=objStored(a);
-      if(full.ec!==st.ec){ const ems=emailsOfGo(full.ec); if(full.ec&&!ems.length){ res.fail.push(a.nome+" (EC): nessun utente attivo collegato a «"+goKeyLabel(full.ec)+"»"); continue; } const e=await writeAssignment(a.id,ems,today); if(e){ res.fail.push(a.nome+" (EC): "+e); continue; } }
+      if(full.ec!==st.ec){ const ems=emailsOfGo(full.ec); if(full.ec&&!ems.length){ res.fail.push(a.nome+" (EC): nessun utente attivo collegato a «"+goKeyLabel(full.ec)+"»"); continue; } const cur=currentEc(a.id,today), rep=ems.find(x=>cur.includes(x))||ems[0]; const e=await writeAssignment(a.id,rep?[rep]:[],today); if(e){   // il database ammette UNA sola assegnazione per area alla volta: per un gruppo si scrive un membro (quello gia' referente, altrimenti il primo) e il gruppo si riconosce da lui
+ res.fail.push(a.nome+" (EC): "+e); continue; } }
       res.ok++;
     }catch(e){ console.error(e); res.fail.push(a.nome+": "+((e&&e.message)||"errore")); }
   }
@@ -4445,13 +4448,20 @@ async function writeAssignment(areaId,emails,today){
     if(!email){ const r=await ed({id:cur[0].id,p:{valid_to:today}}); return r.error?errText(r.error):(r.data&&r.data.length?null:DENY_MSG); }
     const r=await ed({id:cur[0].id,p:{orientatore_email:email.toLowerCase()}}); return r.error?errText(r.error):(r.data&&r.data.length?null:DENY_MSG);
   }
+  // se la nuova assegnazione non si scrive, le vecchie tornano com'erano (altrimenti l'area resterebbe senza referente)
+  const undo=[], rollback=async()=>{ for(const u of undo.reverse()){ try{ await u(); }catch(e){ console.error(e); } } };
   for(const c of cur){
     const from=String(c.valid_from||"").slice(0,10);
-    if(from&&from>=today){ const d=await sb.from('bdg_field_area_assignments').delete().eq('id',c.id).select('id'); if(!d.error&&d.data&&d.data.length) continue; }   // iniziata oggi: si toglie (cosi' non resta valida accanto alla nuova)
-    const r=await ed({id:c.id,p:{valid_to:from&&from>yest?from:yest}}); if(r.error) return errText(r.error); if(!(r.data&&r.data.length)) return DENY_MSG; }
+    if(from&&from>=today){ const d=await sb.from('bdg_field_area_assignments').delete().eq('id',c.id).select('id'); if(!d.error&&d.data&&d.data.length){ undo.push(()=>sb.from('bdg_field_area_assignments').insert({id:c.id,area_id:c.area_id,orientatore_email:c.orientatore_email,valid_from:c.valid_from,valid_to:c.valid_to==null?null:c.valid_to})); continue; } }   // iniziata oggi: si toglie (cosi' non resta valida accanto alla nuova)
+    const r=await ed({id:c.id,p:{valid_to:from&&from>yest?from:yest}}); if(r.error){ await rollback(); return errText(r.error); } if(!(r.data&&r.data.length)){ await rollback(); return DENY_MSG; }
+    undo.push(()=>ed({id:c.id,p:{valid_to:c.valid_to==null?null:c.valid_to}}));
+  }
   if(!emails.length) return null;
-  const ins=await sb.from('bdg_field_area_assignments').insert(emails.map(e=>({area_id:areaId,orientatore_email:e,valid_from:today,valid_to:null}))).select('id');
-  return ins.error?errText(ins.error):(ins.data&&ins.data.length?null:DENY_MSG);
+  // il database ammette UNA sola assegnazione per area alla volta (trigger di sovrapposizione): una riga sola, anche per un gruppo (vedi saveObiettivi)
+  const ins=await sb.from('bdg_field_area_assignments').insert(emails.slice(0,1).map(e=>({area_id:areaId,orientatore_email:e,valid_from:today,valid_to:null}))).select('id');
+  if(ins.error){ await rollback(); return errText(ins.error); }
+  if(!(ins.data&&ins.data.length)){ await rollback(); return DENY_MSG; }
+  return null;
 }
 function objCopyPrev(){
   const prev=String(OBJ.fy-1); let n=0;
