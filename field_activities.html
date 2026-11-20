@@ -3397,6 +3397,13 @@ function mergePersonLocal(row){
   if(i>=0) STATE.people[i]=n; else STATE.people.push(n);
   save();
 }
+// una scrittura che non risponde non deve lasciare la scheda «appesa»: dopo WRITE_TIMEOUT_MS si smette di attendere e si dice la verita' (potrebbe non essere stata salvata)
+let WRITE_TIMEOUT_MS=25000;
+function withTimeout(p){
+  let t; const lim=new Promise((_,rej)=>{ t=setTimeout(()=>rej(Object.assign(new Error("timeout"),{timeout:true})),WRITE_TIMEOUT_MS); });
+  return Promise.race([p,lim]).finally(()=>clearTimeout(t));
+}
+const TIMEOUT_MSG="Il database non ha risposto in tempo: la modifica potrebbe NON essere stata salvata. Riprova tra poco, oppure ricarica la pagina e controlla.";
 async function savePerson(ev){
   if(ev&&ev.preventDefault) ev.preventDefault();
   if(!PERSON||PERSON.busy) return;
@@ -3410,8 +3417,8 @@ async function savePerson(ev){
   const row={tipo:v.tipo,nome:v.nome,cognome:v.cognome,email:v.email||null,attivo:v.attivo};
   setPBusy(true);
   try{
-    const r=PERSON.isNew?await sb.from('bdg_field_people').insert(Object.assign({id:PERSON.id},row)).select('id,updated_at')
-      :await sb.from('bdg_field_people').update(row).eq('id',PERSON.id).eq('updated_at',PERSON.base).select('id,updated_at');
+    const r=await withTimeout(PERSON.isNew?sb.from('bdg_field_people').insert(Object.assign({id:PERSON.id},row)).select('id,updated_at')
+      :sb.from('bdg_field_people').update(row).eq('id',PERSON.id).eq('updated_at',PERSON.base).select('id,updated_at'));
     if(r.error){ cloudSetDot('err'); showPMsg("Non è stato possibile salvare: "+personErr(r.error)+". La persona NON è stata salvata."); if(isDenied(r.error)) pullSoon(); return; }
     if(!(r.data&&r.data.length)){
       let msg=DENY_MSG+". La persona NON è stata salvata.";
@@ -3425,7 +3432,7 @@ async function savePerson(ev){
     }
     mergePersonLocal(Object.assign({id:PERSON.id},row,{updated_at:r.data[0].updated_at||null}));
     flashSynced(); closePersonModal(); renderAll(); toast("Persona salvata"); sfx('ok');
-  }catch(e){ console.error(e); cloudSetDot('err'); showPMsg("Non è stato possibile salvare: "+personErr(e)+". La persona NON è stata salvata."); }
+  }catch(e){ console.error(e); cloudSetDot('err'); if(e&&e.timeout){ showPMsg(TIMEOUT_MSG); pullSoon(); } else showPMsg("Non è stato possibile salvare: "+personErr(e)+". La persona NON è stata salvata."); }
   finally{ if(PERSON) setPBusy(false); }
 }
 function closePersonModal(){ PERSON=null; closeOverlay("personOverlay"); }
@@ -3441,10 +3448,10 @@ async function setPersonActive(id,on){
   if(!(isManager()&&!CURRENT.unverified)){ toast(DENY_MSG,'err'); return false; }
   if(offlineNow()){ toast("Serve la connessione: la persona NON è stata "+(on?"riattivata":"disattivata")+".",'err'); return false; }
   try{
-    const r=await sb.from('bdg_field_people').update({attivo:on}).eq('id',id).select('id,updated_at');
+    const r=await withTimeout(sb.from('bdg_field_people').update({attivo:on}).eq('id',id).select('id,updated_at'));
     if(r.error||!(r.data&&r.data.length)){ cloudSetDot('err'); toast(r.error?("Non riuscito: "+personErr(r.error)):(DENY_MSG+". La persona non è stata modificata."),'err'); pullSoon(); return false; }
     mergePersonLocal({id,attivo:on,updated_at:r.data[0].updated_at||null}); flashSynced(); renderAll(); toast(on?"Persona riattivata":"Persona disattivata: non compare più nelle scelte, resta nello storico"); sfx('ok'); return true;
-  }catch(e){ console.error(e); cloudSetDot('err'); toast("Non riuscito: "+personErr(e),'err'); return false; }
+  }catch(e){ console.error(e); cloudSetDot('err'); toast(e&&e.timeout?TIMEOUT_MSG:"Non riuscito: "+personErr(e),'err'); return false; }
 }
 async function deletePerson(id){
   const p=personById(id); if(!p) return;
