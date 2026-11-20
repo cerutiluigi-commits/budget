@@ -3161,7 +3161,9 @@ function renderGestione(){
 function fuoriTabOn(){
   if(CURRENT.unverified||!canWrite()) return false;
   if(!isManager()) return v4("people");
-  return isAdminRole()&&!v4("people");   // database non ancora aggiornato: la scheda compare solo all'admin, con la scritta «Disponibile dopo l'aggiornamento del database»
+  // admin e responsabile che fanno anche attivita' (o seguono un'area) hanno la loro visione da orientatore: anche a loro la scheda «Fuori area»
+  if(v4("people")) return myAreaIds(todayISO()).size>0||(STATE.activities||[]).some(a=>{ const d=actDoer(a); return d.isEsec?(!!d.email&&d.email===myEmail()):isTitolare(a); });
+  return isAdminRole();   // database non ancora aggiornato: la scheda compare solo all'admin, con la scritta «Disponibile dopo l'aggiornamento del database»
 }
 function renderScopeToggle(){
   const box=document.getElementById("actScopeBox"); if(!box) return;
@@ -4703,7 +4705,8 @@ const GEO_BASE="https://cdn.jsdelivr.net/gh/openpolis/geojson-italy@master/topoj
 const GEO_URL={reg:GEO_BASE+"limits_IT_regions.topo.json",prov:GEO_BASE+"limits_IT_provinces.topo.json"};
 const GEO={reg:null,prov:null,loading:null,err:""};
 const GEO_SIGLA_UNIT={VS:"SU",CI:"SU"};   // nel file dei confini il Sud Sardegna e' ancora diviso in Medio Campidano e Carbonia-Iglesias
-let MAP={level:"reg",tipi:null,stato:"",sel:"",sort:{k:"n",d:"desc"},f:{area:"",reg:"",prov:"",city:""}};
+// di default la mappa conta i soli target (orientamenti = Orientamento + con docente + Scuola Fiera, e workshop); le fiere non hanno un target: sono solo monitoraggio (chip «Fiere», spento)
+let MAP={level:"reg",tipi:new Set(["ORIENTAMENTI","ORIENTAMENTO_DOCENTE","SCUOLA_FIERA","WORKSHOP"]),stato:"",sel:"",sort:{k:"n",d:"desc"},f:{area:"",reg:"",prov:"",city:""}};
 function geoKey(s){ let t=String(s==null?"":s); const i=t.indexOf("/"); if(i>0) t=t.slice(0,i); return norm(t).replace(/[^a-z]/g,""); }
 function geoLabel(s){ const t=String(s==null?"":s), i=t.indexOf("/"); return (i>0?t.slice(0,i):t).trim(); }
 // TopoJSON -> [{props, rings:[[ [lon,lat]... ]]}] (un elemento per ogni poligono; il primo anello di ogni poligono e' il contorno esterno)
@@ -4886,7 +4889,8 @@ function renderMap(){
   if(MAP.tipi) MAP.tipi=new Set([...MAP.tipi].filter(t=>all.includes(t)));
   if(MAP.tipi&&MAP.tipi.size===all.length) MAP.tipi=null;
   const agg=mapAggregate(ents,lv,MAP.tipi,MAP.stato), geo=GEO[lv], tl=mapTableLevel(), aggT=tl===lv?agg:mapAggregate(ents,tl,MAP.tipi,MAP.stato);
-  const chips=all.map(t=>`<button type="button" class="mchip${(!MAP.tipi||MAP.tipi.has(t))?" on":""}" data-mtipo="${esc(t)}" aria-pressed="${!MAP.tipi||MAP.tipi.has(t)}">${t===MAP_FIERA?ic("fiera","s"):tipoIcon(t,"s")}${esc(mapTipoLabel(t))}</button>`).join("");
+  const chips=all.map(t=>`<button type="button" class="mchip${(!MAP.tipi||MAP.tipi.has(t))?" on":""}" data-mtipo="${esc(t)}" aria-pressed="${!MAP.tipi||MAP.tipi.has(t)}">${t===MAP_FIERA?ic("fiera","s"):tipoIcon(t,"s")}${esc(mapTipoLabel(t))}${t===MAP_FIERA?" (monitoraggio)":""}</button>`).join("");
+  const nFiere=(MAP.tipi&&!MAP.tipi.has(MAP_FIERA))?0:ents.filter(e=>e.tipo===MAP_FIERA&&e.stato!=='annullata'&&(!MAP.stato||e.stato===MAP.stato)).length;   // le fiere non sono target: si contano a parte
   let svg="", matched=new Set(), maxN=0; agg.map.forEach(e=>{ if(e.n>maxN) maxN=e.n; });
   const nameOf=it=>lv==="reg"?geoLabel(it.props.reg_name):(geoLabel(it.props.prov_name)+" ("+it.props.prov_acr+")");
   if(geo){
@@ -4907,7 +4911,7 @@ function renderMap(){
   box.innerHTML=`<div class="card map-card"><div class="mtop"><h3 class="rep-h" style="margin:0">${ic("map")}Mappa dei target</h3>
     <span class="seg" role="group" aria-label="Livello della mappa"><button type="button" class="${lv==="reg"?"on":""}" data-mlevel="reg" aria-pressed="${lv==="reg"}">Regioni</button><button type="button" class="${lv==="prov"?"on":""}" data-mlevel="prov" aria-pressed="${lv==="prov"}">Province</button></span>
     <label class="mst">Stato <select id="mStato" data-nocb="1"><option value="">Tutte</option><option value="svolta">Svolte</option><option value="fissata">Fissate</option></select></label>
-    <span class="mtot"><b>${aggT.tot}</b> target</span></div>
+    <span class="mtot"><b>${aggT.tot-nFiere}</b> target${nFiere?` · <b>${nFiere}</b> ${nFiere===1?"fiera":"fiere"} (monitoraggio)`:""}</span></div>
     <div class="mfilt" role="group" aria-label="Territorio: filtri a cascata">${mapSelect("mArea","Area",casc.areas,MAP.f.area,"Tutte")}${mapSelect("mReg","Regione",casc.regs,MAP.f.reg,"Tutte")}${mapSelect("mProv","Provincia",casc.provs,MAP.f.prov,"Tutte")}${mapSelect("mCity","Città",casc.cities,MAP.f.city,"Tutte")}<button type="button" class="btn ghost small" data-mfreset="1">Azzera territorio</button></div>
     <div class="mchips" role="group" aria-label="Cosa contare">${chips}<button type="button" class="btn ghost small" data-mall="1">Tutti</button><button type="button" class="btn ghost small" data-mnone="1">Nessuno</button></div>
     <div class="mbody mbody-map"><div class="mmap">${svg}</div><div class="mside">${mapCrumbHtml(casc)}<div class="mtl">${esc(titolo)}</div>${tabella}${MAP.sel&&tl!=="school"?mapDetailHtml(selE,selLabel,(tl==="reg"||tl==="prov")&&!!selE):(tl==="school"?"":`<div class="hint">Clicca su una zona o su una voce dell'elenco per vedere il dettaglio per tipo, sul nome per scendere di livello.</div>`)}
