@@ -1068,6 +1068,11 @@ main.wide{max-width:1560px}
           <div class="fhint" id="aEsecInfo" aria-live="polite"></div></div>
         <div class="field" id="fl-aData"><label for="aData">Data <span class="req">*</span></label><input id="aData" type="date" required></div>
         <div class="field" id="fl-aStato"><label for="aStato">Stato <span class="req">*</span></label><select id="aStato" required></select></div>
+        <div class="field full" id="fl-aScuola"><label for="aScuola">Scuola</label>
+          <input id="aScuola" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="aScuolaAc" autocomplete="off" placeholder="Cerca per nome, città o provincia">
+          <div class="ac-list" id="aScuolaAc" role="listbox" aria-label="Scuole trovate"></div>
+          <div class="fhint" id="aScuolaInfo" aria-live="polite"></div>
+        </div>
         <div class="field" id="fl-aTipo"><label for="aTipo">Tipo di attività <span class="req">*</span></label><select id="aTipo" required></select></div>
         <div class="field"><label for="aClasse">Classe</label><select id="aClasse"></select></div>
         <div class="field full" id="fl-aCampagna" style="display:none"><label for="aCampagna" id="aCampagnaLbl">Campagna</label><select id="aCampagna"></select><div class="fhint" id="aCampagnaHint" aria-live="polite"></div></div>
@@ -1075,11 +1080,6 @@ main.wide{max-width:1560px}
 
       <div class="sect-h">Dove</div>
       <div class="grid4">
-        <div class="field full" id="fl-aScuola"><label for="aScuola">Scuola</label>
-          <input id="aScuola" role="combobox" aria-autocomplete="list" aria-expanded="false" aria-controls="aScuolaAc" autocomplete="off" placeholder="Cerca per nome, città o provincia">
-          <div class="ac-list" id="aScuolaAc" role="listbox" aria-label="Scuole trovate"></div>
-          <div class="fhint" id="aScuolaInfo" aria-live="polite"></div>
-        </div>
         <div class="field" id="fl-aProv"><label for="aProv">Provincia (sigla)</label><input id="aProv" list="provList" maxlength="2" autocomplete="off" placeholder="es. MI" style="text-transform:uppercase"><datalist id="provList"></datalist></div>
         <div class="field"><label for="aRegione">Regione</label><input id="aRegione" list="regList" autocomplete="off"><datalist id="regList"></datalist></div>
         <div class="field"><label for="aArea">Area</label><select id="aArea"></select></div>
@@ -2517,7 +2517,8 @@ function ppPaint(S){
   const inp=ppEl(S);
   if(S.cfg.tipoSel){
     const sel=ppEl(S,"Tipo");
-    sel.innerHTML=(S.cfg.none!=null?`<option value="">${esc(S.cfg.none)}</option>`:"")+S.cfg.tipos.map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join("");
+    const nn=typeof S.cfg.none==="function"?S.cfg.none():S.cfg.none;
+    sel.innerHTML=(nn!=null?`<option value="">${esc(nn)}</option>`:"")+S.cfg.tipos.map(([v,l])=>`<option value="${esc(v)}">${esc(l)}</option>`).join("");
     sel.value=S.tipo;
   }
   inp.disabled=!S.tipo;
@@ -2709,7 +2710,13 @@ function esecChange(S){
     const sel=document.getElementById("aOrient"); if(String(sel.innerHTML).includes('value="'+esc(S.person.email)+'"')) sel.value=S.person.email;   // chi ha un accesso e' anche il titolare della riga
   }
 }
-ppDef("esec",{p:"aEsec",tipoSel:true,tipos:PERSON_TIPI,none:"Il titolare (nessun altro)",allow:p=>esecWhy(p),hint:()=>esecHint(),change:S=>esecChange(S)});
+// chi inserisce (non admin) vede gia' il proprio nome dalla login al posto di «Il titolare (nessun altro)»: il titolare della riga (o il titolare scelto dal responsabile)
+function titolareLabel(){
+  if(isAdminRole()) return "Il titolare (nessun altro)";
+  const em=isManager()?String(document.getElementById("aOrient").value||""):((MODAL&&MODAL.orig&&MODAL.orig.orientatore_email)||CURRENT.email||"");
+  return (em&&personName(em))||"Il titolare (nessun altro)";
+}
+ppDef("esec",{p:"aEsec",tipoSel:true,tipos:PERSON_TIPI,none:titolareLabel,allow:p=>esecWhy(p),hint:()=>esecHint(),change:S=>esecChange(S)});
 ppDef("doc",{p:"wsDoc",tipoSel:false,fixedTipo:"docente",allow:()=>"",change:()=>refreshWsBlock()});
 // esecutore da salvare: null = l'ha svolta il titolare (anche se la persona scelta e' il titolare stesso)
 function resolveEsecId(titolare){
@@ -5184,6 +5191,7 @@ function wire(){
   document.getElementById("aClose").onclick=tryCloseActModal; document.getElementById("aClose2").onclick=tryCloseActModal;
   document.getElementById("actOverlay").addEventListener("mousedown",e=>{ if(e.target.id==="actOverlay") tryCloseActModal(); });
   document.getElementById("aCancelAct").onclick=async()=>{ if(!MODAL||MODAL.isNew||MODAL.busy) return; const id=MODAL.id; await cancelActivity(id); const a=STATE.activities.find(x=>x.id===id); if(a&&a.stato==='annullata') closeActModal(); };
+  document.getElementById("aOrient").addEventListener("change",()=>{ if(MODAL&&MODAL.ppEsec&&!PP.esec.tipo) ppPaint(PP.esec); });   // il responsabile cambia titolare: il nome mostrato al posto di «Il titolare» lo segue
   document.getElementById("aStato").addEventListener("change",()=>{ if(MODAL&&document.getElementById("aStato").value==='svolta'&&!(MODAL.orig&&MODAL.orig.stato==='svolta')) svoltaPrefill(); });   // «svolta» scelta nella scheda: stessa verifica del pulsante
   document.getElementById("aTipo").addEventListener("change",refreshWsBlock);
   document.getElementById("aTipo").addEventListener("change",refreshCampaignBlock);
