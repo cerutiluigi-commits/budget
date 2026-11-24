@@ -1395,7 +1395,7 @@ function recheckSoon(){
    ============================================================ */
 // ruoli ammessi (stessi di bdg_app_users.role / bdg_permissions.ruolo). Un valore diverso letto dal database
 // (ruolo non più previsto) non si può assegnare: la tabella lo segnala e chiede di sceglierne uno valido.
-const ROLES_PORTALE=[{id:'admin',nome:'Admin'},{id:'responsabile',nome:'Responsabile'},{id:'orientatore',nome:'Orientatore'},{id:'docente',nome:'Docente'}];
+const ROLES_PORTALE=[{id:'admin',nome:'Admin'},{id:'responsabile',nome:'Responsabile'},{id:'orientatore',nome:'Orientatore'},{id:'referente_field',nome:'Referente Field'},{id:'docente',nome:'Docente'}];
 let UTENTI_DATA=null; // {users:{email:{...}}, travelers:[], interfaces:[], teachers:[]}
 
 // messaggio chiaro per un errore Supabase/PostgREST (42501 = la RLS ha negato l'operazione)
@@ -1513,7 +1513,7 @@ function responsabileScopeRowHtml(email,u){
 }
 function renderUtentiTable(){
   // ordine: prima chi ha ancora il ruolo da assegnare, poi orientatori, docenti, responsabili e per ultimi gli admin; a parità, per email
-  const ORD_RUOLI={orientatore:1,docente:2,responsabile:3,admin:4};
+  const ORD_RUOLI={referente_field:0.5,orientatore:1,docente:2,responsabile:3,admin:4};
   const rows=Object.entries(UTENTI_DATA.users).sort((a,b)=>((ORD_RUOLI[a[1].role]||0)-(ORD_RUOLI[b[1].role]||0))||a[0].localeCompare(b[0]));
   let h=`<thead><tr><th>Email</th><th>Ruolo</th><th>Tag extra</th><th>Entità collegata</th><th>Attivo</th><th>Ultimo accesso</th><th></th></tr></thead><tbody>`;
   if(!rows.length) h+=`<tr><td colspan="7"><div class="hint" style="padding:16px 0">Nessun utente configurato.</div></td></tr>`;
@@ -1663,6 +1663,7 @@ const PM_RUOLI=[
   {id:"admin",nome:"Admin",desc:"Amministratore: tutto. Unico ruolo che gestisce utenti, ruoli e permessi."},
   {id:"responsabile",nome:"Responsabile",desc:"Responsabile di centro di costo (6000, 6400, 6600): lavora sui propri centri."},
   {id:"orientatore",nome:"Orientatore",desc:"Chi viaggia (Spese EC): proprie trasferte e spese, e quelle dei colleghi dello stesso gruppo."},
+  {id:"referente_field",nome:"Referente Field",desc:"Vede solo Field Activities (le proprie attività e quelle della propria area): nessun accesso a Budget, Spese EC e Docenti."},
   {id:"docente",nome:"Docente",desc:"Interfaccia di orientamento (Docenti): i propri docenti e le loro attività."}
 ];
 const PM_OPS=[{id:"lettura",nome:"Lettura"},{id:"scrittura",nome:"Scrittura"},{id:"cancellazione",nome:"Cancellazione"}];

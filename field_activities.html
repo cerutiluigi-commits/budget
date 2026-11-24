@@ -1405,8 +1405,12 @@ function computeIdentity(){
 function effectiveRoles(){
   const email=(CURRENT.email||'').toLowerCase();
   const u=email&&(STATE.appUsers||{})[email];
-  return [CURRENT.role,...((u&&u.extra_roles)||[])].filter(Boolean);
+  const out=[CURRENT.role,...((u&&u.extra_roles)||[])].filter(Boolean);
+  if(out.includes('referente_field')&&!out.includes('orientatore')) out.push('orientatore');   // «Referente Field» = un orientatore che vede solo Field: dentro Field si comporta come tale
+  return out;
 }
+// utenti che possono essere titolari, esecutori o referenti (EC): orientatori, responsabili, admin e referenti Field
+function isStaffUser(u){ return !!u&&u.attivo!==false&&(['orientatore','responsabile','admin','referente_field'].includes(u.role)||(u.extra_roles||[]).includes('orientatore')); }
 function isManager(){ return effectiveRoles().some(r=>r==='admin'||r==='responsabile'); }
 function canWrite(){ return effectiveRoles().some(r=>r==='admin'||r==='responsabile'||r==='orientatore'); }
 // come tabVisible() delle altre app: senza riga per il ruolo, il responsabile segue l'admin; gli altri non vedono
@@ -1986,7 +1990,7 @@ function fillFilterOptions(){
   document.getElementById("fProvincia").innerHTML=`<option value="">Tutte</option>`+provs.map(p=>`<option value="${esc(p)}" data-kw="${esc(provKw(p))}">${esc(p)}</option>`).join(""); document.getElementById("fProvincia").value=F.provincia;
   if(isManager()){
     const em=new Set(); rows.forEach(a=>{ if(a.orientatore_email) em.add(a.orientatore_email); if(a.esecutore_id!=null){ const d=doerEmail(a); if(d) em.add(d); } });
-    Object.entries(STATE.appUsers||{}).forEach(([e,u])=>{ if(u&&u.attivo!==false&&u.role==='orientatore') em.add(e); });
+    Object.entries(STATE.appUsers||{}).forEach(([e,u])=>{ if(u&&u.attivo!==false&&(u.role==='orientatore'||u.role==='referente_field')) em.add(e); });
     // Gruppo/Orientatore: il nome del gruppo (se c'e'), altrimenti nome e cognome; l'Orientatore serve a scegliere la singola persona dentro il gruppo
     const gl=goList([...em]);
     if(F.grp&&!gl.some(g=>g.key===F.grp)) F.grp="";
@@ -2366,7 +2370,7 @@ function fillModalOptions(a,w){
   document.getElementById("regList").innerHTML=[...new Set((STATE.provinces||[]).map(p=>p.regione).filter(Boolean))].sort().map(r=>`<option value="${esc(r)}"></option>`).join("");
   // elenco orientatori (solo responsabile/admin)
   if(isManager()){
-    const em=new Set(); Object.entries(STATE.appUsers||{}).forEach(([e,u])=>{ if(u&&u.attivo!==false&&(u.role==='orientatore'||u.role==='responsabile'||u.role==='admin'||(u.extra_roles||[]).includes('orientatore'))) em.add(e); });   // anche admin e responsabili: fanno attivita' e possono essere titolari
+    const em=new Set(); Object.entries(STATE.appUsers||{}).forEach(([e,u])=>{ if(isStaffUser(u)) em.add(e); });   // anche admin e responsabili: fanno attivita' e possono essere titolari
     if(cur.orientatore_email) em.add(cur.orientatore_email); if(CURRENT.email) em.add(CURRENT.email);
     document.getElementById("aOrient").innerHTML=[...em].sort((x,y)=>ecLabel(x).localeCompare(ecLabel(y),'it')).map(e=>`<option value="${esc(e)}" data-kw="${esc(e)}">${esc(ecLabel(e))}</option>`).join("");   // il nome (cercabile anche per e-mail), non l'e-mail
   }
@@ -4108,7 +4112,7 @@ function buildImportPlan(raw,map){
 }
 function impSuggest(name){
   const k=norm(name).replace(/[^a-z]+/g,""); if(!k) return "";
-  const hits=Object.keys(STATE.appUsers||{}).filter(e=>{ const u=STATE.appUsers[e]; return u&&u.attivo!==false&&(u.role==='orientatore'||u.role==='responsabile')&&norm(e.split("@")[0]).replace(/[^a-z]+/g,"").includes(k); });
+  const hits=Object.keys(STATE.appUsers||{}).filter(e=>{ const u=STATE.appUsers[e]; return u&&u.attivo!==false&&(u.role==='orientatore'||u.role==='responsabile'||u.role==='referente_field')&&norm(e.split("@")[0]).replace(/[^a-z]+/g,"").includes(k); });
   return hits.length===1?hits[0]:"";
 }
 function loadImportText(text,name){
@@ -4130,7 +4134,7 @@ function renderImportInner(keepMap){
   if(!keepMap){ map.innerHTML=""; document.getElementById("iResult").innerHTML=""; } box.innerHTML=""; go.style.display="none";
   if(IMP.error){ msg.style.display="block"; msg.className="note-box err"; msg.textContent=IMP.error; return; }
   if(!IMP.raw.length){ box.innerHTML=`<div class="card empty"><b>Scegli un file CSV</b>Il report individuale degli orientatori, esportato da Excel come CSV.</div>`; return; }
-  const users=Object.keys(STATE.appUsers||{}).filter(e=>{ const u=STATE.appUsers[e]; return u&&u.attivo!==false&&(u.role==='orientatore'||u.role==='responsabile'||u.role==='admin'); }).sort();
+  const users=Object.keys(STATE.appUsers||{}).filter(e=>{ const u=STATE.appUsers[e]; return isStaffUser(u); }).sort();
   if(!keepMap) map.innerHTML=`<div class="card filters"><h3 class="rep-h" style="border:0;padding:0 0 8px">A chi appartengono le attività?</h3><div class="fgrid">`+IMP.names.map((n,i)=>`<div class="fld"><label for="iMap${i}">${esc(n||"Tutte le righe")}</label><select id="iMap${i}" data-name="${esc(n)}"><option value="">— non importare —</option>${users.map(e=>`<option value="${esc(e)}"${IMP.map[n]===e?" selected":""}>${esc(e)}</option>`).join("")}</select></div>`).join("")+`</div><div class="fhint">Il nome nel file è un cognome: scegli l'utente corrispondente. Le righe di un nome non abbinato non vengono importate.</div></div>`;
   const P=IMP.plan, n=IMP.raw.length;
   let h=`<div class="kpis"><div class="kpi"><div class="kv">${n}</div><div class="kl">Righe nel file</div></div><div class="kpi"><div class="kv">${P.ok.length}</div><div class="kl">Pronte da importare</div><div class="ks">${P.withWarn} con avviso</div></div><div class="kpi"><div class="kv">${P.bad.length}</div><div class="kl">Scartate</div><div class="ks">con il motivo qui sotto</div></div><div class="kpi"><div class="kv">${P.skipped}</div><div class="kl">Senza utente</div><div class="ks">nome non abbinato</div></div></div>`;
@@ -4386,7 +4390,7 @@ function renderObiettivi(){
 function renderObiettiviInner(){
   const box=document.getElementById("objBox"), sum=document.getElementById("objSummary"); fillObjFy();
   if(!(STATE.areas||[]).length){ box.innerHTML=`<div class="card empty"><b>Nessuna area caricata</b>Le aree vanno caricate prima (script delle aree e delle province).</div>`; sum.textContent=""; document.getElementById("objSave").style.display="none"; return; }
-  const users=Object.keys(STATE.appUsers||{}).filter(e=>{ const u=STATE.appUsers[e]; return u&&u.attivo!==false&&(u.role==='orientatore'||u.role==='responsabile'||u.role==='admin'); }).sort();
+  const users=Object.keys(STATE.appUsers||{}).filter(e=>{ const u=STATE.appUsers[e]; return isStaffUser(u); }).sort();
   const goOpts=goList(users);   // un'opzione per Gruppo/Orientatore (il nome del gruppo, o nome e cognome senza e-mail)
   const S=campaignStructure(objOvr()); let rows="", tO=0, tW=0;
   const num=v=>(v!==""&&!isNaN(+v))?+v:0;
@@ -4463,7 +4467,7 @@ async function saveObiettivi(){
 // e-mail degli utenti attivi che fanno parte di un Gruppo/Orientatore (chiave di goOf): un gruppo ha un'assegnazione per ogni suo membro, cosi' l'area e' del gruppo intero
 function emailsOfGo(key){
   if(!key) return [];
-  const act=Object.keys(STATE.appUsers||{}).filter(e=>{ const u=STATE.appUsers[e]; return u&&u.attivo!==false&&(u.role==='orientatore'||u.role==='responsabile'||u.role==='admin'); });
+  const act=Object.keys(STATE.appUsers||{}).filter(e=>{ const u=STATE.appUsers[e]; return isStaffUser(u); });
   return act.filter(e=>goKey(e)===key).map(e=>String(e).toLowerCase()).sort();
 }
 // emails: elenco di e-mail (una sola per una persona senza gruppo, tutte quelle del gruppo altrimenti); vuoto = nessun referente
