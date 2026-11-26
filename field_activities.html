@@ -524,6 +524,9 @@ main.wide{max-width:1560px}
 .mtab tbody tr.sel{background:var(--accent-soft)}
 .mtab tbody tr.zero{color:var(--ink-mute)}
 .mtab tbody th{font-weight:600}
+.mtab-reg tr.mreg th,.mtab-reg tr.mreg td{background:var(--accent-soft);font-weight:700}
+.mtab-reg tr.mare th{padding-left:20px;font-style:italic}.mtab-reg tr.mare th button,.mtab-reg tr.mare td{font-style:italic;font-weight:500}
+.mtab-reg td.ec{text-align:left;white-space:nowrap}.mtab-reg tbody tr.sel th,.mtab-reg tbody tr.sel td{background:var(--accent-soft);box-shadow:inset 0 0 0 1px var(--accent)}
 .mtab small{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--ink-mute);font-weight:400;margin-left:2px}
 .mtab .ar{color:var(--ink-mute);font-size:11.5px;max-width:130px;overflow:hidden;text-overflow:ellipsis}
 .mtab .num{font-variant-numeric:tabular-nums}
@@ -609,6 +612,7 @@ main.wide{max-width:1560px}
 .mcrumb .mc.cur{font-weight:700;color:var(--ink);text-decoration:none;cursor:default}
 .mcrumb .msep{color:var(--ink-soft)}
 .mtl{font-family:'JetBrains Mono',monospace;font-size:10.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--ink-soft);margin:0 0 6px}
+.mtl-v{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.mtl-v .seg button{padding:5px 12px;font-size:12px;text-transform:none;letter-spacing:0}
 .mdrill{border:0;background:none;padding:0;font:inherit;font-weight:600;color:var(--ink);cursor:pointer;text-align:left;text-decoration:underline;text-decoration-color:var(--line-strong);text-underline-offset:3px}
 .mdrill:hover{color:var(--accent-ink);text-decoration-color:var(--accent-ink)}
 .mdrill:focus-visible,.mcrumb .mc:focus-visible{outline:2px solid var(--accent);outline-offset:2px;border-radius:4px}
@@ -4986,7 +4990,7 @@ const GEO_URL={reg:GEO_BASE+"limits_IT_regions.topo.json",prov:GEO_BASE+"limits_
 const GEO={reg:null,prov:null,loading:null,err:""};
 const GEO_SIGLA_UNIT={VS:"SU",CI:"SU"};   // nel file dei confini il Sud Sardegna e' ancora diviso in Medio Campidano e Carbonia-Iglesias
 // di default la mappa conta i soli target (orientamenti = Orientamento + con docente + Scuola Fiera, e workshop); le fiere non hanno un target: sono solo monitoraggio (chip «Fiere», spento)
-let MAP={level:"reg",tipi:new Set(["ORIENTAMENTI","ORIENTAMENTO_DOCENTE","SCUOLA_FIERA","WORKSHOP"]),stato:"",sel:"",sort:{k:"n",d:"desc"},f:{area:"",reg:"",prov:"",city:""}};
+let MAP={vista:"or",level:"reg",tipi:new Set(["ORIENTAMENTI","ORIENTAMENTO_DOCENTE","SCUOLA_FIERA","WORKSHOP"]),stato:"",sel:"",sort:{k:"n",d:"desc"},f:{resp:"",area:"",reg:"",prov:"",city:""}};
 function geoKey(s){ let t=String(s==null?"":s); const i=t.indexOf("/"); if(i>0) t=t.slice(0,i); return norm(t).replace(/[^a-z]/g,""); }
 function geoLabel(s){ const t=String(s==null?"":s), i=t.indexOf("/"); return (i>0?t.slice(0,i):t).trim(); }
 // TopoJSON -> [{props, rings:[[ [lon,lat]... ]]}] (un elemento per ogni poligono; il primo anello di ogni poligono e' il contorno esterno)
@@ -5020,6 +5024,10 @@ function geoLoad(level){
 // Cosa conta la mappa: le VOCI di countTargets (scuole degli orientamenti, workshop) + le fiere del calendario. Stessi numeri del riepilogo campagna.
 // Tipi (chip): i quattro tipi dei target e le fiere; ITALIA_ORIENTA non c'e' perche' non e' un target.
 const MAP_TIPI=["ORIENTAMENTI","ORIENTAMENTO_DOCENTE","SCUOLA_FIERA","WORKSHOP","FIERA"], MAP_FIERA="FIERA", MAP_SENZA="~";
+// la tabella a fianco ha DUE viste: «Orientamenti» (orientamento, orientamento con docente, scuola fiera; obiettivo orientamenti) e «Workshop» (solo workshop; obiettivo workshop). Le fiere non hanno un target.
+const MAP_VISTE={or:{label:"Orientamenti",obj:"Obiettivo orientamenti",tipi:["ORIENTAMENTI","ORIENTAMENTO_DOCENTE","SCUOLA_FIERA"]},ws:{label:"Workshop",obj:"Obiettivo workshop",tipi:["WORKSHOP"]}};
+function mapVista(){ return MAP_VISTE[MAP.vista]?MAP.vista:"or"; }
+function mapViewTipi(){ const v=new Set(MAP_VISTE[mapVista()].tipi); if(MAP.tipi) [...v].forEach(t=>{ if(!MAP.tipi.has(t)) v.delete(t); }); return v; }
 // territorio di una voce (attivita' vincente della scuola, prima data del workshop, luogo della fiera)
 function entProv(e){ return String(e.provincia||"").trim().toUpperCase(); }
 function entReg(e){ return e.regione||((provinceBySigla(e.provincia)||{}).regione)||""; }
@@ -5043,30 +5051,36 @@ function mapEnts(){
   return out;
 }
 // menu a cascata AREA -> REGIONE -> PROVINCIA -> CITTA': ogni scelta restringe le successive; una scelta non piu' valida si azzera (con le successive)
+// le aree di cui e' referente (EC) l'Area Responsabile scelta; null = nessun filtro
+function mapRespAreas(){ const k=MAP.f.resp; if(!k) return null; return new Set((STATE.areas||[]).filter(a=>a.attiva!==false&&currentEc(a.id,todayISO()).some(e=>goKey(e)===k)).map(a=>String(a.id))); }
 function mapCascade(ents){
   const f=MAP.f, P=STATE.provinces||[], it=(a,b)=>a[1].localeCompare(b[1],'it');
-  const inArea=e=>!f.area||entAreas(e).includes(f.area);
-  const areas=(STATE.areas||[]).filter(a=>a.attiva!==false).map(a=>[String(a.id),a.nome]).sort(it);
+  // «Area Responsabile»: i referenti (EC) delle aree, al livello Gruppo/Orientatore; scelto uno, restano le sue aree
+  const rs=[]; (STATE.areas||[]).filter(a=>a.attiva!==false).forEach(a=>currentEc(a.id,todayISO()).forEach(e=>rs.push(e)));
+  const rl=goList(rs); if(f.resp&&!rl.some(g=>g.key===f.resp)) f.resp="";
+  const ra=mapRespAreas();
+  const inArea=e=>(!f.area||entAreas(e).includes(f.area))&&(!ra||entAreas(e).some(x=>ra.has(String(x))));
+  const areas=(STATE.areas||[]).filter(a=>a.attiva!==false&&(!ra||ra.has(String(a.id)))).map(a=>[String(a.id),a.nome]).sort(it);
   if(f.area&&!areas.some(x=>x[0]===f.area)){ f.area=""; f.reg=""; f.prov=""; f.city=""; }
   const regs=new Map();
-  P.forEach(p=>{ if(p.regione&&(!f.area||String(p.area_id)===f.area)) regs.set(geoKey(p.regione),geoLabel(p.regione)); });
+  P.forEach(p=>{ if(p.regione&&(!f.area||String(p.area_id)===f.area)&&(!ra||ra.has(String(p.area_id)))) regs.set(geoKey(p.regione),geoLabel(p.regione)); });
   ents.forEach(e=>{ const r=entReg(e); if(r&&inArea(e)&&!regs.has(geoKey(r))) regs.set(geoKey(r),geoLabel(r)); });
   if(f.reg&&!regs.has(f.reg)){ f.reg=""; f.prov=""; f.city=""; }
   const inReg=e=>!f.reg||geoKey(entReg(e))===f.reg;
   const provs=new Map();
-  P.forEach(p=>{ if((!f.area||String(p.area_id)===f.area)&&(!f.reg||geoKey(p.regione)===f.reg)){ const s=String(p.provincia).toUpperCase(); provs.set(s,(p.capoluogo?String(p.capoluogo).replace(/-/g," "):s)+" ("+s+")"); } });
+  P.forEach(p=>{ if((!f.area||String(p.area_id)===f.area)&&(!ra||ra.has(String(p.area_id)))&&(!f.reg||geoKey(p.regione)===f.reg)){ const s=String(p.provincia).toUpperCase(); provs.set(s,(p.capoluogo?String(p.capoluogo).replace(/-/g," "):s)+" ("+s+")"); } });
   ents.forEach(e=>{ const s=entProv(e); if(s&&inArea(e)&&inReg(e)&&!provs.has(s)) provs.set(s,s); });
   if(f.prov&&!provs.has(f.prov)){ f.prov=""; f.city=""; }
   const cities=new Map();
   ents.forEach(e=>{ if(inArea(e)&&inReg(e)&&(!f.prov||entProv(e)===f.prov)){ const k=entCity(e); if(!cities.has(k)) cities.set(k,k===MAP_SENZA?"Senza città":String(e.citta).trim()); } });
   if(f.city&&!cities.has(f.city)) f.city="";
   const arr=m=>[...m].sort(it);
-  return {areas,regs:arr(regs),provs:arr(provs),cities:arr(cities)};
+  return {areas,regs:arr(regs),provs:arr(provs),cities:arr(cities),resps:rl.map(g=>[g.key,g.label])};
 }
 // le voci dentro il territorio scelto con i menu a cascata
 function mapTerr(ents){
-  const f=MAP.f;
-  return ents.filter(e=>(!f.area||entAreas(e).includes(f.area))&&(!f.reg||geoKey(entReg(e))===f.reg)&&(!f.prov||entProv(e)===f.prov)&&(!f.city||entCity(e)===f.city));
+  const f=MAP.f, ra=mapRespAreas();
+  return ents.filter(e=>(!f.area||entAreas(e).includes(f.area))&&(!ra||entAreas(e).some(x=>ra.has(String(x))))&&(!f.reg||geoKey(entReg(e))===f.reg)&&(!f.prov||entProv(e)===f.prov)&&(!f.city||entCity(e)===f.city));
 }
 // livello della tabella (il drill-down): Italia -> regioni; una regione -> province; una provincia -> citta'; una citta' -> scuole, workshop e fiere
 function mapTableLevel(){ const f=MAP.f; return f.city?"school":(f.prov?"city":(f.reg?"prov":(MAP.level==="prov"?"prov":"reg"))); }
@@ -5127,13 +5141,15 @@ function mapAreaTableHtml(aggProv,camp){
   return `<div class="mtl">Aree di competenza (province che segue una persona/team)</div><div class="mtab-w mtab-areas"><table class="mtab" aria-label="Aree di competenza: conteggi dei target"><thead><tr><th scope="col" class="l">Area</th><th scope="col">Target</th><th scope="col">Svolte</th><th scope="col">Fissate</th>${mgr?`<th scope="col">Obiettivo</th><th scope="col">Raggiunto</th>`:""}</tr></thead><tbody>${body}</tbody></table></div>`;
 }
 // obiettivi della campagna (come nel riepilogo campagna, solo per admin e responsabili): per regione e per area; sv = scuole svolte, fs = svolte + fissate
-function mapCampData(){
+function mapCampData(vista){
   if(!isManager()) return null;
+  vista=vista||mapVista();
   const fy=campaignFy(), camp=campRows(), reg=new Map(), areas=new Map(), ents=countTargets(camp);
-  // il target e' di due tipi, sommati: orientamenti + workshop. Obiettivo = obiettivo orientamenti + obiettivo workshop; svolte e fissate contano scuole e workshop insieme
-  const tgt=o=>(o&&(o.orient!=null||o.ws!=null))?(o.orient||0)+(o.ws||0):null;
-  buildCampaign(camp,fy,todayISO()).forEach(r=>{ if(r.kind!=='region'&&r.kind!=='tot') return; const d={label:r.label,obj:tgt(r.obj),sv:r.m.totOr+r.m.ws,fs:r.m.totOr+r.m.fissOr+r.m.ws+r.m.wsFiss}; reg.set(r.kind==='tot'?"__tot":geoKey(r.label),d); });
-  (STATE.areas||[]).forEach(a=>{ const o=areaObj(a,fy), m=targetMetrics(ents.filter(x=>x.area_id!=null&&String(x.area_id)===String(a.id))); areas.set(String(a.id),{nome:a.nome,obj:tgt(o),sv:m.totOr+m.ws,fs:m.totOr+m.fissOr+m.ws+m.wsFiss}); });
+  // due tabelle separate: «orientamenti» (obiettivo orientamenti; svolte e fissate = scuole degli orientamenti) e «workshop» (obiettivo workshop; svolte e fissate = workshop)
+  const ws=vista==="ws", tgt=o=>(o&&(ws?o.ws:o.orient)!=null)?(ws?o.ws:o.orient):null;
+  const sv=m=>ws?m.ws:m.totOr, fs=m=>ws?m.ws+m.wsFiss:m.totOr+m.fissOr;
+  buildCampaign(camp,fy,todayISO()).forEach(r=>{ if(r.kind!=='region'&&r.kind!=='tot') return; const d={label:r.label,obj:tgt(r.obj),sv:sv(r.m),fs:fs(r.m)}; reg.set(r.kind==='tot'?"__tot":geoKey(r.label),d); });
+  (STATE.areas||[]).forEach(a=>{ const o=areaObj(a,fy), m=targetMetrics(ents.filter(x=>x.area_id!=null&&String(x.area_id)===String(a.id))); areas.set(String(a.id),{nome:a.nome,obj:tgt(o),sv:sv(m),fs:fs(m)}); });
   return {fy,reg,areas};
 }
 function mapTableRows(agg,lv,camp){
@@ -5164,13 +5180,39 @@ function mapPctCell(p,p2){
 function mapTipoLabel(t){ return t===MAP_FIERA?"Fiere":(t?(taxLabel('tipo',t)||t):"Senza tipo"); }
 function mapTipi(){ return MAP_TIPI.slice(); }
 const MAP_LEVEL_NOUN={reg:"Regione",prov:"Provincia",city:"Città",school:"Scuola / workshop / fiera"};
-function mapTableHtml(agg,lv,camp){
+// voci della mappa nei tipi e nello stato scelti (le annullate non contano): le stesse che conta mapAggregate
+function mapEntsFor(ents,tipi,stato){ return (ents||[]).filter(a=>a.stato!=='annullata'&&(!tipi||tipi.has(a.tipo||""))&&(!stato||a.stato===stato)); }
+// tabella dell'Italia con la stessa struttura del riepilogo campagna: la regione in grassetto e, se ha piu' aree, le sue aree in corsivo; colonna EC con le iniziali
+function mapRegTableHtml(entsV,agg,camp){
+  const S=campaignStructure(), today=todayISO(), vt=MAP_VISTE[mapVista()], mgr=!!camp;
+  const byArea=new Map(); entsV.forEach(e=>{ const a=entAreas(e)[0]; if(a==null) return; const c=byArea.get(a)||{n:0,sv:0,fi:0}; c.n++; if(e.stato==='svolta') c.sv++; else if(e.stato==='fissata') c.fi++; byArea.set(a,c); });
+  const seen=new Set(), rows=[];
+  S.regions.forEach(r=>{
+    const k=geoKey(r.name), e=agg.map.get(k), c=mgr?camp.reg.get(k):null, multi=r.areas.length>1; seen.add(k);
+    const row={k,label:r.name,ec:multi?[]:goUnique(currentEc(r.areas[0]&&r.areas[0].id,today)),n:e?e.n:0,sv:e?(e.s.svolta||0):0,fi:e?(e.s.fissata||0):0,obj:c?c.obj:null,pct:c?pctOf(c.sv,c.obj):null,pct2:c?pctOf(c.fs,c.obj):null,areas:[]};
+    if(multi) row.areas=r.areas.map(a=>{ const x=byArea.get(String(a.id))||{n:0,sv:0,fi:0}, d=mgr?camp.areas.get(String(a.id)):null; return {id:String(a.id),label:a.nome,ec:goUnique(currentEc(a.id,today)),n:x.n,sv:x.sv,fi:x.fi,obj:d?d.obj:null,pct:d?pctOf(d.sv,d.obj):null,pct2:d?pctOf(d.fs,d.obj):null}; });
+    rows.push(row);
+  });
+  agg.map.forEach((e,k)=>{ if(!seen.has(k)) rows.push({k,label:e.label,ec:[],n:e.n,sv:e.s.svolta||0,fi:e.s.fissata||0,obj:null,pct:null,pct2:null,areas:[]}); });   // regioni fuori elenco (o senza area): non si perdono
+  const sk=["label","obj","sv","fi","pct","n"].includes(MAP.sort.k)?MAP.sort.k:"n", dir=MAP.sort.d==="asc"?1:-1;
+  const cmp=(a,b)=>{ const x=a[sk], y=b[sk], xn=x==null||x==="", yn=y==null||y===""; if(xn||yn) return xn&&yn?a.label.localeCompare(b.label,'it'):(xn?1:-1); const c=typeof x==="number"?x-y:String(x).localeCompare(String(y),'it'); return c?c*dir:a.label.localeCompare(b.label,'it'); };
+  const shown=rows.filter(r=>mgr||r.n>0).sort(cmp); shown.forEach(r=>{ r.areas=r.areas.filter(a=>mgr||a.n>0).sort(cmp); });
+  const ecs=l=>`<td class="ec">${l.map(ecBadge).join("")}</td>`;
+  const cols=[["label","Regione"],[null,"EC"]].concat(mgr?[["obj",vt.obj]]:[["n","Svolte + fissate"]]).concat([["sv","Svolte"],["fi","Fissate"]],mgr?[["pct","Raggiunto"]]:[]);
+  const head=cols.map(([k,l])=>{ if(!k) return `<th scope="col">${esc(l)}</th>`; const on=MAP.sort.k===k; return `<th scope="col" class="${k==="label"?"l":""}${on?" on":""}" aria-sort="${on?(MAP.sort.d==="asc"?"ascending":"descending"):"none"}"><button type="button" data-msort="${k}" title="Ordina per ${esc(l)}">${esc(l)}<i>${on?(MAP.sort.d==="asc"?"▲":"▼"):""}</i></button></th>`; }).join("");
+  const nums=r=>(mgr?`<td class="mn2 obj"><b>${r.obj==null?"—":r.obj}</b></td>`:`<td class="mn2"><b>${r.n}</b></td>`)+`<td class="num">${r.sv}</td><td class="num">${r.fi}</td>`+(mgr?mapPctCell(r.pct,r.pct2):"");
+  const body=shown.map(r=>`<tr class="mreg${MAP.sel===r.k?" sel":""}${r.n?"":" zero"}" data-mk="${esc(r.k)}"><th scope="row" class="l"><button type="button" class="mdrill" data-mdrill="${esc(r.k)}" title="Apri il dettaglio: ${esc(r.label)}">${esc(r.label)}</button></th>${ecs(r.ec)}${nums(r)}</tr>`
+    +r.areas.map(a=>`<tr class="mare${a.n?"":" zero"}"><th scope="row" class="l"><button type="button" class="mdrill mzar" data-mzarea="${esc(a.id)}" title="Ingrandisci su ${esc(a.label)}">${esc(a.label)}</button></th>${ecs(a.ec)}${nums(a)}</tr>`).join("")).join("");
+  const tot=mgr?camp.reg.get("__tot"):null;
+  const foot=`<tr class="tot"><th scope="row" class="l" colspan="2">Totale</th>${mgr?`<td class="mn2 obj"><b>${tot&&tot.obj!=null?tot.obj:"—"}</b></td>`:`<td class="mn2"><b>${agg.tot}</b></td>`}<td class="num">${agg.sv}</td><td class="num">${agg.fi}</td>${mgr?mapPctCell(tot?pctOf(tot.sv,tot.obj):null,tot?pctOf(tot.fs,tot.obj):null):""}</tr>`;
+  return `<div class="mtab-w"><table class="mtab mtab-reg" aria-label="Regioni e aree: conteggi dei target"><thead><tr>${head}</tr></thead><tbody>${body||`<tr><td colspan="${cols.length}" class="hint">Nessun elemento con questa selezione.</td></tr>`}</tbody><tfoot>${foot}</tfoot></table></div>`;
+}function mapTableHtml(agg,lv,camp,entsV){
   let rows=mapTableRows(agg,lv,camp); if(lv==="prov") rows=rows.filter(r=>r.n>0||r.k===MAP.sel);
   rows=mapSortRows(rows); const mx=Math.max(1,...rows.map(r=>r.n)), mgr=!!camp&&(lv==="reg"||lv==="prov");
   // per admin e responsabili la colonna «Target» di una regione e' il target indicato (obiettivo della campagna); quello che c'e' (svolte + fissate) e' nelle colonne accanto
-  const tgtObj=mgr&&lv==="reg";
+  const tgtObj=mgr&&lv==="reg", vistaTxt=MAP_VISTE[mapVista()];
   const cols=lv==="school"?[["label",MAP_LEVEL_NOUN.school],["tipo","Tipo"],["stato","Stato"],["orient","Orientatore"],["data","Data"]]
-    :((lv==="reg"?[["label","Regione"]]:(lv==="prov"?[["label","Provincia"],["area","Area"]]:[["label","Città"]])).concat([[tgtObj?"obj":"n",tgtObj?"Target":"Svolte + fissate"],["sv","Svolte"],["fi","Fissate"]])
+    :((lv==="reg"?[["label","Regione"]]:(lv==="prov"?[["label","Provincia"],["area","Area"]]:[["label","Città"]])).concat([[tgtObj?"obj":"n",tgtObj?vistaTxt.obj:"Svolte + fissate"],["sv","Svolte"],["fi","Fissate"]])
       .concat(mgr?(lv==="reg"?[["pct","Raggiunto"]]:[["pct","Area: raggiunto"]]):[]));
   const head=cols.map(([k,l])=>{ const on=MAP.sort.k===k; return `<th scope="col" class="${k==="label"||k==="area"||lv==="school"?"l":""}${on?" on":""}" aria-sort="${on?(MAP.sort.d==="asc"?"ascending":"descending"):"none"}"><button type="button" data-msort="${k}" title="Ordina per ${esc(l)}">${esc(l)}<i>${on?(MAP.sort.d==="asc"?"▲":"▼"):""}</i></button></th>`; }).join("");
   const drill=r=>`<button type="button" class="mdrill" data-mdrill="${esc(r.k)}" title="Apri il dettaglio: ${esc(r.label)}">${esc(r.label)}</button>`;
@@ -5182,8 +5224,9 @@ function mapTableHtml(agg,lv,camp){
   const tot=camp&&lv==="reg"?camp.reg.get("__tot"):null, span=lv==="reg"||lv==="city"?1:2;
   const foot=lv==="school"?`<tr class="tot"><th scope="row" class="l" colspan="5">Totale: ${agg.tot} (${agg.sv} svolte, ${agg.fi} fissate)</th></tr>`
     :`<tr class="tot"><th scope="row" class="l" colspan="${span}">Totale</th>${tgtObj?`<td class="mn2 obj"><b>${tot&&tot.obj!=null?tot.obj:"—"}</b></td>`:`<td class="mn2"><b>${agg.tot}</b></td>`}<td class="num">${agg.sv}</td><td class="num">${agg.fi}</td>${mgr?(lv==="reg"?mapPctCell(tot?pctOf(tot.sv,tot.obj):null,tot?pctOf(tot.fs,tot.obj):null):`<td></td>`):""}</tr>`;
-  return `<div class="mtab-w"><table class="mtab" aria-label="${esc(MAP_LEVEL_NOUN[lv])}: conteggi dei target"><thead><tr>${head}</tr></thead><tbody>${body||`<tr><td colspan="${cols.length}" class="hint">Nessun elemento con questa selezione.</td></tr>`}</tbody><tfoot>${foot}</tfoot></table></div>`
-    +(mgr?`<div class="hint">«Obiettivo» e «Raggiunto» sono quelli della campagna ${esc(fyLabel(camp.fy))}: scuole degli orientamenti e workshop svolti sul target (obiettivo orientamenti + obiettivo workshop), con tra parentesi anche i fissati; indipendenti dai filtri tipo e stato della mappa.${lv==="prov"?" Per le province l'obiettivo è quello dell'area a cui appartengono.":""}</div>`:"");
+  const main=(lv==="reg"&&entsV)?mapRegTableHtml(entsV,agg,camp):`<div class="mtab-w"><table class="mtab" aria-label="${esc(MAP_LEVEL_NOUN[lv])}: conteggi dei target"><thead><tr>${head}</tr></thead><tbody>${body||`<tr><td colspan="${cols.length}" class="hint">Nessun elemento con questa selezione.</td></tr>`}</tbody><tfoot>${foot}</tfoot></table></div>`;
+  return main
+    +(mgr?`<div class="hint">«${esc(vistaTxt.obj)}» e «Raggiunto» sono quelli della campagna ${esc(fyLabel(camp.fy))}: ${mapVista()==="ws"?"workshop svolti":"scuole degli orientamenti svolte"} sull'obiettivo, con anche i fissati; indipendenti dal filtro stato della mappa.${lv==="prov"?" Per le province l'obiettivo è quello dell'area a cui appartengono.":""}</div>`:"");
 }
 function mapDetailHtml(e,label,canDrill){
   if(!e) return `<div class="mdet"><div class="mdh"><b>${esc(label)}</b></div><div class="hint" style="text-align:center">Nessun elemento con questa selezione.</div></div>`;
@@ -5204,7 +5247,7 @@ function renderMap(){
   const ents0=mapEnts(), casc=mapCascade(ents0), ents=mapTerr(ents0), all=mapTipi(), lv=MAP.level;
   if(MAP.tipi) MAP.tipi=new Set([...MAP.tipi].filter(t=>all.includes(t)));
   if(MAP.tipi&&MAP.tipi.size===all.length) MAP.tipi=null;
-  const agg=mapAggregate(ents,lv,MAP.tipi,MAP.stato), geo=GEO[lv], tl=mapTableLevel(), aggT=tl===lv?agg:mapAggregate(ents,tl,MAP.tipi,MAP.stato);
+  const agg=mapAggregate(ents,lv,MAP.tipi,MAP.stato), geo=GEO[lv], tl=mapTableLevel(), aggT=tl===lv?agg:mapAggregate(ents,tl,MAP.tipi,MAP.stato), aggV=mapAggregate(ents,tl,mapViewTipi(),MAP.stato);   // aggV: solo i tipi della vista scelta (Orientamenti / Workshop)
   const chips=all.map(t=>`<button type="button" class="mchip${(!MAP.tipi||MAP.tipi.has(t))?" on":""}" data-mtipo="${esc(t)}" aria-pressed="${!MAP.tipi||MAP.tipi.has(t)}">${t===MAP_FIERA?ic("fiera","s"):tipoIcon(t,"s")}${esc(mapTipoLabel(t))}${t===MAP_FIERA?" (monitoraggio)":""}</button>`).join("");
   const nFiere=(MAP.tipi&&!MAP.tipi.has(MAP_FIERA))?0:ents.filter(e=>e.tipo===MAP_FIERA&&e.stato!=='annullata'&&(!MAP.stato||e.stato===MAP.stato)).length;   // le fiere non sono target: si contano a parte
   let svg="", matched=new Set(), maxN=0; agg.map.forEach(e=>{ if(e.n>maxN) maxN=e.n; });
@@ -5234,25 +5277,27 @@ function renderMap(){
   } else if(GEO.err&&!GEO.loading) svg=`<div class="hint">Mappa non disponibile (${esc(GEO.err)}): serve la connessione a internet per scaricare i confini. La tabella a fianco è completa e scende fino alle scuole.</div>`;
   else svg=`<div class="hint">Caricamento della mappa…</div>`;
   const list=[...agg.map.values()].sort((x,y)=>y.n-x.n||x.label.localeCompare(y.label,'it')), fuori=geo?list.filter(e=>!matched.has(e.k)):[];
-  const tabella=mapTableHtml(aggT,tl,mapCampData());
+  const tabella=mapTableHtml(aggV,tl,mapCampData(),mapEntsFor(ents,mapViewTipi(),MAP.stato));
+  const vistaSel=`<span class="seg mvista" role="group" aria-label="Tabella: orientamenti o workshop">${Object.entries(MAP_VISTE).map(([k,v])=>`<button type="button" class="${mapVista()===k?"on":""}" data-mvista="${k}" aria-pressed="${mapVista()===k}">${esc(v.label)}</button>`).join("")}</span>`;
   const selE=MAP.sel?agg.map.get(MAP.sel):null, selLabel=MAP.sel?(selE?selE.label:MAP.sel):"";
   const titolo={reg:"Italia: regioni",prov:MAP.f.reg?"Province della regione":"Italia: province",city:"Città della provincia",school:"Scuole, workshop e fiere della città"}[tl];
   box.innerHTML=`<div class="card map-card"><div class="mtop"><h3 class="rep-h" style="margin:0">${ic("map")}Mappa dei target</h3>
     <span class="seg" role="group" aria-label="Livello della mappa"><button type="button" class="${lv==="reg"?"on":""}" data-mlevel="reg" aria-pressed="${lv==="reg"}">Regioni</button><button type="button" class="${lv==="prov"?"on":""}" data-mlevel="prov" aria-pressed="${lv==="prov"}">Province</button></span>
     <label class="mst">Stato <select id="mStato" data-nocb="1"><option value="">Tutte</option><option value="svolta">Svolte</option><option value="fissata">Fissate</option></select></label>
     <span class="mtot"><b>${aggT.tot-nFiere}</b> target${nFiere?` · <b>${nFiere}</b> ${nFiere===1?"fiera":"fiere"} (monitoraggio)`:""}</span></div>
-    <div class="mfilt" role="group" aria-label="Territorio: filtri a cascata">${mapSelect("mArea","Area",casc.areas,MAP.f.area,"Tutte")}${mapSelect("mReg","Regione",casc.regs,MAP.f.reg,"Tutte")}${mapSelect("mProv","Provincia",casc.provs,MAP.f.prov,"Tutte")}${mapSelect("mCity","Città",casc.cities,MAP.f.city,"Tutte")}<button type="button" class="btn ghost small" data-mfreset="1">Azzera territorio</button></div>
+    <div class="mfilt" role="group" aria-label="Territorio: filtri a cascata">${mapSelect("mResp","Area Responsabile",casc.resps,MAP.f.resp,"Tutti")}${mapSelect("mArea","Area",casc.areas,MAP.f.area,"Tutte")}${mapSelect("mReg","Regione",casc.regs,MAP.f.reg,"Tutte")}${mapSelect("mProv","Provincia",casc.provs,MAP.f.prov,"Tutte")}${mapSelect("mCity","Città",casc.cities,MAP.f.city,"Tutte")}<button type="button" class="btn ghost small" data-mfreset="1">Azzera territorio</button></div>
     <div class="mchips" role="group" aria-label="Cosa contare">${chips}<button type="button" class="btn ghost small" data-mall="1">Tutti</button><button type="button" class="btn ghost small" data-mnone="1">Nessuno</button></div>
-    <div class="mbody mbody-map"><div class="mmap">${svg}</div><div class="mside">${mapCrumbHtml(casc)}${zoomIt&&!MAP.f.area&&tl==="prov"?mapAreaTableHtml(agg,mapCampData()):""}<div class="mtl">${esc(titolo)}</div>${tabella}${MAP.sel&&tl!=="school"?mapDetailHtml(selE,selLabel,(tl==="reg"||tl==="prov")&&!!selE):(tl==="school"?"":`<div class="hint">Clicca su una zona o su una voce dell'elenco per vedere il dettaglio per tipo, sul nome per scendere di livello.</div>`)}
+    <div class="mbody mbody-map"><div class="mmap">${svg}</div><div class="mside">${mapCrumbHtml(casc)}${zoomIt&&!MAP.f.area&&tl==="prov"?mapAreaTableHtml(mapAggregate(ents,"prov",mapViewTipi(),MAP.stato),mapCampData()):""}<div class="mtl mtl-v">${vistaSel}<span>${esc(titolo)}</span></div>${tabella}${MAP.sel&&tl!=="school"?mapDetailHtml(selE,selLabel,(tl==="reg"||tl==="prov")&&!!selE):(tl==="school"?"":`<div class="hint">Clicca su una zona o su una voce dell'elenco per vedere il dettaglio per tipo, sul nome per scendere di livello.</div>`)}
     ${(agg.senza||fuori.length)?`<div class="hint">${agg.senza?agg.senza+" target senza "+(lv==="reg"?"regione":"provincia")+" non sono sulla mappa. ":""}${fuori.length?"Non riconosciute sulla mappa: "+esc(fuori.map(e=>e.label).join(", "))+".":""}</div>`:""}</div></div>
     <div class="hint">Conta scuole (una volta sola in tutta la campagna), workshop e fiere, con gli stessi numeri del riepilogo campagna. Segue l'anno di campagna, il periodo, l'orientatore, la regione e l'area scelti nei filtri sopra (il filtro «Tipo» del report non vale: i tipi si scelgono con i chip). Le annullate non sono contate. Più scuro = più target. «Italia orienta» non è un target e non compare.</div></div>`;
-  [["mStato",MAP.stato],["mArea",MAP.f.area],["mReg",MAP.f.reg],["mProv",MAP.f.prov],["mCity",MAP.f.city]].forEach(([id,v])=>{ const el=document.getElementById(id); if(el) el.value=v; });
+  [["mStato",MAP.stato],["mResp",MAP.f.resp],["mArea",MAP.f.area],["mReg",MAP.f.reg],["mProv",MAP.f.prov],["mCity",MAP.f.city]].forEach(([id,v])=>{ const el=document.getElementById(id); if(el) el.value=v; });
   if(!geo&&!GEO.loading&&!GEO.err) { GEO.loading=geoLoad(lv).catch(e=>{ GEO.err=String(e&&e.message||e); }).then(()=>{ GEO.loading=null; renderMap(); }); }
 }
 // scelta di un menu a cascata; le scelte successive non piu' valide si azzerano nel prossimo disegno (mapCascade)
 function mapSetF(which,val){
   const f=MAP.f; val=String(val==null?"":val);
-  if(which==="area"){ f.area=val; if(val) MAP.level="prov"; else if(!f.reg) MAP.level="reg"; }   // scelta un'area la mappa si ingrandisce sulle sue province
+  if(which==="resp"){ f.resp=val; f.area=""; f.reg=""; f.prov=""; f.city=""; MAP.level="reg"; }   // cambiando responsabile le scelte successive ripartono da capo
+  else if(which==="area"){ f.area=val; if(val) MAP.level="prov"; else if(!f.reg) MAP.level="reg"; }   // scelta un'area la mappa si ingrandisce sulle sue province
   else if(which==="reg"){ f.reg=val; if(val&&MAP.level==="reg") MAP.level="prov"; if(!val){ f.prov=""; f.city=""; MAP.level="reg"; } }
   else if(which==="prov"){ f.prov=val; if(val&&!f.reg){ const p=provinceBySigla(val); if(p&&p.regione) f.reg=geoKey(p.regione); } if(!val) f.city=""; }
   else if(which==="city") f.city=val;
@@ -5276,7 +5321,8 @@ function mapClick(e){
   const za=t.closest("[data-mzarea]"); if(za){ mapSetF("area",za.dataset.mzarea); return; }
   const zp=t.closest("[data-mz]"); if(zp){ const v=zp.dataset.mz, lvl=zp.dataset.mzl==="reg"?"reg":"prov"; mapSetF(lvl,(lvl==="prov"&&MAP.f.prov===v)?"":v); return; }   // clic su una zona della mappa: si ingrandisce (regione -> province -> citta' e scuole)
   const dr=t.closest("[data-mdrill]"); if(dr){ mapDrill(dr.dataset.mdrill); return; }
-  if(t.closest("[data-mfreset]")){ MAP.f={area:"",reg:"",prov:"",city:""}; MAP.level="reg"; MAP.sel=""; renderMap(); return; }
+  if(t.closest("[data-mfreset]")){ MAP.f={resp:"",area:"",reg:"",prov:"",city:""}; MAP.level="reg"; MAP.sel=""; renderMap(); return; }
+  const vs=t.closest("[data-mvista]"); if(vs){ MAP.vista=vs.dataset.mvista==="ws"?"ws":"or"; MAP.tipi=new Set(MAP_VISTE[MAP.vista].tipi); MAP.sel=""; renderMap(); return; }   // la vista sceglie anche i tipi della mappa
   const tb=t.closest("[data-mtipo]"); if(tb){ const all=mapTipi(), cur=MAP.tipi?new Set(MAP.tipi):new Set(all), c=tb.dataset.mtipo; if(cur.has(c)) cur.delete(c); else cur.add(c); MAP.tipi=cur; renderMap(); return; }
   if(t.closest("[data-mall]")){ MAP.tipi=null; renderMap(); return; }
   if(t.closest("[data-mnone]")){ MAP.tipi=new Set(); renderMap(); return; }
@@ -5311,7 +5357,7 @@ function wire(){
   mp.addEventListener("change",e=>{
     const id=e.target&&e.target.id; if(!id) return;
     if(id==="mStato"){ MAP.stato=e.target.value; renderMap(); }
-    else { const w={mArea:"area",mReg:"reg",mProv:"prov",mCity:"city"}[id]; if(w) mapSetF(w,e.target.value); }
+    else { const w={mResp:"resp",mArea:"area",mReg:"reg",mProv:"prov",mCity:"city"}[id]; if(w) mapSetF(w,e.target.value); }
   });
   // riepilogo campagna: ordinamento e esportazione
   document.getElementById("repCamp").addEventListener("click",e=>{
