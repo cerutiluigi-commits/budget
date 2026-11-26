@@ -215,6 +215,23 @@ main.wide{max-width:1560px}
 .fld input,.fld select,.fld textarea{width:100%;border:1px solid var(--line-strong);border-radius:9px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:14px;background:var(--surface);color:var(--ink)}
 .fld textarea{resize:vertical;min-height:70px}
 .fld input:focus,.fld select:focus,.fld textarea:focus{border-color:var(--accent)}
+/* filtri a scelta multipla (elenco attivita'): un pulsante che riassume la scelta e un elenco con le caselle; nessuna scelta = tutti */
+.msel{position:relative}
+.msel .ms-btn{width:100%;display:flex;align-items:center;justify-content:space-between;gap:8px;text-align:left;border:1px solid var(--line-strong);border-radius:9px;padding:9px 11px;font-family:'Inter',sans-serif;font-size:14px;background:var(--surface);color:var(--ink);cursor:pointer;min-width:0}
+.msel .ms-btn:focus-visible,.msel.open .ms-btn{border-color:var(--accent);outline:none}
+.msel .ms-t{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.msel .ms-t.on{font-weight:600}
+.msel .ms-c{flex:none;color:var(--ink-mute);font-size:10px}
+.msel .ms-pop{position:absolute;z-index:50;left:0;top:calc(100% + 4px);min-width:100%;width:max-content;max-width:min(420px,90vw);background:var(--surface);border:1px solid var(--line-strong);border-radius:10px;box-shadow:var(--shadow-lg);padding:6px}
+.msel .ms-pop[hidden]{display:none}
+.msel .ms-q{width:100%;margin-bottom:6px;border:1px solid var(--line-strong);border-radius:8px;padding:7px 9px;font:inherit;font-size:13px;background:var(--surface);color:var(--ink)}
+.msel .ms-list{max-height:260px;overflow:auto}
+.msel .ms-o{display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:13.5px;color:var(--ink)}
+.msel .ms-o:hover,.msel .ms-o.act{background:var(--surface-mute)}
+.msel .ms-o input{width:auto;margin:0;accent-color:var(--accent)}
+.msel .ms-vuoto{padding:8px;font-size:12.5px;color:var(--ink-mute)}
+.msel .ms-foot{display:flex;justify-content:space-between;gap:8px;margin-top:6px;padding-top:6px;border-top:1px solid var(--line)}
+.msel .ms-foot button{border:0;background:none;font:inherit;font-size:12.5px;font-weight:600;color:var(--accent-ink);cursor:pointer;padding:4px 6px}
 .fspan2{grid-column:span 3}
 .sorts{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
 .lvl{display:inline-flex;align-items:center;gap:4px}
@@ -857,13 +874,13 @@ main.wide{max-width:1560px}
         <div class="fld"><label for="fFy">Anno fiscale</label><select id="fFy"></select></div>
         <div class="fld"><label for="fFrom">Dal</label><input id="fFrom" type="date"></div>
         <div class="fld"><label for="fTo">Al</label><input id="fTo" type="date"></div>
-        <div class="fld"><label for="fStato">Stato</label><select id="fStato"></select></div>
-        <div class="fld"><label for="fTipo">Tipo</label><select id="fTipo"></select></div>
-        <div class="fld"><label for="fRegione">Regione</label><select id="fRegione"></select></div>
-        <div class="fld"><label for="fProvincia">Provincia</label><select id="fProvincia"></select></div>
+        <div class="fld"><label id="fStatoL">Stato</label><div class="msel" id="fStato" data-ph="Tutti" aria-labelledby="fStatoL"></div></div>
+        <div class="fld"><label id="fTipoL">Tipo</label><div class="msel" id="fTipo" data-ph="Tutti" aria-labelledby="fTipoL"></div></div>
+        <div class="fld"><label id="fRegioneL">Regione</label><div class="msel" id="fRegione" data-ph="Tutte" aria-labelledby="fRegioneL"></div></div>
+        <div class="fld"><label id="fProvinciaL">Provincia</label><div class="msel" id="fProvincia" data-ph="Tutte" aria-labelledby="fProvinciaL"></div></div>
         <div class="fld"><label for="fScuola">Scuola</label><input id="fScuola" type="search" placeholder="Nome della scuola" autocomplete="off"></div>
-        <div class="fld fwide" id="fGrpBox" style="display:none"><label for="fGrp">Gruppo / Orientatore</label><select id="fGrp"></select></div>
-        <div class="fld fwide" id="fRespBox" style="display:none"><label for="fResp">Area Responsabile</label><select id="fResp"></select></div>
+        <div class="fld fwide" id="fGrpBox" style="display:none"><label id="fGrpL">Gruppo / Orientatore</label><div class="msel" id="fGrp" data-ph="Tutti" aria-labelledby="fGrpL"></div></div>
+        <div class="fld fwide" id="fRespBox" style="display:none"><label id="fRespL">Area Responsabile</label><div class="msel" id="fResp" data-ph="Tutti" aria-labelledby="fRespL"></div></div>
         <div class="fld fspan2" id="sortBox"><label for="sKey1">Ordina per</label>
           <div class="sorts" role="group" aria-label="Criteri di ordinamento: fino a tre, in ordine di importanza">
             <span class="lvl"><b>1</b><select id="sKey1" data-nocb="1" aria-label="Primo criterio di ordinamento"></select><button type="button" class="sdir" id="sDir1" aria-label="Direzione del primo criterio"></button></span>
@@ -1370,7 +1387,7 @@ function errText(error){
 /* ---- stato (cache locale: solo dell'utente collegato) ---- */
 // people, areaCities, fairStaff e v4 sono le tabelle/colonne della versione 4 del database (migrazioni 026-030): vuote e "non disponibili" finche' il database non e' aggiornato
 function seed(){ return {user:null,appUsers:{},tabVisibility:{},activities:[],workshops:{},taxonomies:[],areas:[],provinces:[],fairs:[],fairAreas:[],assignments:[],campaigns:[],people:[],areaCities:[],fairStaff:[],travelers:[],v4:{},filters:defaultFilters(),at:null}; }
-function defaultFilters(){ return {q:"",fy:String(fyOfISO(todayISO())),from:"",to:"",stato:"",tipo:"",regione:"",provincia:"",scuola:"",grp:"",resp:"",orient:"",sort:"desc"}; }
+function defaultFilters(){ return {q:"",fy:String(fyOfISO(todayISO())),from:"",to:"",stato:[],tipo:[],regione:[],provincia:[],scuola:"",grp:[],resp:[],orient:"",sort:"desc"}; }
 function load(){
   try{ const s=JSON.parse(localStorage.getItem(LS_KEY)||"null"); if(s&&typeof s==="object"&&!Array.isArray(s)){ const b=seed(); for(const k of Object.keys(b)) if(s[k]!==undefined) b[k]=s[k]; b.filters=Object.assign(defaultFilters(),b.filters||{}); return b; } }catch(e){}
   return seed();
@@ -1571,20 +1588,23 @@ function cmpBySorts(a,b,ss){
   }
   return String(a.data||"").localeCompare(String(b.data||""))||String(a.school_name||"").localeCompare(String(b.school_name||""),'it');
 }
+// filtri a scelta multipla: un elenco di valori (vuoto = nessun filtro). Anche un valore singolo (testo) e' accettato: lo usano il reporting e i dati salvati dalle versioni precedenti
+function selArr(v){ return Array.isArray(v)?v.map(String).filter(x=>x!==""):((v==null||v==="")?[]:[String(v)]); }
+function selAny(v,fn){ const a=selArr(v); return !a.length||a.some(fn); }
 function filterActivities(list,F){
   const q=norm(F.q), sc=norm(F.scuola);
   let out=list.filter(a=>{
     if(F.fy!==""&&F.fy!=null&&String(F.fy)!=="all"){ if(!a.data||String(fyOfISO(a.data))!==String(F.fy)) return false; }
     if(F.from&&(!a.data||a.data<F.from)) return false;
     if(F.to&&(!a.data||a.data>F.to)) return false;
-    if(F.stato&&a.stato!==F.stato) return false;
-    if(F.tipo&&a.tipo!==F.tipo) return false;
-    if(F.regione&&a.regione!==F.regione) return false;
+    if(!selAny(F.stato,s=>a.stato===s)) return false;   // i filtri a scelta multipla sono elenchi (vuoto = tutti); una stringa, come nel reporting, vale una scelta sola
+    if(!selAny(F.tipo,x=>a.tipo===x)) return false;
+    if(!selAny(F.regione,x=>a.regione===x)) return false;
     if(F.area&&String(a.area_id)!==String(F.area)) return false;
-    if(F.provincia&&String(a.provincia||"").toUpperCase()!==String(F.provincia).toUpperCase()) return false;
-    if(F.grp&&goKey(a.orientatore_email)!==F.grp&&!(doerEmail(a)&&goKey(doerEmail(a))===F.grp)) return false;   // Gruppo/Orientatore: del titolare o di chi ha svolto
+    if(!selAny(F.provincia,x=>String(a.provincia||"").toUpperCase()===String(x).toUpperCase())) return false;
+    if(!selAny(F.grp,k=>goKey(a.orientatore_email)===k||(doerEmail(a)&&goKey(doerEmail(a))===k))) return false;   // Gruppo/Orientatore: del titolare o di chi ha svolto
     // Area Responsabile: il responsabile (EC) dell'AREA dell'attivita', non chi l'ha inserita o svolta (a livello Gruppo/Orientatore)
-    if(F.resp&&!areaEcs(a.area_id).some(e=>goKey(e)===F.resp)) return false;
+    if(!selAny(F.resp,k=>areaEcs(a.area_id).some(e=>goKey(e)===k))) return false;
     if(F.orient){ const o=String(F.orient).toLowerCase(); if(String(a.orientatore_email||'').toLowerCase()!==o&&doerEmail(a)!==o) return false; }   // il titolare o chi ha svolto (esecutore con e-mail)
     if(sc&&!norm(a.school_name).includes(sc)) return false;
     if(q){ const w=(STATE.workshops&&STATE.workshops[a.id])||{}; if(!norm([a.school_name,a.citta,a.provincia,a.regione,a.note,a.calendario,w.tema,w.docente_nome,a.esecutore_id!=null?doerName(a):""].join(" ")).includes(q)) return false; }
@@ -1974,6 +1994,47 @@ function applyRole(){
 
 /* ---- elenco ---- */
 let SHOWN=PAGE_SIZE;
+/* ---- menu a scelta multipla (Stato, Tipo, Regione, Provincia, Gruppo/Orientatore, Area Responsabile) ----
+   Lo stato (opzioni e scelte) sta in MS, il disegno e' solo una vista: senza scelte = tutti. */
+const MS={};
+function msValues(id){ const m=MS[id]; return m?m.opts.filter(o=>m.sel.has(o.v)).map(o=>o.v):[]; }
+function msLabelOf(id){ const m=MS[id]; if(!m) return ""; const l=m.opts.filter(o=>m.sel.has(o.v)).map(o=>o.l); return l.length?l.join(", "):""; }
+function msEl(id){ try{ const e=document.getElementById(id); return e&&typeof e.querySelector==="function"?e:null; }catch(_){ return null; } }
+function msSet(id,opts,sel){
+  const keep=new Set(opts.map(o=>String(o.v)));
+  MS[id]={opts:opts.map(o=>({v:String(o.v),l:String(o.l),kw:o.kw||""})),sel:new Set(selArr(sel).filter(v=>keep.has(v))),q:(MS[id]&&MS[id].q)||""};
+  msDraw(id);
+}
+function msDraw(id){
+  const m=MS[id], el=msEl(id); if(!m||!el) return;
+  const t=el.querySelector(".ms-t"); if(!t) return;
+  const txt=msLabelOf(id), n=m.sel.size;
+  t.textContent=n?(n>2?n+" selezionati":txt):(el.getAttribute("data-ph")||"Tutti"); t.classList.toggle("on",n>0); if(t.parentNode) t.parentNode.title=txt;
+  const list=el.querySelector(".ms-list"), qi=el.querySelector(".ms-q"); if(!list) return;
+  if(qi) qi.style.display=m.opts.length>8?"":"none";
+  const q=norm(m.q||""), top=list.scrollTop;
+  const rows=m.opts.filter(o=>!q||norm(o.l+" "+o.kw).includes(q));
+  list.innerHTML=rows.length?rows.map(o=>`<label class="ms-o"><input type="checkbox" data-v="${esc(o.v)}"${m.sel.has(o.v)?" checked":""}><span>${esc(o.l)}</span></label>`).join(""):`<div class="ms-vuoto">${m.opts.length?"Nessun risultato":"Nessuna voce"}</div>`;
+  list.scrollTop=top;
+}
+function msToggle(id,v,on){ const m=MS[id]; if(!m) return; if(on) m.sel.add(String(v)); else m.sel.delete(String(v)); msDraw(id); }
+function msInit(id,onChange){
+  const el=msEl(id); if(!el||el.getAttribute("data-ms")) return; el.setAttribute("data-ms","1");
+  el.innerHTML=`<button type="button" class="ms-btn" aria-haspopup="listbox" aria-expanded="false"><span class="ms-t"></span><span class="ms-c" aria-hidden="true">▼</span></button><div class="ms-pop" hidden><input class="ms-q" type="search" placeholder="Cerca…" aria-label="Cerca nell'elenco" autocomplete="off"><div class="ms-list" role="group"></div><div class="ms-foot"><button type="button" class="ms-clear">Azzera</button><button type="button" class="ms-close">Chiudi</button></div></div>`;
+  const btn=el.querySelector(".ms-btn"), pop=el.querySelector(".ms-pop"), qi=el.querySelector(".ms-q");
+  if(!btn||!pop||!qi) return;
+  const setOpen=o=>{ pop.hidden=!o; el.classList.toggle("open",o); btn.setAttribute("aria-expanded",o?"true":"false"); if(o){ document.querySelectorAll(".msel.open").forEach(x=>{ if(x!==el){ x.classList.remove("open"); const p=x.querySelector(".ms-pop"); if(p) p.hidden=true; } }); if(qi&&qi.style.display!=="none") qi.focus(); } };
+  btn.addEventListener("click",()=>setOpen(pop.hidden));
+  el.addEventListener("change",e=>{ const c=e.target; if(c&&c.matches&&c.matches("input[data-v]")){ msToggle(id,c.getAttribute("data-v"),c.checked); onChange(); } });
+  qi.addEventListener("input",()=>{ if(MS[id]){ MS[id].q=qi.value; msDraw(id); } });
+  el.querySelector(".ms-clear").addEventListener("click",()=>{ if(MS[id]){ MS[id].sel.clear(); MS[id].q=""; qi.value=""; msDraw(id); onChange(); } });
+  el.querySelector(".ms-close").addEventListener("click",()=>{ setOpen(false); btn.focus(); });
+  el.addEventListener("keydown",e=>{ if(e.key==="Escape"&&!pop.hidden){ setOpen(false); btn.focus(); } });
+  document.addEventListener("click",e=>{ if(!pop.hidden&&!el.contains(e.target)) setOpen(false); });
+  msDraw(id);
+}
+function msPick(id,vals){ const m=MS[id]; if(!m) return; m.sel=new Set(selArr(vals).filter(v=>m.opts.some(o=>o.v===v))); msDraw(id); onFilterChange({target:{id}}); }   // scelta da programma (anche per i test)
+function msFill(id,opts,F,key){ msSet(id,opts,F[key]); F[key]=msValues(id); }   // le scelte non piu' disponibili (altro anno, altra regione) cadono da sole
 function fillFilterOptions(){
   const F=STATE.filters, rows=visibleActivities();
   const fys=new Set([fyOfISO(todayISO())]); rows.forEach(a=>{ if(a.data) fys.add(fyOfISO(a.data)); });
@@ -1981,25 +2042,23 @@ function fillFilterOptions(){
   const fyList=[...fys].sort((a,b)=>b-a);
   document.getElementById("fFy").innerHTML=`<option value="all">Tutti gli anni</option>`+fyList.map(y=>`<option value="${y}">${fyLabel(y)} (lug–giu)</option>`).join("");
   document.getElementById("fFy").value=(F.fy===""||F.fy==null)?"all":String(F.fy);
-  document.getElementById("fStato").innerHTML=`<option value="">Tutti</option>`+STATI.map(s=>`<option value="${s[0]}">${esc(s[1])}</option>`).join(""); document.getElementById("fStato").value=F.stato;
+  msFill("fStato",STATI.map(s=>({v:s[0],l:s[1]})),F,"stato");
   const tipi=new Map(taxList('tipo')); rows.forEach(a=>{ if(a.tipo&&!tipi.has(a.tipo)) tipi.set(a.tipo,a.tipo); });
-  document.getElementById("fTipo").innerHTML=`<option value="">Tutti</option>`+[...tipi].map(([c,l])=>`<option value="${esc(c)}">${esc(l)}</option>`).join(""); document.getElementById("fTipo").value=F.tipo;
+  msFill("fTipo",[...tipi].map(([c,l])=>({v:c,l})),F,"tipo");
   const regs=[...new Set(rows.map(a=>a.regione).filter(Boolean))].sort((a,b)=>a.localeCompare(b,'it'));
-  document.getElementById("fRegione").innerHTML=`<option value="">Tutte</option>`+regs.map(r=>`<option value="${esc(r)}">${esc(r)}</option>`).join(""); document.getElementById("fRegione").value=F.regione;
-  const provs=[...new Set(rows.filter(a=>!F.regione||a.regione===F.regione).map(a=>String(a.provincia||"").toUpperCase()).filter(Boolean))].sort();
-  document.getElementById("fProvincia").innerHTML=`<option value="">Tutte</option>`+provs.map(p=>`<option value="${esc(p)}" data-kw="${esc(provKw(p))}">${esc(p)}</option>`).join(""); document.getElementById("fProvincia").value=F.provincia;
+  msFill("fRegione",regs.map(r=>({v:r,l:r})),F,"regione");
+  const provs=[...new Set(rows.filter(a=>selAny(F.regione,r=>a.regione===r)).map(a=>String(a.provincia||"").toUpperCase()).filter(Boolean))].sort();
+  msFill("fProvincia",provs.map(p=>({v:p,l:p,kw:provKw(p)})),F,"provincia");
   if(isManager()){
     const em=new Set(); rows.forEach(a=>{ if(a.orientatore_email) em.add(a.orientatore_email); if(a.esecutore_id!=null){ const d=doerEmail(a); if(d) em.add(d); } });
     Object.entries(STATE.appUsers||{}).forEach(([e,u])=>{ if(u&&u.attivo!==false&&(u.role==='orientatore'||u.role==='referente_field')) em.add(e); });
     // Gruppo/Orientatore: il nome del gruppo (se c'e'), altrimenti nome e cognome; l'Orientatore serve a scegliere la singola persona dentro il gruppo
     const gl=goList([...em]);
-    if(F.grp&&!gl.some(g=>g.key===F.grp)) F.grp="";
-    document.getElementById("fGrp").innerHTML=`<option value="">Tutti</option>`+gl.map(g=>`<option value="${esc(g.key)}" data-kw="${esc([...em].filter(e=>goKey(e)===g.key).map(e=>ecLabel(e)+" "+e).join(" "))}">${esc(g.label)}</option>`).join(""); document.getElementById("fGrp").value=F.grp;
+    msFill("fGrp",gl.map(g=>({v:g.key,l:g.label,kw:[...em].filter(e=>goKey(e)===g.key).map(e=>ecLabel(e)+" "+e).join(" ")})),F,"grp");
     // Area Responsabile: i referenti (EC) delle aree, al livello Gruppo/Orientatore
     const rs=[]; (STATE.areas||[]).filter(a=>a.attiva!==false).forEach(a=>currentEc(a.id,todayISO()).forEach(e=>rs.push(e)));
     const rl=goList(rs);
-    if(F.resp&&!rl.some(g=>g.key===F.resp)) F.resp="";
-    document.getElementById("fResp").innerHTML=`<option value="">Tutti</option>`+rl.map(g=>`<option value="${esc(g.key)}" data-kw="${esc(rs.filter(e=>goKey(e)===g.key).map(e=>ecLabel(e)+" "+e).join(" "))}">${esc(g.label)}</option>`).join(""); document.getElementById("fResp").value=F.resp;
+    msFill("fResp",rl.map(g=>({v:g.key,l:g.label,kw:rs.filter(e=>goKey(e)===g.key).map(e=>ecLabel(e)+" "+e).join(" ")})),F,"resp");
   }
   document.getElementById("fQ").value=F.q; document.getElementById("fFrom").value=F.from; document.getElementById("fTo").value=F.to; document.getElementById("fScuola").value=F.scuola; fillSortControls(F);
 }
@@ -2278,12 +2337,12 @@ async function bulkSvolte(items,quale){
 function resetFilters(){ STATE.filters=defaultFilters(); SHOWN=PAGE_SIZE; save(); renderAll(); }
 function readFilters(){
   const F=STATE.filters;
-  F.q=document.getElementById("fQ").value; F.fy=document.getElementById("fFy").value; F.from=document.getElementById("fFrom").value; F.to=document.getElementById("fTo").value; F.stato=document.getElementById("fStato").value; F.tipo=document.getElementById("fTipo").value; F.regione=document.getElementById("fRegione").value; F.provincia=document.getElementById("fProvincia").value; F.scuola=document.getElementById("fScuola").value; F.sorts=readSorts(); if(isManager()){ F.grp=document.getElementById("fGrp").value; F.resp=document.getElementById("fResp").value; } else { F.grp=""; F.resp=""; }
+  F.q=document.getElementById("fQ").value; F.fy=document.getElementById("fFy").value; F.from=document.getElementById("fFrom").value; F.to=document.getElementById("fTo").value; F.stato=msValues("fStato"); F.tipo=msValues("fTipo"); F.regione=msValues("fRegione"); F.provincia=msValues("fProvincia"); F.scuola=document.getElementById("fScuola").value; F.sorts=readSorts(); if(isManager()){ F.grp=msValues("fGrp"); F.resp=msValues("fResp"); } else { F.grp=[]; F.resp=[]; }
 }
 let _fT=null;
 function onFilterChange(e){
   const id=e&&e.target&&e.target.id;
-  readFilters(); if(id==="fRegione"){ STATE.filters.provincia=""; }
+  readFilters(); 
   SHOWN=PAGE_SIZE;
   if(id==="fQ"||id==="fScuola"){ clearTimeout(_fT); _fT=setTimeout(()=>{ renderList(); save(); },200); return; }
   fillFilterOptions(); renderList(); save();
@@ -5226,7 +5285,8 @@ function mapClick(e){
 /* ---- collegamenti ---- */
 function wire(){
   ["fQ","fFrom","fTo","fScuola"].forEach(id=>$(id).addEventListener("input",onFilterChange));
-  ["fFy","fStato","fTipo","fRegione","fProvincia","fGrp","fResp","fFrom","fTo"].forEach(id=>$(id).addEventListener("change",onFilterChange));
+  ["fFy","fFrom","fTo"].forEach(id=>$(id).addEventListener("change",onFilterChange));
+  ["fStato","fTipo","fRegione","fProvincia","fGrp","fResp"].forEach(id=>msInit(id,()=>onFilterChange({target:{id}})));   // filtri a scelta multipla
   [1,2,3].forEach(i=>{
     $("sKey"+i).addEventListener("change",()=>{ const b=$("sDir"+i), k=$("sKey"+i).value; b.dataset.d=k?(ACT_SORT_DESC_FIRST[k]?'desc':'asc'):''; onFilterChange({target:$("sKey"+i)}); });
     $("sDir"+i).addEventListener("click",()=>{ const b=$("sDir"+i); if(b.disabled) return; b.dataset.d=b.dataset.d==='asc'?'desc':'asc'; onFilterChange({target:b}); });
