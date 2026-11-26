@@ -2132,7 +2132,7 @@ function actRowHtml(a){
       +avHtml("more","+"+(ecs.length-1),"Altri "+(ecs.length-1)+" responsabili: "+ecNames.slice(1).join(", "),"rm-"+idE,rsTitle,rsTitle.join(" "));
   // area: pastiglia col colore stabile dell'area (areaTone); il nome scritto c'e' sempre, il colore non e' l'unica informazione
   const arSh=areaShort(area), arT=esc("Area: "+area), arC="apill ar"+areaTone(a.area_id);
-  const arHtml=(!isWs&&!ROW_RO)?"":!area?`<span class="nil" title="Area non indicata">—</span>`
+  const arHtml=!area?`<span class="nil" title="Area non indicata">—</span>`
     :arSh===area?`<span class="${arC}" title="${arT}">${esc(area)}</span>`
     :`<span class="tip" tabindex="0" title="${arT}" data-tip="${arT}"><span class="${arC}"><span class="a-s" aria-hidden="true">${esc(arSh)}</span><span class="a-f">${esc(area)}</span></span></span>`;
   // tipo: icona + sigla; per il workshop un pulsante «Workshop · corso» che apre il dettaglio in sola lettura
