@@ -431,6 +431,9 @@ main.wide{max-width:1560px}
 .fhint.full{grid-column:1/-1;margin:-4px 0 8px}
 .field{margin-bottom:9px;position:relative}
 .field.full{grid-column:1/-1}
+.chk-grp{display:flex;flex-wrap:wrap;gap:6px;min-height:38px;align-items:center}
+.chk-grp .chk{display:inline-flex;align-items:center;gap:6px;margin:0;padding:6px 10px;border:1px solid var(--line-strong);border-radius:9px;background:var(--surface);font-family:'Inter',sans-serif;font-size:13.5px;letter-spacing:0;text-transform:none;color:var(--ink);cursor:pointer}
+.chk-grp .chk input{width:auto;margin:0;accent-color:var(--accent)}
 .field label{display:block;font-family:'JetBrains Mono',monospace;font-size:9.5px;letter-spacing:.08em;text-transform:uppercase;color:var(--ink-mute);margin-bottom:3px}
 .field input,.field select,.field textarea{width:100%;border:1px solid var(--line-strong);border-radius:8px;padding:7px 10px;font-family:'Inter',sans-serif;font-size:14px;background:var(--surface);color:var(--ink)}
 .field textarea{resize:vertical;min-height:52px}
@@ -1121,7 +1124,8 @@ main.wide{max-width:1560px}
           <div class="fhint" id="aScuolaInfo" aria-live="polite"></div>
         </div>
         <div class="field" id="fl-aTipo"><label for="aTipo">Tipo di attività <span class="req">*</span></label><select id="aTipo" required></select></div>
-        <div class="field"><label for="aClasse">Classe</label><select id="aClasse"></select></div>
+        <div class="field"><label for="aClasse" id="aClasseL">Classe (anche più di una)</label><div class="chk-grp" id="aClasse" role="group" aria-labelledby="aClasseL"></div></div>
+        <div class="field full" id="fl-aFiera" style="display:none"><label for="aFiera">Fiera</label><select id="aFiera"></select><div class="fhint" id="aFieraHint" aria-live="polite"></div></div>
         <div class="field full" id="fl-aCampagna" style="display:none"><label for="aCampagna" id="aCampagnaLbl">Campagna</label><select id="aCampagna"></select><div class="fhint" id="aCampagnaHint" aria-live="polite"></div></div>
       </div>
 
@@ -1330,7 +1334,7 @@ function ic(name,cls){
   return '<svg class="ic'+(cls?' '+cls:'')+'" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">'+p+'</svg>';
 }
 // un'icona per OGNI tipo: quelli noti hanno la propria, gli altri (tipi nuovi della tassonomia) la targhetta generica
-const TIPO_ICONE={ORIENTAMENTI:"tOr",ORIENTAMENTO_DOCENTE:"tOd",SCUOLA_FIERA:"tSf",WORKSHOP:"tWs",ITALIA_ORIENTA:"tIo"};
+const TIPO_ICONE={ORIENTAMENTI:"tOr",ORIENTAMENTO_DOCENTE:"tOd",SCUOLA_FIERA:"tSf",WORKSHOP:"tWs",ITALIA_ORIENTA:"tIo",FIERA:"fiera"};
 function tipoIcon(code,cls){ return ic(TIPO_ICONE[code]||"tag",cls); }
 const STATO_ICONE={pianificata:"calendar",fissata:"clock",svolta:"checkc",annullata:"xc"};
 function statoIcon(s,cls){ return ic(STATO_ICONE[s]||"clock",cls); }
@@ -1347,11 +1351,11 @@ function areaTone(id){
   return h%AREA_TONES;
 }
 function areaPill(id,cls){ const n=areaName(id); return n?`<span class="apill ar${areaTone(id)}${cls?' '+cls:''}">${esc(n)}</span>`:""; }
-const TIPO_WORKSHOP="WORKSHOP", TIPO_FIERA="SCUOLA_FIERA";
+const TIPO_WORKSHOP="WORKSHOP", TIPO_FIERA="SCUOLA_FIERA", TIPO_FIERA_EVENTO="FIERA";   // «Scuola Fiera» e' un orientamento (conta nei target); «Fiera» e' un'attivita' a se': legata al calendario fiere, mai un target
 const PAGE_SIZE=200;
 // valori di partenza del contratto: servono solo se la tabella bdg_field_taxonomies non è leggibile e non c'è cache
 const TAX_DEFAULT={
-  tipo:[["ORIENTAMENTI","Orientamento"],["ORIENTAMENTO_DOCENTE","Orientamento con docente"],["SCUOLA_FIERA","Scuola Fiera"],["WORKSHOP","Workshop"],["ITALIA_ORIENTA","Italia orienta"]],
+  tipo:[["ORIENTAMENTI","Orientamento"],["ORIENTAMENTO_DOCENTE","Orientamento con docente"],["SCUOLA_FIERA","Scuola Fiera"],["WORKSHOP","Workshop"],["ITALIA_ORIENTA","Italia orienta"],["FIERA","Fiera"]],
   workshop_modalita:[["SCUOLA","Workshop a Scuola"],["VIRTUALE","Workshop Virtuale"],["CAMPUS","Workshop in Campus"],["MISTO","Misto"]],
   sede:[["MILANO","Milano"],["ROMA","Roma"]],
   corso:[["FASHION","Fashion"],["GRAFICA","Grafica"],["DESIGN","Design"],["AV","AV"],["CINEMA_ANIMAZIONE","Cinema/Animazione"],["COMICS","Comics"],["CREATIVE_TECH","Creative Tech"],["SCENOGRAFIA","Scenografia"]],
@@ -2116,7 +2120,7 @@ function avHtml(cls,initials,name,tid,tipLines,srText){
   return `<span class="tip av ${cls}" tabindex="0" role="img" aria-label="${esc(name)}" aria-describedby="${tid}" title="${t}" data-tip="${t}">${esc(initials)}</span><span class="sr-only" id="${tid}">${esc(srText)}</span>`;
 }
 // sigla del tipo: mappa esplicita per i tipi della tassonomia; per gli altri le iniziali dell'etichetta (max 3 lettere), estese se coincidono con un'altra sigla
-const TIPO_SIGLE={ORIENTAMENTI:"OR",ORIENTAMENTO_DOCENTE:"OD",SCUOLA_FIERA:"SF",WORKSHOP:"WS",ITALIA_ORIENTA:"IO"};
+const TIPO_SIGLE={ORIENTAMENTI:"OR",ORIENTAMENTO_DOCENTE:"OD",SCUOLA_FIERA:"SF",WORKSHOP:"WS",ITALIA_ORIENTA:"IO",FIERA:"FI"};
 function sigleCandidates(label){
   const w=String(label==null?"":label).toUpperCase().split(/[^\p{L}\p{N}]+/u).filter(Boolean).map(x=>Array.from(x));
   if(!w.length) return ["?"];
@@ -2375,7 +2379,37 @@ function refreshWsBlock(){
   else if(show&&MODAL&&MODAL.ws&&!MODAL.isNew&&!wsRowDataEmpty(MODAL.ws)&&MODAL.origTipo!==TIPO_WORKSHOP&&isWs){ n.style.display="block"; n.textContent="Questa attività ha già dati di workshop salvati: li ritrovi qui sotto."; }
   else n.style.display="none";
 }
-/* ---- campagne Salesforce (Workshop e School Visits): non sono nel calendario fiere, si collegano alle attività ----
+/* ---- tipo «Fiera» (attivita' a se', non un target): menu a tendina con le fiere del calendario; sceglierne una compila luogo e area ---- */
+function fairKw(f){
+  const m=[]; if(f.start_date) m.push(MESI_IT[+f.start_date.slice(5,7)-1]); if(f.end_date&&f.start_date&&f.end_date.slice(5,7)!==f.start_date.slice(5,7)) m.push(MESI_IT[+f.end_date.slice(5,7)-1]);
+  return [f.citta,f.provincia,f.regione,f.region_group].concat(m,fairAreaNames(f.id)).filter(Boolean).join(" ");
+}
+function fillFairSelect(){
+  const list=(STATE.fairs||[]).filter(f=>f.stato!=='annullata').slice().sort((a,b)=>String(a.start_date||"").localeCompare(String(b.start_date||""))||String(a.nome).localeCompare(String(b.nome),'it'));
+  document.getElementById("aFiera").innerHTML=`<option value="">${list.length?"— scegli una fiera —":"Nessuna fiera in calendario"}</option>`+list.map(f=>`<option value="${esc(f.id)}" data-kw="${esc(fairKw(f))}">${esc(f.nome+" · "+fairRange(f)+(f.citta?" · "+f.citta:""))}</option>`).join("");
+  document.getElementById("aFiera").value="";
+  document.getElementById("aFieraHint").textContent="";
+}
+// una «Fiera» non ha una scuola: il nome della fiera scelta fa da nome (il database vuole almeno un nome)
+function fairNameForForm(){ if(document.getElementById("aTipo").value!==TIPO_FIERA_EVENTO) return ""; const f=(STATE.fairs||[]).find(x=>String(x.id)===String(document.getElementById("aFiera").value)); return f?String(f.nome||""):""; }
+function refreshFairBlock(){ document.getElementById("fl-aFiera").style.display=document.getElementById("aTipo").value===TIPO_FIERA_EVENTO?"":"none"; }
+// compila citta', provincia, regione e area dai dati gia' in archivio della fiera; cio' che la fiera non ha resta com'e'
+function applyFair(id){
+  const f=(STATE.fairs||[]).find(x=>String(x.id)===String(id)), h=document.getElementById("aFieraHint");
+  if(!f){ h.textContent=""; return; }
+  if(MODAL) MODAL.anywhere=false;   // nuova fiera: la ricerca delle scuole torna ristretta alla sua citta'
+  untouch('citta','prov','regione','area');   // la fiera scelta decide luogo e area, qualunque cosa ci fosse prima
+  const set=(i,v)=>{ if(v) document.getElementById(i).value=v; };
+  set("aCitta",f.citta);
+  const prov=f.provincia?String(f.provincia).toUpperCase():"";
+  if(prov){ document.getElementById("aProv").value=prov; proposeFromProvince(); }   // regione e area dalla provincia...
+  set("aRegione",f.regione);                                                           // ...poi quelle scritte sulla fiera
+  const ar=fairAreaIds(f.id);
+  if(ar.length===1) document.getElementById("aArea").value=ar[0];
+  esecRefresh(); updateProvHint();
+  const got=[f.citta?f.citta+(prov?" ("+prov+")":""):(prov||""),f.regione||"",ar.length===1?areaName(ar[0]):""].filter(Boolean);
+  h.textContent=got.length?("Compilati dalla fiera: "+got.join(", ")+". Puoi correggere."):"Questa fiera non ha ancora un luogo registrato: compilalo a mano (si può completare dalla Gestione fiere).";
+}/* ---- campagne Salesforce (Workshop e School Visits): non sono nel calendario fiere, si collegano alle attività ----
    Workshop → campagna «Workshop» della regione; Orientamento (e con docente) → campagna «School Visits». Scegliere la campagna compila la regione
    (e l'area, se la regione ne ha una sola); scrivendo la regione si propone la campagna. Si salva solo il collegamento (campaign_id). */
 // Scuola Fiera non e' una fiera: e' un orientamento come gli altri due, quindi anche la sua campagna e' quella degli orientamenti (School Visits)
@@ -2418,11 +2452,29 @@ function applyCampaign(id){
   let areaTxt=""; if(ar.length===1&&!document.getElementById("aArea").value){ document.getElementById("aArea").value=ar[0]; areaTxt=areaName(ar[0]); esecRefresh(); }
   h.textContent=reg?("Regione compilata dalla campagna: "+reg+(areaTxt?", area "+areaTxt:"")+". Puoi correggere."):"Questa campagna non indica una regione riconoscibile: compilala a mano.";
 }
+/* ---- Classe a scelta multipla: le classi scelte si concatenano nel valore finale (3 + 4 + 5 = «3-4-5»); il valore salvato resta un testo, come prima ----
+   Le voci sono le classi singole dell'elenco (le combinazioni tipo «4-5» non servono piu': si ottengono scegliendo 4 e 5). Un valore vecchio si scompone nelle sue classi. */
+let CLS={sel:new Set(),extra:[]};
+function classeTokens(v){ return String(v==null?"":v).split(/[-,;\/\s]+/).map(x=>x.trim()).filter(Boolean); }
+function classeCompose(tk){ const u=[...new Set(tk.map(String))]; const num=x=>/^\d+$/.test(x); return u.sort((a,b)=>(num(a)&&num(b))?(+a)-(+b):(num(a)?-1:(num(b)?1:a.localeCompare(b,'it')))).join("-"); }
+function classeValue(){ return classeCompose([...CLS.sel]); }
+function classeOpts(){ const base=taxList('classe').filter(([c])=>!/[-,;\/\s]/.test(String(c))).map(([c,l])=>[String(c),String(l)]); const have=new Set(base.map(x=>x[0])); CLS.extra.forEach(x=>{ if(!have.has(x)) base.push([x,x]); }); return base; }
+function classeSet(v){
+  CLS={sel:new Set(classeTokens(v)),extra:[]};
+  const known=new Set(taxList('classe').filter(([c])=>!/[-,;\/\s]/.test(String(c))).map(x=>String(x[0]))); CLS.extra=[...CLS.sel].filter(x=>!known.has(x));   // una classe fuori elenco (dato vecchio o importato) resta e si puo' togliere
+  classeDraw();
+}
+function classeDraw(){
+  let el=null; try{ el=document.getElementById("aClasse"); }catch(_){}
+  if(!el||typeof el.querySelector!=="function") return;
+  el.innerHTML=classeOpts().map(([c,l])=>`<label class="chk"><input type="checkbox" value="${esc(c)}"${CLS.sel.has(c)?" checked":""}><span>${esc(/^\d+$/.test(c)?c:l)}</span></label>`).join("");
+}
+function classeToggle(c,on){ if(on) CLS.sel.add(String(c)); else CLS.sel.delete(String(c)); }
 function fillModalOptions(a,w){
   const cur=a||{};
   document.getElementById("aStato").innerHTML=STATI.map(s=>`<option value="${s[0]}">${esc(s[1])}</option>`).join("");
   document.getElementById("aTipo").innerHTML=optionsHtml(taxList('tipo'),cur.tipo,"Scegli il tipo…");
-  document.getElementById("aClasse").innerHTML=optionsHtml(taxList('classe'),cur.classe,"—");
+  classeSet(cur.classe);
   const ww=w||{};
   document.getElementById("wsModalita").innerHTML=optionsHtml(taxList('workshop_modalita'),ww.modalita,"—");
   document.getElementById("wsSede").innerHTML=optionsHtml(taxList('sede'),ww.sede,"—");
@@ -2460,7 +2512,7 @@ function openActModal(id,dupId,opts){
   if(a&&!dup&&a.orientatore_email&&mgr) touch('titolare');   // il titolare di una riga esistente non si cambia da solo scegliendo l'esecutore
   document.getElementById("aStato").value=a?a.stato:"fissata";
   document.getElementById("aTipo").value=a&&a.tipo?a.tipo:"";
-  document.getElementById("aClasse").value=a&&a.classe!=null?a.classe:"";
+  classeSet(a&&a.classe!=null?a.classe:"");
   document.getElementById("aProv").value=a&&a.provincia?String(a.provincia).toUpperCase():"";
   document.getElementById("aRegione").value=a&&a.regione?a.regione:"";
   document.getElementById("aArea").value=a&&a.area_id!=null?String(a.area_id):"";
@@ -2479,7 +2531,7 @@ function openActModal(id,dupId,opts){
   document.getElementById("aInfo").textContent=dup?"Copia di un'attività esistente: scegli la data della nuova attività e correggi ciò che cambia. L'originale non viene toccata.":(a&&a.updated_at?("Ultima modifica: "+fmtTs(a.updated_at)+(a.updated_by?" · "+a.updated_by:"")):"");
   showMsg("");
   setupPersonFields(a,w);   // selettore «Chi ha svolto» e docente del workshop (solo se l'anagrafica persone esiste: altrimenti i campi di sempre)
-  initCampaignBlock(a&&a.campaign_id);
+  fillFairSelect(); refreshFairBlock(); initCampaignBlock(a&&a.campaign_id);
   updateProvHint(); updateSchoolInfo(); refreshWsBlock();
   if(opts&&opts.svolta){   // dal pulsante «Segna come svolta» della riga: stato «svolta», chi ha svolto da indicare o confermare, poi la verifica dei dati
     document.getElementById("aStato").value="svolta"; svoltaPrefill();
@@ -2871,9 +2923,9 @@ function setupPersonFields(a,w){
 function readForm(){
   return {
     orientatore_email:isManager()?String(document.getElementById("aOrient").value||"").trim().toLowerCase():((MODAL&&MODAL.orig&&MODAL.orig.orientatore_email)||CURRENT.email||""),
-    data:document.getElementById("aData").value, stato:document.getElementById("aStato").value, tipo:document.getElementById("aTipo").value, classe:document.getElementById("aClasse").value,
+    data:document.getElementById("aData").value, stato:document.getElementById("aStato").value, tipo:document.getElementById("aTipo").value, classe:classeValue(),
     provincia:document.getElementById("aProv").value.trim().toUpperCase(), regione:document.getElementById("aRegione").value.trim(), area_id:document.getElementById("aArea").value,
-    citta:document.getElementById("aCitta").value.trim(), scuola:document.getElementById("aScuola").value.trim(),
+    citta:document.getElementById("aCitta").value.trim(), scuola:document.getElementById("aScuola").value.trim()||fairNameForForm(),
     campagna:campaignKind()?document.getElementById("aCampagna").value:"", studenti:String(document.getElementById("aStudenti").value||"").trim(), calendario:document.getElementById("aCalendario").value.trim(), virtuale:!!document.getElementById("aVirtuale").checked, note:document.getElementById("aNote").value.trim(),
     ws:{modalita:document.getElementById("wsModalita").value,sede:document.getElementById("wsSede").value,corso:document.getElementById("wsCorso").value,docente:docenteText(),tema:document.getElementById("wsTema").value.trim(),note:document.getElementById("wsNote").value.trim(),ore:String(document.getElementById("wsOre").value||"").trim()},
     esec:(MODAL&&MODAL.ppEsec)?ppSnap(PP.esec):null, doc:(MODAL&&MODAL.ppDoc)?ppSnap(PP.doc):null   // scelte dei selettori persona (solo per il controllo delle modifiche non salvate e la validazione)
@@ -2894,6 +2946,7 @@ function validateForm(v){
   if(!v.tipo) return {field:"aTipo",msg:"Scegli il tipo di attività."};
   if(!STATI.some(s=>s[0]===v.stato)) return {field:"aStato",msg:"Scegli lo stato dell'attività (fissata, svolta o annullata)."};
   // regola del database (bdg_field_activities_scuola_check): serve la scuola dell'anagrafica oppure almeno un nome scritto
+  if(!v.scuola&&(!MODAL||MODAL.schoolId==null)&&v.tipo===TIPO_FIERA_EVENTO) return {field:"aFiera",msg:"Scegli la fiera dal calendario (o scrivi il suo nome nel campo Scuola)."};
   if(!v.scuola&&(!MODAL||MODAL.schoolId==null)) return {field:"aScuola",msg:"Indica la scuola: scegline una dall'elenco o scrivi il nome (anche per un'attività online o senza scuola, es. «Online»)."};
   if(v.studenti!==""){
     if(!/^\d+$/.test(v.studenti)||Number(v.studenti)>2000000) return {field:"aStudenti",msg:"Il numero di leads deve essere un numero intero, zero o più (senza decimali né segni)."};
@@ -4111,6 +4164,8 @@ function parseImportDate(s){
 }
 function impStato(v){ const k=norm(v); if(/^svolt[aeio]$/.test(k)) return "svolta"; if(/^fissat[aeio]$/.test(k)) return "fissata"; if(/^annullat[aeio]$/.test(k)) return "annullata"; return null; }
 // valore di una tassonomia: per codice o per etichetta (senza maiuscole/accenti); "ORIENTAMENTI" e "Orientamento" sono lo stesso tipo
+// «3-4-5», «3, 4 e 5»: piu' classi insieme (ognuna presente nell'elenco) si compongono nel valore finale
+function impClassi(v){ const tk=String(v).split(/[^0-9A-Za-z]+/).filter(x=>x&&!/^(e|ed)$/i.test(x)); if(tk.length<2) return null; const ok=tk.map(x=>impTax('classe',x)); return ok.every(Boolean)?classeCompose(ok.flatMap(classeTokens)):null; }
 function impTax(kind,v){
   const k=norm(v).replace(/[^a-z0-9]+/g," ").trim(); if(!k) return null;
   const list=taxList(kind);
@@ -4139,7 +4194,7 @@ function normalizeImportRow(rec,email){
   const p=prov?provinceBySigla(prov):null; if(prov&&!p&&(STATE.provinces||[]).length) warn.push("provincia «"+prov+"» non presente nell'elenco");
   const regione=c("regione")||(p&&p.regione)||"";
   const vb=impBool(c("virtuale")); if(vb.bad) warn.push("«Virtuale» non è Sì/No («"+c("virtuale")+"»): considerato No");
-  let classe=c("classe"); if(classe){ const k=impTax('classe',classe); if(k) classe=k; else { warn.push("classe non riconosciuta «"+classe+"»: lasciata vuota"); classe=""; } }
+  let classe=c("classe"); if(classe){ const k=impTax('classe',classe)||impClassi(classe); if(k) classe=k; else { warn.push("classe non riconosciuta «"+classe+"»: lasciata vuota"); classe=""; } }
   let stud=c("studenti"); if(stud!==""){ if(/^\d+$/.test(stud)) stud=+stud; else { warn.push("N° studenti non numerico «"+stud+"»: lasciato vuoto"); stud=null; } } else stud=null;
   if(err.length) return {errors:err,warnings:warn};
   const row={orientatore_email:String(email).toLowerCase(),data,stato,provincia:prov||null,regione:regione||null,area_id:impAreaId(rec,prov),citta:c("citta")||null,school_id:null,school_name:scuola,tipo,virtuale:vb.v,calendario:c("calendario")||null,classe:classe||null,n_studenti:stud,note:c("note")||null};
@@ -5468,8 +5523,11 @@ function wire(){
   document.getElementById("aCancelAct").onclick=async()=>{ if(!MODAL||MODAL.isNew||MODAL.busy) return; const id=MODAL.id; await cancelActivity(id); const a=STATE.activities.find(x=>x.id===id); if(a&&a.stato==='annullata') closeActModal(); };
   document.getElementById("aOrient").addEventListener("change",()=>{ if(MODAL&&MODAL.ppEsec&&!PP.esec.tipo) ppPaint(PP.esec); });   // il responsabile cambia titolare: il nome mostrato al posto di «Il titolare» lo segue
   document.getElementById("aStato").addEventListener("change",()=>{ if(MODAL&&document.getElementById("aStato").value==='svolta'&&!(MODAL.orig&&MODAL.orig.stato==='svolta')) svoltaPrefill(); });   // «svolta» scelta nella scheda: stessa verifica del pulsante
+  document.getElementById("aClasse").addEventListener("change",e=>{ const c=e.target; if(c&&c.matches&&c.matches("input[type=checkbox]")) classeToggle(c.value,c.checked); });
   document.getElementById("aTipo").addEventListener("change",refreshWsBlock);
+  document.getElementById("aTipo").addEventListener("change",refreshFairBlock);
   document.getElementById("aTipo").addEventListener("change",refreshCampaignBlock);
+  document.getElementById("aFiera").addEventListener("change",()=>applyFair(document.getElementById("aFiera").value));
   document.getElementById("aCampagna").addEventListener("change",()=>applyCampaign(document.getElementById("aCampagna").value));
   ["wsModalita","wsSede","wsCorso","wsDocente","wsTema","wsNote","wsOre"].forEach(id=>{ $(id).addEventListener("input",refreshWsBlock); $(id).addEventListener("change",refreshWsBlock); });
   document.getElementById("aProv").addEventListener("input",()=>{ document.getElementById("aProv").value=document.getElementById("aProv").value.toUpperCase(); touch('prov'); proposeFromProvince(); updateProvHint(); });
